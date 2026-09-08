@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>現場ポータル</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f5f6f8; color: #222; padding-bottom: 80px; }
+    header { background: #1e5aa8; color: #fff; padding: 18px 16px 14px; }
+    header h1 { font-size: 20px; }
+    header .sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+    main { max-width: 600px; margin: 0 auto; padding: 12px 12px 0; }
+    .card { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .card h2 { font-size: 15px; color: #1e5aa8; margin-bottom: 10px; }
+    .kv { display: flex; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 15px; }
+    .kv:last-child { border-bottom: none; }
+    .kv .k { width: 90px; flex: none; color: #666; font-size: 13px; padding-top: 2px; }
+    .kv .v { flex: 1; white-space: pre-wrap; }
+    .contact { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+    .contact:last-child { border-bottom: none; }
+    .contact .info { flex: 1; min-width: 0; }
+    .contact .role { font-size: 13px; color: #666; }
+    .contact .name { font-size: 16px; font-weight: bold; }
+    .contact .company { font-size: 13px; color: #888; }
+    .contact .note { font-size: 12px; color: #999; margin-top: 2px; }
+    .contact a.tel { flex: none; margin-left: 10px; background: #1a8a3c; color: #fff; text-decoration: none; padding: 12px 16px; border-radius: 10px; font-size: 15px; font-weight: bold; }
+    .contact.kinkyu .name::before { content: "🚨 "; }
+    .tag { display: inline-block; font-size: 11px; background: #e8eef7; color: #1e5aa8; border-radius: 4px; padding: 1px 6px; margin-right: 4px; }
+    .news { padding: 8px 0; border-bottom: 1px solid #eee; font-size: 15px; display: flex; gap: 10px; }
+    .news:last-child { border-bottom: none; }
+    .news .d { color: #c0392b; font-weight: bold; flex: none; }
+    ul.rules { padding-left: 20px; font-size: 15px; line-height: 1.8; }
+    .links a { display: block; padding: 12px; margin-bottom: 8px; background: #f0f3f8; border-radius: 8px; color: #1e5aa8; text-decoration: none; font-weight: bold; }
+    input { width: 100%; padding: 14px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px; }
+    button { width: 100%; padding: 16px; font-size: 17px; font-weight: bold; border: none; border-radius: 10px; background: #1e5aa8; color: #fff; }
+    button:active { opacity: .8; }
+    nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; border-top: 1px solid #ddd; }
+    nav.tabs button { background: none; color: #666; font-size: 12px; padding: 10px 0 12px; border-radius: 0; font-weight: normal; }
+    nav.tabs button .ic { display: block; font-size: 20px; margin-bottom: 2px; }
+    nav.tabs button.on { color: #1e5aa8; font-weight: bold; }
+    .sec { display: none; } .sec.on { display: block; }
+    #status { text-align: center; color: #888; font-size: 13px; padding: 20px; }
+    .empty { color: #999; font-size: 14px; }
+    .updated { text-align: center; font-size: 12px; color: #aaa; margin: 8px 0 16px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="siteName">現場ポータル</h1>
+    <div class="sub" id="siteSub">読み込み中...</div>
+  </header>
+
+  <main>
+    <div id="pinCard" class="card" style="display:none">
+      <h2>合言葉を入力</h2>
+      <input id="pin" type="tel" placeholder="現場で共有された番号">
+      <button onclick="savePin()">開く</button>
+    </div>
+
+    <div id="status">読み込み中...</div>
+
+    <section id="sec-home" class="sec">
+      <div class="card"><h2>お知らせ</h2><div id="news"></div></div>
+      <div class="card"><h2>現場情報</h2><div id="info"></div></div>
+      <div class="card"><h2>リンク</h2><div id="links" class="links"></div></div>
+    </section>
+
+    <section id="sec-contact" class="sec">
+      <div class="card">
+        <input id="q" placeholder="名前・会社・役割で検索" oninput="renderContacts()">
+        <div id="contacts"></div>
+      </div>
+    </section>
+
+    <section id="sec-rules" class="sec">
+      <div class="card"><h2>現場ルール</h2><ul class="rules" id="rules"></ul></div>
+    </section>
+
+    <div class="updated" id="updated"></div>
+  </main>
+
+  <nav class="tabs" id="tabs" style="display:none">
+    <button class="on" onclick="showTab('home')"><span class="ic">🏗</span>ホーム</button>
+    <button onclick="showTab('contact')"><span class="ic">📞</span>連絡先</button>
+    <button onclick="showTab('rules')"><span class="ic">📋</span>ルール</button>
+  </nav>
+
+  <script>
+    // ★ GASのWebアプリURLをここに入れる
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbx-UTuS9k4NNP_bzp_fSF6yEEZe08PSAk9byDCaptjsGry3Fq55jl8xbL3gf8Odyx3IEA/exec';
+
+    let DATA = null;
+
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function setStatus(msg) { const el = document.getElementById('status'); el.style.display = msg ? 'block' : 'none'; el.textContent = msg || ''; }
+
+    function showTab(name) {
+      document.querySelectorAll('.sec').forEach(s => s.classList.toggle('on', s.id === 'sec-' + name));
+      document.querySelectorAll('nav.tabs button').forEach((b, i) => b.classList.toggle('on', ['home','contact','rules'][i] === name));
+      window.scrollTo(0, 0);
+    }
+
+    function savePin() {
+      localStorage.setItem('portal_pin', document.getElementById('pin').value.trim());
+      document.getElementById('pinCard').style.display = 'none';
+      load();
+    }
+
+    function load() {
+      if (!GAS_URL) { setStatus('GAS_URLが未設定'); return; }
+      setStatus('読み込み中...');
+      fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'all', pin: localStorage.getItem('portal_pin') || '' }) })
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok) {
+            if (res.error === 'PIN_REQUIRED') {
+              setStatus('');
+              document.getElementById('pinCard').style.display = 'block';
+              document.getElementById('siteSub').textContent = '合言葉が必要です';
+              return;
+            }
+            setStatus('エラー: ' + res.error); return;
+          }
+          DATA = res.result;
+          setStatus('');
+          render();
+        })
+        .catch(err => setStatus('通信エラー: ' + err));
+    }
+
+    function render() {
+      const info = DATA['現場情報'] || [];
+      const get = k => (info.find(r => r['項目'] === k) || {})['内容'] || '';
+      document.getElementById('siteName').textContent = get('現場名') || '現場ポータル';
+      document.getElementById('siteSub').textContent = [get('住所'), get('工期')].filter(Boolean).join('　');
+
+      document.getElementById('info').innerHTML = info.length
+        ? info.map(r => `<div class="kv"><div class="k">${esc(r['項目'])}</div><div class="v">${esc(r['内容'])}</div></div>`).join('')
+        : '<div class="empty">未登録</div>';
+
+      const news = DATA['お知らせ'] || [];
+      document.getElementById('news').innerHTML = news.length
+        ? news.slice().reverse().map(r => `<div class="news"><span class="d">${esc(r['日付'])}</span><span>${esc(r['内容'])}</span></div>`).join('')
+        : '<div class="empty">お知らせはありません</div>';
+
+      const rules = DATA['現場ルール'] || [];
+      document.getElementById('rules').innerHTML = rules.length
+        ? rules.map(r => `<li>${esc(r['内容'])}</li>`).join('')
+        : '<div class="empty">未登録</div>';
+
+      const links = DATA['リンク'] || [];
+      document.getElementById('links').innerHTML = links.length
+        ? links.map(r => `<a href="${esc(r['URL'])}" target="_blank" rel="noopener">${esc(r['名前'])} ›</a>`).join('')
+        : '<div class="empty">未登録</div>';
+
+      renderContacts();
+      document.getElementById('updated').textContent = '更新: ' + DATA.updatedAt;
+      document.getElementById('tabs').style.display = 'flex';
+      showTab('home');
+    }
+
+    function renderContacts() {
+      const q = (document.getElementById('q').value || '').trim().toLowerCase();
+      let list = DATA['連絡先'] || [];
+      if (q) list = list.filter(r => ['区分','役割','会社','名前','備考'].some(k => (r[k] || '').toLowerCase().includes(q)));
+      // 緊急を先頭に、あとは区分ごとにまとめる
+      list = list.slice().sort((a, b) => (b['緊急'] ? 1 : 0) - (a['緊急'] ? 1 : 0));
+      const groups = {};
+      list.forEach(r => { const g = r['緊急'] ? '🚨 緊急' : (r['区分'] || 'その他'); (groups[g] = groups[g] || []).push(r); });
+      document.getElementById('contacts').innerHTML = Object.keys(groups).length
+        ? Object.keys(groups).map(g => `<h2 style="font-size:14px;color:#1e5aa8;margin:12px 0 4px">${esc(g)}</h2>` +
+            groups[g].map(r => `
+              <div class="contact ${r['緊急'] ? 'kinkyu' : ''}">
+                <div class="info">
+                  <div class="role">${esc(r['役割'])}</div>
+                  <div class="name" ${r['電話'] ? `onclick="location.href='tel:${esc(r['電話'].replace(/[^0-9+#*]/g,''))}'" style="color:#1e5aa8;text-decoration:underline"` : ''}>${esc(r['名前'] || r['会社'])}</div>
+                  ${r['名前'] && r['会社'] ? `<div class="company">${esc(r['会社'])}</div>` : ''}
+                  ${r['備考'] ? `<div class="note">${esc(r['備考'])}</div>` : ''}
+                </div>
+                ${r['電話'] ? `<a class="tel" href="tel:${esc(r['電話'].replace(/[^0-9+#*]/g,''))}">${esc(r['電話'])}</a>` : ''}
+              </div>`).join('')).join('')
+        : '<div class="empty">見つかりません</div>';
+    }
+
+    load();
+  </script>
+</body>
+</html>
