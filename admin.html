@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>現場ポータル 管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f5f6f8; color: #222; padding-bottom: 80px; }
+    header { background: #444; color: #fff; padding: 18px 16px 14px; }
+    header h1 { font-size: 20px; }
+    header .sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+    main { max-width: 600px; margin: 0 auto; padding: 12px 12px 0; }
+    .card { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .card h2 { font-size: 15px; color: #444; margin-bottom: 10px; }
+    input, select, textarea { width: 100%; padding: 14px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px; background: #fff; }
+    button { width: 100%; padding: 16px; font-size: 17px; font-weight: bold; border: none; border-radius: 10px; background: #1e5aa8; color: #fff; }
+    button:active { opacity: .8; }
+    button:disabled { background: #aaa; }
+    .row2 { display: flex; gap: 8px; } .row2 > * { flex: 1; }
+    .chk { display: flex; align-items: center; gap: 8px; font-size: 15px; margin-bottom: 12px; }
+    .chk input { width: 22px; height: 22px; margin: 0; }
+    .msg { text-align: center; font-size: 14px; min-height: 20px; margin-top: 8px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+    .list { font-size: 14px; margin-top: 10px; }
+    .list .item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .list .item:last-child { border-bottom: none; }
+    .list .item .t { flex: 1; min-width: 0; }
+    .list .item .s { color: #888; font-size: 12px; }
+    .list .item button { width: auto; padding: 8px 12px; font-size: 13px; background: #c0392b; margin-left: 8px; }
+    nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; border-top: 1px solid #ddd; }
+    nav.tabs button { background: none; color: #666; font-size: 12px; padding: 10px 0 12px; border-radius: 0; font-weight: normal; }
+    nav.tabs button .ic { display: block; font-size: 20px; margin-bottom: 2px; }
+    nav.tabs button.on { color: #1e5aa8; font-weight: bold; }
+    .sec { display: none; } .sec.on { display: block; }
+    #status { text-align: center; color: #888; font-size: 13px; padding: 20px; }
+    a.back { display: block; text-align: center; color: #1e5aa8; font-size: 14px; margin: 8px 0 16px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔧 管理画面</h1>
+    <div class="sub" id="siteSub">現場ポータルの登録・編集</div>
+  </header>
+
+  <main>
+    <div id="pinCard" class="card">
+      <h2>管理者の合言葉</h2>
+      <input id="pin" type="tel" placeholder="ADMIN_PIN">
+      <button onclick="savePin()">ログイン</button>
+      <div class="msg" id="pin_msg"></div>
+    </div>
+
+    <div id="status" style="display:none">読み込み中...</div>
+
+    <section id="sec-contact" class="sec">
+      <div class="card">
+        <h2>連絡先を登録</h2>
+        <div class="row2">
+          <select id="c_kubun">
+            <option>元請</option><option>協力業者</option><option>発注者</option><option>設計</option><option>緊急</option><option>その他</option>
+          </select>
+          <input id="c_role" placeholder="役割(例: 所長・電気)">
+        </div>
+        <input id="c_company" placeholder="会社名">
+        <input id="c_name" placeholder="名前">
+        <input id="c_tel" type="tel" placeholder="電話番号">
+        <input id="c_note" placeholder="備考(任意)">
+        <label class="chk"><input type="checkbox" id="c_kinkyu"> 緊急連絡先として上に出す</label>
+        <button onclick="addContact()">登録する</button>
+        <div class="msg" id="c_msg"></div>
+      </div>
+      <div class="card">
+        <h2>登録済み(<span id="c_count">0</span>件)</h2>
+        <div class="list" id="c_list"></div>
+      </div>
+    </section>
+
+    <section id="sec-news" class="sec">
+      <div class="card">
+        <h2>お知らせを追加</h2>
+        <textarea id="n_body" rows="3" placeholder="内容(例: 明日は8:30集合)"></textarea>
+        <button onclick="addNews()">追加する</button>
+        <div class="msg" id="n_msg"></div>
+      </div>
+      <div class="card">
+        <h2>お知らせ一覧</h2>
+        <div class="list" id="n_list"></div>
+      </div>
+    </section>
+
+    <section id="sec-info" class="sec">
+      <div class="card">
+        <h2>現場情報を編集</h2>
+        <div id="info_form"></div>
+        <input id="i_newkey" placeholder="項目を追加(例: 搬入口)">
+        <input id="i_newval" placeholder="内容">
+        <button onclick="saveInfo()">保存する</button>
+        <div class="msg" id="i_msg"></div>
+      </div>
+      <div class="card">
+        <h2>現場ルール</h2>
+        <textarea id="r_body" rows="6" placeholder="1行に1つ"></textarea>
+        <button onclick="saveRules()">ルールを保存</button>
+        <div class="msg" id="r_msg"></div>
+      </div>
+    </section>
+
+    <a class="back" href="portal.html">← ポータルを見る</a>
+  </main>
+
+  <nav class="tabs" id="tabs" style="display:none">
+    <button class="on" onclick="showTab('contact')"><span class="ic">📞</span>連絡先</button>
+    <button onclick="showTab('news')"><span class="ic">📣</span>お知らせ</button>
+    <button onclick="showTab('info')"><span class="ic">🏗</span>現場情報</button>
+  </nav>
+
+  <script>
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbx-UTuS9k4NNP_bzp_fSF6yEEZe08PSAk9byDCaptjsGry3Fq55jl8xbL3gf8Odyx3IEA/exec';
+
+    let DATA = null;
+
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function setMsg(id, text, ok) { const el = document.getElementById(id); el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'ng'); }
+    function adminPin() { return localStorage.getItem('portal_admin') || ''; }
+
+    function showTab(name) {
+      document.querySelectorAll('.sec').forEach(s => s.classList.toggle('on', s.id === 'sec-' + name));
+      document.querySelectorAll('nav.tabs button').forEach((b, i) => b.classList.toggle('on', ['contact','news','info'][i] === name));
+      window.scrollTo(0, 0);
+    }
+
+    function savePin() {
+      const pin = document.getElementById('pin').value.trim();
+      if (!pin) { setMsg('pin_msg', '入力してね', false); return; }
+      localStorage.setItem('portal_admin', pin);
+      load();
+    }
+
+    function post(action, data) {
+      return fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action, data, adminPin: adminPin(), pin: localStorage.getItem('portal_pin') || '' }) })
+        .then(r => r.json());
+    }
+
+    function load() {
+      if (!adminPin()) return;
+      const st = document.getElementById('status');
+      st.style.display = 'block'; st.textContent = '読み込み中...';
+      post('adminAll').then(res => {
+        if (!res.ok) {
+          st.style.display = 'none';
+          if (res.error === 'ADMIN_PIN_NG') { localStorage.removeItem('portal_admin'); setMsg('pin_msg', '合言葉が違うよ', false); }
+          else setMsg('pin_msg', 'エラー: ' + res.error, false);
+          return;
+        }
+        DATA = res.result;
+        document.getElementById('pinCard').style.display = 'none';
+        st.style.display = 'none';
+        document.getElementById('tabs').style.display = 'flex';
+        render();
+        if (!document.querySelector('.sec.on')) showTab('contact');
+      }).catch(err => { st.textContent = '通信エラー: ' + err; });
+    }
+
+    function render() {
+      const info = DATA['現場情報'] || [];
+      document.getElementById('siteSub').textContent = ((info.find(r => r['項目'] === '現場名') || {})['内容']) || '現場ポータルの登録・編集';
+
+      const cs = DATA['連絡先'] || [];
+      document.getElementById('c_count').textContent = cs.length;
+      document.getElementById('c_list').innerHTML = cs.length ? cs.map(r => `
+        <div class="item">
+          <div class="t">${r['緊急'] ? '🚨 ' : ''}<b>${esc(r['名前'] || r['会社'])}</b> <span class="s">${esc(r['役割'])}${r['会社'] && r['名前'] ? ' / ' + esc(r['会社']) : ''}</span><br><span class="s">${esc(r['電話'])}</span></div>
+          <button onclick="del('連絡先', ${r._row})">削除</button>
+        </div>`).join('') : '<div class="s">まだありません</div>';
+
+      const ns = DATA['お知らせ'] || [];
+      document.getElementById('n_list').innerHTML = ns.length ? ns.slice().reverse().map(r => `
+        <div class="item"><div class="t"><span class="s">${esc(r['日付'])}</span> ${esc(r['内容'])}</div><button onclick="del('お知らせ', ${r._row})">削除</button></div>`).join('') : '<div class="s">まだありません</div>';
+
+      document.getElementById('info_form').innerHTML = info.map(r => `
+        <label style="font-size:13px;color:#666">${esc(r['項目'])}</label>
+        <input class="i_val" data-key="${esc(r['項目'])}" value="${esc(r['内容'])}">`).join('');
+
+      document.getElementById('r_body').value = (DATA['現場ルール'] || []).map(r => r['内容']).join('\n');
+    }
+
+    function addContact() {
+      const v = id => document.getElementById(id).value.trim();
+      if (!v('c_name') && !v('c_company')) { setMsg('c_msg', '名前か会社名は入れてね', false); return; }
+      if (!v('c_tel')) { setMsg('c_msg', '電話番号を入れてね', false); return; }
+      setMsg('c_msg', '送信中...', true);
+      post('addContact', {
+        '区分': v('c_kubun'), '役割': v('c_role'), '会社': v('c_company'), '名前': v('c_name'),
+        '電話': v('c_tel'), '備考': v('c_note'), '緊急': document.getElementById('c_kinkyu').checked ? '○' : '',
+      }).then(res => {
+        if (!res.ok) { setMsg('c_msg', 'エラー: ' + res.error, false); return; }
+        setMsg('c_msg', '登録したよ!', true);
+        ['c_role','c_company','c_name','c_tel','c_note'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('c_kinkyu').checked = false;
+        load();
+      }).catch(err => setMsg('c_msg', '通信エラー: ' + err, false));
+    }
+
+    function addNews() {
+      const body = document.getElementById('n_body').value.trim();
+      if (!body) { setMsg('n_msg', '内容を入れてね', false); return; }
+      setMsg('n_msg', '送信中...', true);
+      post('addNews', { '内容': body }).then(res => {
+        if (!res.ok) { setMsg('n_msg', 'エラー: ' + res.error, false); return; }
+        setMsg('n_msg', '追加したよ!', true);
+        document.getElementById('n_body').value = '';
+        load();
+      }).catch(err => setMsg('n_msg', '通信エラー: ' + err, false));
+    }
+
+    function saveInfo() {
+      const items = [...document.querySelectorAll('.i_val')].map(el => ({ '項目': el.dataset.key, '内容': el.value.trim() }));
+      const nk = document.getElementById('i_newkey').value.trim(), nv = document.getElementById('i_newval').value.trim();
+      if (nk) items.push({ '項目': nk, '内容': nv });
+      setMsg('i_msg', '保存中...', true);
+      post('setInfo', items).then(res => {
+        if (!res.ok) { setMsg('i_msg', 'エラー: ' + res.error, false); return; }
+        setMsg('i_msg', '保存したよ!', true);
+        document.getElementById('i_newkey').value = ''; document.getElementById('i_newval').value = '';
+        load();
+      }).catch(err => setMsg('i_msg', '通信エラー: ' + err, false));
+    }
+
+    function saveRules() {
+      const lines = document.getElementById('r_body').value.split('\n').map(s => s.trim()).filter(Boolean);
+      setMsg('r_msg', '保存中...', true);
+      post('setRules', lines).then(res => {
+        if (!res.ok) { setMsg('r_msg', 'エラー: ' + res.error, false); return; }
+        setMsg('r_msg', '保存したよ!', true);
+        load();
+      }).catch(err => setMsg('r_msg', '通信エラー: ' + err, false));
+    }
+
+    function del(sheet, row) {
+      if (!confirm('削除する？')) return;
+      post('deleteRow', { sheet, row }).then(res => {
+        if (!res.ok) { alert('エラー: ' + res.error); return; }
+        load();
+      }).catch(err => alert('通信エラー: ' + err));
+    }
+
+    load();
+  </script>
+</body>
+</html>
