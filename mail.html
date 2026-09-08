@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>メール作成</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: #f5f6f8; color: #222;
+      padding: 16px; max-width: 560px; margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 16px;
+      margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    label { display: block; font-size: 14px; margin-bottom: 6px; color: #555; }
+    input, select, textarea {
+      width: 100%; padding: 14px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;
+      font-family: inherit;
+    }
+    textarea { resize: vertical; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    button {
+      width: 100%; padding: 16px; font-size: 17px; font-weight: bold;
+      border: none; border-radius: 10px; background: #1e5aa8; color: #fff;
+    }
+    button:active { opacity: .8; }
+    button:disabled { background: #aaa; }
+    .sub { background: #e9eef6; color: #1e5aa8; font-size: 14px; padding: 12px; font-weight: normal; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .chips button { width: auto; flex: 1 1 auto; }
+    #status { text-align: center; font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+    #result, #receivedWrap, #keyCard, #historyCard { display: none; }
+    .toggle { font-size: 14px; color: #1e5aa8; background: none; padding: 6px 0; text-align: left; font-weight: normal; width: auto; }
+    .gear { width: auto; background: none; color: #555; font-size: 20px; padding: 4px 8px; }
+    .note { font-size: 12px; color: #888; margin-bottom: 8px; line-height: 1.5; }
+    .hist { border-top: 1px solid #eee; padding: 10px 0; font-size: 14px; }
+    .hist small { color: #888; display: block; margin-bottom: 4px; }
+    .hist b { display: block; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <h1>✉️ メール作成 <button class="gear" onclick="toggle('keyCard')">⚙️</button></h1>
+
+  <div class="card" id="keyCard">
+    <label>Claude APIキー</label>
+    <input id="apiKey" type="password" placeholder="sk-ant-...">
+    <p class="note">このブラウザ内(localStorage)だけに保存。GitHubのコードには絶対に書かないでね。</p>
+    <div class="row">
+      <button class="sub" onclick="saveKey()">保存</button>
+      <button class="sub" onclick="clearKey()">削除</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>宛先</label>
+        <select id="to">
+          <option>取引先</option>
+          <option>社内・上司</option>
+          <option>社内・同僚</option>
+          <option>協力会社・職人</option>
+          <option>お客様</option>
+        </select>
+      </div>
+      <div>
+        <label>トーン</label>
+        <select id="tone">
+          <option>丁寧</option>
+          <option>普通</option>
+          <option>やや砕けた</option>
+        </select>
+      </div>
+    </div>
+
+    <label>用途</label>
+    <select id="purpose">
+      <option>依頼・お願い</option>
+      <option>日程調整</option>
+      <option>お礼</option>
+      <option>謝罪・お詫び</option>
+      <option>報告・連絡</option>
+      <option>確認・質問</option>
+      <option>催促</option>
+      <option>お断り</option>
+      <option>その他</option>
+    </select>
+
+    <label>伝えたい要点(箇条書きでOK)</label>
+    <textarea id="points" rows="4" placeholder="例:&#10;・来週の打合せを水曜→金曜に変更したい&#10;・時間は同じ14時&#10;・場所は先方オフィス"></textarea>
+
+    <button class="toggle" onclick="toggle('receivedWrap')">＋ 返信元のメールを貼る</button>
+    <div id="receivedWrap">
+      <textarea id="received" rows="5" placeholder="受信したメールをここに貼ると、それへの返信として作るよ"></textarea>
+    </div>
+
+    <label>差出人名(任意・このブラウザに記憶)</label>
+    <input id="sender" placeholder="例: 〇〇株式会社 〇〇">
+
+    <button id="genBtn" onclick="generate()">文面を作る</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="card" id="result">
+    <label>件名</label>
+    <input id="subject" readonly>
+    <label>本文</label>
+    <textarea id="body" rows="14"></textarea>
+
+    <div class="chips">
+      <button class="sub" onclick="generate('もっと短く簡潔に')">短く</button>
+      <button class="sub" onclick="generate('もっと丁寧に')">もっと丁寧に</button>
+      <button class="sub" onclick="generate('もう少し柔らかい表現に')">柔らかく</button>
+      <button class="sub" onclick="generate('別の言い回しで')">別案</button>
+    </div>
+    <div class="row">
+      <button class="sub" onclick="copyText('subject', this)">件名コピー</button>
+      <button class="sub" onclick="copyText('body', this)">本文コピー</button>
+    </div>
+    <button style="margin-top:8px" onclick="copyAll(this)">件名＋本文をコピー</button>
+  </div>
+
+  <button class="toggle" onclick="toggle('historyCard'); renderHistory()">📜 履歴(最新20件)</button>
+  <div class="card" id="historyCard"><div id="historyList"></div></div>
+
+  <script>
+    const MODEL = 'claude-sonnet-4-6';
+    const LS = { key: 'mailgen_apikey', sender: 'mailgen_sender', hist: 'mailgen_history' };
+
+    function $(id) { return document.getElementById(id); }
+    function setStatus(msg, ok) { const el = $('status'); el.textContent = msg; el.className = ok ? 'ok' : 'ng'; }
+    function toggle(id) { const el = $(id); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
+
+    // ---- 初期化 ----
+    (function init() {
+      $('sender').value = localStorage.getItem(LS.sender) || '';
+      if (!localStorage.getItem(LS.key)) { $('keyCard').style.display = 'block'; setStatus('まずAPIキーを保存してね', false); }
+    })();
+
+    // ---- APIキー ----
+    function saveKey() {
+      const k = $('apiKey').value.trim();
+      if (!k) { setStatus('キーが空だよ', false); return; }
+      localStorage.setItem(LS.key, k);
+      $('apiKey').value = '';
+      $('keyCard').style.display = 'none';
+      setStatus('キー保存したよ', true);
+    }
+    function clearKey() { localStorage.removeItem(LS.key); setStatus('キー削除した', true); }
+
+    // ---- 生成 ----
+    function collect() {
+      return {
+        to: $('to').value, tone: $('tone').value, purpose: $('purpose').value,
+        points: $('points').value.trim(), received: $('received').value.trim(),
+        sender: $('sender').value.trim(),
+      };
+    }
+
+    async function generate(adjustText) {
+      const key = localStorage.getItem(LS.key);
+      if (!key) { $('keyCard').style.display = 'block'; setStatus('APIキーを先に保存してね', false); return; }
+      const data = collect();
+      if (!data.points && !data.received) { setStatus('要点か返信元メールを入れてね', false); return; }
+      localStorage.setItem(LS.sender, data.sender);
+
+      const system = [
+        'あなたは日本のビジネスメール作成の専門家です。',
+        '与えられた条件から、自然で失礼のない日本語のビジネスメールを作成します。',
+        '出力は前置き・説明・コードブロックなしで、次のJSONのみを返してください:',
+        '{"subject":"件名","body":"本文"}',
+        '本文の中に宛名(〇〇様 など)と結びの挨拶、差出人名まで含めてください。',
+        '差出人名が未指定なら本文末尾は「(氏名)」としてください。',
+      ].join('\n');
+
+      const lines = [
+        '【宛先】' + data.to, '【用途】' + data.purpose, '【トーン】' + data.tone,
+      ];
+      if (data.sender) lines.push('【差出人名】' + data.sender);
+      lines.push('【伝えたい要点】\n' + (data.points || '(特になし)'));
+      if (data.received) lines.push('【返信元のメール】\n' + data.received + '\n→ これへの返信として書いてください。');
+      if (adjustText) {
+        lines.push('【前回の出力】\n件名: ' + $('subject').value + '\n' + $('body').value);
+        lines.push('【修正指示】' + adjustText + '\n→ 前回の出力をこの指示に沿って書き直してください。');
+      }
+
+      const btn = $('genBtn');
+      btn.disabled = true;
+      setStatus(adjustText ? '書き直し中...' : '考え中...', true);
+
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: MODEL, max_tokens: 1500, system: system,
+            messages: [{ role: 'user', content: lines.join('\n\n') }],
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ? json.error.message : res.status);
+
+        const text = json.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+        const clean = text.replace(/```json|```/g, '').trim();
+        let parsed;
+        try { parsed = JSON.parse(clean); }
+        catch (e) { parsed = { subject: '(件名を生成できませんでした)', body: clean }; }
+
+        $('subject').value = parsed.subject || '';
+        $('body').value = parsed.body || '';
+        $('result').style.display = 'block';
+        setStatus('できたよ!', true);
+        $('result').scrollIntoView({ behavior: 'smooth' });
+        pushHistory(data, parsed);
+      } catch (err) {
+        setStatus('エラー: ' + err.message, false);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ---- 履歴(localStorage) ----
+    function pushHistory(data, parsed) {
+      const hist = JSON.parse(localStorage.getItem(LS.hist) || '[]');
+      hist.unshift({ at: new Date().toLocaleString('ja-JP'), purpose: data.purpose, to: data.to, subject: parsed.subject, body: parsed.body });
+      localStorage.setItem(LS.hist, JSON.stringify(hist.slice(0, 20)));
+    }
+    function renderHistory() {
+      const hist = JSON.parse(localStorage.getItem(LS.hist) || '[]');
+      const list = $('historyList');
+      if (!hist.length) { list.innerHTML = '<p class="note">まだ履歴なし</p>'; return; }
+      list.innerHTML = hist.map((h, i) =>
+        `<div class="hist"><small>${h.at}｜${h.to}｜${h.purpose}</small><b>${esc(h.subject)}</b>
+         <button class="sub" onclick="loadHistory(${i})">開く</button></div>`).join('');
+    }
+    function loadHistory(i) {
+      const h = JSON.parse(localStorage.getItem(LS.hist) || '[]')[i];
+      if (!h) return;
+      $('subject').value = h.subject; $('body').value = h.body;
+      $('result').style.display = 'block';
+      $('result').scrollIntoView({ behavior: 'smooth' });
+    }
+    function esc(s) { return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+    // ---- コピー ----
+    function copyText(id, btn) { navigator.clipboard.writeText($(id).value).then(() => flash(btn)); }
+    function copyAll(btn) { navigator.clipboard.writeText('件名: ' + $('subject').value + '\n\n' + $('body').value).then(() => flash(btn)); }
+    function flash(btn) { const o = btn.textContent; btn.textContent = 'コピーした!'; setTimeout(() => btn.textContent = o, 1200); }
+  </script>
+</body>
+</html>
