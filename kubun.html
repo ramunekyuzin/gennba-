@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>原価区分 振り分け</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: #f5f6f8; color: #222;
+      padding: 16px; max-width: 560px; margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .sub { font-size: 13px; color: #777; margin-bottom: 14px; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 16px;
+      margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    label { display: block; font-size: 14px; margin-bottom: 6px; color: #555; }
+    input, textarea, select {
+      width: 100%; padding: 14px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;
+      font-family: inherit;
+    }
+    button {
+      width: 100%; padding: 16px; font-size: 17px; font-weight: bold;
+      border: none; border-radius: 10px; background: #1e5aa8; color: #fff;
+    }
+    button:active { opacity: .8; }
+    button.sec { background: #e8ecf2; color: #1e5aa8; margin-top: 8px; padding: 12px; font-size: 15px; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+
+    .result { margin-top: 8px; }
+    .item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 0; border-bottom: 1px solid #eee;
+    }
+    .item:last-child { border-bottom: none; }
+    .name { flex: 1; font-size: 15px; word-break: break-all; }
+    .reason { font-size: 12px; color: #888; margin-top: 2px; }
+    .badge {
+      padding: 6px 12px; border-radius: 999px; font-weight: bold; font-size: 14px;
+      color: #fff; white-space: nowrap;
+    }
+    .b-資材 { background: #2e8b57; }
+    .b-労務 { background: #d2691e; }
+    .b-外注 { background: #6a5acd; }
+    .b-設備 { background: #1e90ff; }
+    .b-不明 { background: #999; }
+    .item select {
+      width: auto; padding: 6px 8px; font-size: 14px; margin: 0; border-radius: 8px;
+    }
+    #status { text-align: center; font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+    details { margin-top: 12px; }
+    summary { font-size: 14px; color: #1e5aa8; cursor: pointer; padding: 6px 0; }
+    .hint { font-size: 12px; color: #888; line-height: 1.6; }
+    .rule-list { font-size: 13px; margin-top: 8px; }
+    .rule-list div { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
+    .rule-list button { width: auto; padding: 4px 10px; font-size: 12px; background: #eee; color: #c0392b; }
+  </style>
+</head>
+<body>
+  <h1>原価区分 振り分け</h1>
+  <div class="sub">品名を入れると 資材 / 労務 / 外注 / 設備 に自動判定。1行に1品名で複数OK。</div>
+
+  <div class="card">
+    <label>品名・内容(改行で複数)</label>
+    <textarea id="input" rows="5" placeholder="例:
+高所作業車 リース
+VVFケーブル 2.0-3C
+電気工事 一式
+熱中症アラート腕時計"></textarea>
+    <button onclick="run()">振り分ける</button>
+    <div class="row">
+      <button class="sec" onclick="copyTSV()">結果をコピー(TSV)</button>
+      <button class="sec" onclick="clearAll()">クリア</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <label>判定結果(タップで手直しできる)</label>
+    <div class="result" id="result"></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>判定ルールを追加・確認</summary>
+      <div class="hint">
+        辞書にない言葉が出てきたらここに追加。追加したルールはこのスマホ/ブラウザ内に保存される。<br>
+        判定は「マイルール → 標準辞書」の順で、長いキーワードほど優先。
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input id="newKw" placeholder="キーワード(例: ミストファン)">
+        <select id="newCat">
+          <option>資材</option><option>労務</option><option>外注</option><option>設備</option>
+        </select>
+      </div>
+      <button class="sec" onclick="addRule()">ルールを追加</button>
+      <div class="rule-list" id="ruleList"></div>
+    </details>
+    <details>
+      <summary>判定の考え方(メモ)</summary>
+      <div class="hint">
+        ① モノを買った → <b>資材</b>(残るモノ・消耗品)<br>
+        ② 人の手間 → 自社作業員なら<b>労務</b>、業者に頼んだら<b>外注</b><br>
+        ③ 機械・仮設・工具を使う権利 → <b>設備</b>(リース・購入・計測器)<br>
+        ・材工一式の発注 → 外注丸ごと / 材料支給+手間 → 資材+外注<br>
+        ・オペ付き重機 → 設備 / 熱中症グッズは機材系は設備、使い捨ては資材<br>
+        ・警備・処分費・光熱費は本来「経費」。会社ルールを確認
+      </div>
+    </details>
+  </div>
+
+  <script>
+    // ============================================
+    // 標準辞書: [キーワード, 区分]
+    // 長いキーワードほど優先してマッチする
+    // ============================================
+    const DICT = [
+      // ---- 外注(業者に作業ごと任せる) ----
+      ['外注','外注'],['一式','外注'],['工事','外注'],['施工','外注'],['請負','外注'],
+      ['委託','外注'],['下請','外注'],['手間請','外注'],['材工','外注'],['労務費込','外注'],
+      ['はつり','外注'],['解体','外注'],['塗装工','外注'],['左官','外注'],['内装工','外注'],
+      ['電気工事店','外注'],['設備工事店','外注'],['配管工事','外注'],['ダクト工事','外注'],
+      ['測量','外注'],['施工図作成','外注'],['図面作成','外注'],['CAD','外注'],
+      ['試験費','外注'],['検査費','外注'],['分析費','外注'],['調査費','外注'],
+      ['産廃処分','外注'],['廃棄物処分','外注'],['処分費','外注'],['収集運搬','外注'],
+      ['警備','外注'],['交通誘導','外注'],['ガードマン','外注'],['清掃業者','外注'],
+      ['運送','外注'],['運搬費','外注'],['クレーン作業','外注'],['揚重','外注'],
+
+      // ---- 労務(自社作業員の手間) ----
+      ['労務','労務'],['日当','労務'],['日給','労務'],['賃金','労務'],['給与','労務'],
+      ['残業','労務'],['深夜手当','労務'],['手当','労務'],['出張費','労務'],['交通費','労務'],
+      ['法定福利','労務'],['社会保険','労務'],['労災','労務'],['雇用保険','労務'],
+      ['作業員','労務'],['職人','労務'],['人工','労務'],['人件費','労務'],['アルバイト','労務'],
+      ['安全靴','労務'],['ヘルメット','労務'],['作業着','労務'],['空調服','労務'],
+      ['保護具','労務'],['安全帯','労務'],['墜落制止','労務'],['手袋','労務'],['保護メガネ','労務'],
+      ['防塵マスク','労務'],['健康診断','労務'],['資格講習','労務'],['特別教育','労務'],
+
+      // ---- 設備(機械・仮設・工具・計測器) ----
+      ['リース','設備'],['レンタル','設備'],['賃借','設備'],['損料','設備'],
+      ['高所作業車','設備'],['重機','設備'],['バックホウ','設備'],['ユンボ','設備'],
+      ['クレーン','設備'],['ユニック','設備'],['フォークリフト','設備'],['ローラー','設備'],
+      ['発電機','設備'],['コンプレッサー','設備'],['溶接機','設備'],['ウインチ','設備'],
+      ['足場','設備'],['仮設','設備'],['仮囲い','設備'],['ゲート','設備'],['仮設トイレ','設備'],
+      ['現場事務所','設備'],['ユニットハウス','設備'],['プレハブ','設備'],['コンテナ','設備'],
+      ['仮設電気','設備'],['分電盤','設備'],['仮設水道','設備'],['仮設照明','設備'],['投光器','設備'],
+      ['電動工具','設備'],['インパクト','設備'],['ドリル','設備'],['グラインダー','設備'],
+      ['丸ノコ','設備'],['ハンマードリル','設備'],['工具','設備'],['測定器','設備'],['計測器','設備'],
+      ['レベル','設備'],['トランシット','設備'],['レーザー','設備'],['メガー','設備'],
+      ['テスター','設備'],['絶縁抵抗計','設備'],['接地抵抗計','設備'],['検電器','設備'],
+      ['WBGT','設備'],['暑さ指数','設備'],['熱中症アラート','設備'],['熱中症計','設備'],
+      ['熱中対策ウォッチ','設備'],['腕時計','設備'],['ウォッチ','設備'],['カナリア','設備'],
+      ['スポットクーラー','設備'],['扇風機','設備'],['ミストファン','設備'],['送風機','設備'],
+      ['エアコン','設備'],['冷蔵庫','設備'],['製氷機','設備'],['ウォーターサーバー','設備'],
+      ['テント','設備'],['タープ','設備'],['休憩所','設備'],
+      ['ハウス','設備'],['機械','設備'],['車両','設備'],['トラック','設備'],['ダンプ','設備'],
+      ['脚立','設備'],['はしご','設備'],['ローリングタワー','設備'],['台車','設備'],
+      ['カメラ','設備'],['タブレット','設備'],['パソコン','設備'],['プリンター','設備'],
+      ['無線機','設備'],['トランシーバー','設備'],['iPad','設備'],
+
+      // ---- 資材(現場に残るモノ・消耗品) ----
+      ['資材','資材'],['材料','資材'],['部材','資材'],['消耗品','資材'],
+      ['ケーブル','資材'],['電線','資材'],['VVF','資材'],['CV','資材'],['IV','資材'],['EM-','資材'],
+      ['配管','資材'],['電線管','資材'],['PF管','資材'],['VE管','資材'],['塩ビ管','資材'],['鋼管','資材'],
+      ['ボックス','資材'],['スイッチ','資材'],['コンセント','資材'],['照明器具','資材'],['LED','資材'],
+      ['ブレーカ','資材'],['端子','資材'],['圧着','資材'],['ジョイント','資材'],['コネクタ','資材'],
+      ['ボード','資材'],['石膏','資材'],['合板','資材'],['木材','資材'],['垂木','資材'],['角材','資材'],
+      ['鉄筋','資材'],['型枠','資材'],['セパ','資材'],['生コン','資材'],['コンクリート','資材'],
+      ['モルタル','資材'],['セメント','資材'],['砂','資材'],['砕石','資材'],['骨材','資材'],
+      ['ボルト','資材'],['ナット','資材'],['アンカー','資材'],['ビス','資材'],['釘','資材'],
+      ['金物','資材'],['ブラケット','資材'],['吊り','資材'],['インサート','資材'],['全ネジ','資材'],
+      ['塗料','資材'],['シーリング','資材'],['コーキング','資材'],['接着剤','資材'],['ボンド','資材'],
+      ['断熱材','資材'],['グラスウール','資材'],['防水','資材'],['シート','資材'],['ブルーシート','資材'],
+      ['養生','資材'],['テープ','資材'],['マスカー','資材'],['プラベニ','資材'],['土のう','資材'],
+      ['タイル','資材'],['クロス','資材'],['サッシ','資材'],['ガラス','資材'],['建具','資材'],
+      ['ダクト','資材'],['ダンパー','資材'],['グリル','資材'],['バルブ','資材'],['継手','資材'],
+      ['ガス','資材'],['溶接棒','資材'],['砥石','資材'],['刃','資材'],['ビット','資材'],
+      ['塩タブレット','資材'],['塩飴','資材'],['経口補水液','資材'],['OS-1','資材'],['飲料','資材'],
+      ['冷却パック','資材'],['冷感タオル','資材'],['氷','資材'],['ドリンク','資材'],['お茶','資材'],
+      ['マスク','資材'],['ウエス','資材'],['軍手','資材'],['ゴミ袋','資材'],['洗剤','資材'],
+    ];
+
+    const CATS = ['資材','労務','外注','設備'];
+    const STORE_KEY = 'kubun_myrules_v1';
+    let results = []; // {name, cat, reason}
+
+    function loadRules() {
+      try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
+    }
+    function saveRules(r) { localStorage.setItem(STORE_KEY, JSON.stringify(r)); }
+
+    // 判定: マイルール優先 → 標準辞書。同一ソース内では長いキーワード優先
+    function classify(text) {
+      const t = text.replace(/\s+/g, '').toUpperCase();
+      const sources = [
+        { list: loadRules().map(r => [r.kw, r.cat]), tag: 'マイルール' },
+        { list: DICT, tag: '辞書' },
+      ];
+      for (const src of sources) {
+        const hits = src.list
+          .filter(([kw]) => t.includes(kw.replace(/\s+/g, '').toUpperCase()))
+          .sort((a, b) => b[0].length - a[0].length);
+        if (hits.length) return { cat: hits[0][1], reason: `${src.tag}「${hits[0][0]}」に一致` };
+      }
+      return { cat: '不明', reason: '一致なし → 手で選んでルール追加すると次から自動' };
+    }
+
+    function run() {
+      const lines = document.getElementById('input').value
+        .split('\n').map(s => s.trim()).filter(Boolean);
+      if (!lines.length) { setStatus('品名を入れてね', false); return; }
+      results = lines.map(name => ({ name, ...classify(name) }));
+      render();
+      const unknown = results.filter(r => r.cat === '不明').length;
+      setStatus(unknown ? `${results.length}件判定・${unknown}件は不明` : `${results.length}件判定したよ`, true);
+    }
+
+    function render() {
+      const wrap = document.getElementById('result');
+      wrap.innerHTML = '';
+      results.forEach((r, i) => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        const opts = [...CATS, '不明'].map(c =>
+          `<option ${c === r.cat ? 'selected' : ''}>${c}</option>`).join('');
+        div.innerHTML = `
+          <div class="name">${esc(r.name)}<div class="reason">${esc(r.reason)}</div></div>
+          <span class="badge b-${r.cat}">${r.cat}</span>
+          <select onchange="fix(${i}, this.value)">${opts}</select>`;
+        wrap.appendChild(div);
+      });
+      document.getElementById('resultCard').style.display = results.length ? '' : 'none';
+    }
+
+    function fix(i, cat) {
+      results[i].cat = cat;
+      results[i].reason = '手動で選択';
+      render();
+      // 手直しした品名をワンタップでルール化できるよう入力欄へ
+      document.getElementById('newKw').value = results[i].name;
+      document.getElementById('newCat').value = cat === '不明' ? '資材' : cat;
+    }
+
+    function copyTSV() {
+      if (!results.length) { setStatus('先に振り分けてね', false); return; }
+      const tsv = results.map(r => `${r.name}\t${r.cat}`).join('\n');
+      navigator.clipboard.writeText(tsv)
+        .then(() => setStatus('コピーした!スプシに貼れるよ', true))
+        .catch(() => setStatus('コピー失敗。長押しで選択してね', false));
+    }
+
+    function clearAll() {
+      document.getElementById('input').value = '';
+      results = [];
+      render();
+      setStatus('', true);
+    }
+
+    function addRule() {
+      const kw = document.getElementById('newKw').value.trim();
+      const cat = document.getElementById('newCat').value;
+      if (!kw) { setStatus('キーワードを入れてね', false); return; }
+      const rules = loadRules().filter(r => r.kw !== kw);
+      rules.push({ kw, cat });
+      saveRules(rules);
+      document.getElementById('newKw').value = '';
+      renderRules();
+      setStatus(`「${kw}」→${cat} を追加した`, true);
+      if (results.length) { results = results.map(r => ({ name: r.name, ...classify(r.name) })); render(); }
+    }
+
+    function delRule(kw) {
+      saveRules(loadRules().filter(r => r.kw !== kw));
+      renderRules();
+    }
+
+    function renderRules() {
+      const rules = loadRules();
+      const el = document.getElementById('ruleList');
+      el.innerHTML = rules.length ? '' : '<div style="color:#aaa">マイルールはまだなし</div>';
+      rules.forEach(r => {
+        const d = document.createElement('div');
+        d.innerHTML = `<span>${esc(r.kw)} → <b>${r.cat}</b></span>
+          <button onclick="delRule('${esc(r.kw)}')">削除</button>`;
+        el.appendChild(d);
+      });
+    }
+
+    function setStatus(msg, ok) {
+      const el = document.getElementById('status');
+      el.textContent = msg; el.className = ok ? 'ok' : 'ng';
+    }
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    renderRules();
+  </script>
+</body>
+</html>
