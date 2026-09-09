@@ -1,183 +1,386 @@
-# PDF rename (store_amount) + sort by month + compressed copy. PowerShell + Word. ASCII-only source.
-param([string]$Target = $PSScriptRoot)
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>PDFまとめ屋</title>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--fg:#222;--sub:#666;--line:#d5d8de;--pri:#1e5aa8;--ok:#1a8a3c;--ng:#c0392b;--sel:#1e5aa8}
+  @media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1e2126;--fg:#e8e8e8;--sub:#aaa;--line:#3a3f47;--pri:#3b82f6;--ok:#4ade80;--ng:#f87171;--sel:#3b82f6}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--fg);padding:16px;max-width:640px;margin:0 auto}
+  h1{font-size:20px;margin-bottom:4px}
+  .note{font-size:12px;color:var(--sub);margin-bottom:14px}
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tabs button{flex:1;padding:14px;font-size:16px;font-weight:bold;border:2px solid var(--pri);border-radius:10px;background:transparent;color:var(--pri)}
+  .tabs button.on{background:var(--pri);color:#fff}
+  .sub.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+  .sub small{font-weight:normal;font-size:11px;opacity:.85}
+  .card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:28px 12px;text-align:center;color:var(--sub);font-size:15px;cursor:pointer}
+  .drop.over{border-color:var(--pri);color:var(--pri)}
+  input[type=file]{display:none}
+  input[type=text]{width:100%;padding:14px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0;background:var(--bg);color:var(--fg)}
+  button.main{width:100%;padding:16px;font-size:17px;font-weight:bold;border:none;border-radius:10px;background:var(--pri);color:#fff;margin-top:8px}
+  button.main:disabled{opacity:.45}
+  button.sub{padding:10px 14px;font-size:14px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .row .sub{flex:1}
+  #status{text-align:center;font-size:14px;margin-top:10px;min-height:20px}
+  .ok{color:var(--ok)}.ng{color:var(--ng)}
+  ul#files{list-style:none;margin-top:10px}
+  ul#files li{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+  ul#files li .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  ul#files li button{padding:8px 10px;font-size:14px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--fg)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin-top:12px}
+  .pg{position:relative;border:3px solid transparent;border-radius:8px;overflow:hidden;background:var(--bg);cursor:pointer}
+  .pg canvas{width:100%;display:block}
+  .pg .n{position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;font-size:12px;padding:2px 6px;border-radius:6px}
+  .pg.sel{border-color:var(--sel)}
+  .pg.sel::after{content:"✓";position:absolute;top:4px;left:4px;background:var(--sel);color:#fff;font-size:13px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .hint{font-size:13px;color:var(--sub);margin-top:6px}
+</style>
+</head>
+<body>
+<h1>PDFまとめ屋</h1>
+<div class="note">結合・分割はすべてこの端末の中で処理されます（ファイルはどこにも送信されません）</div>
 
-$MOVE_TO_MONTH = $true   # $false = rename only, no folder move
-$COMPRESS      = $true   # $true = also save a smaller copy into "keiryou" subfolder (original is kept)
-$COMPRESS_MIN_KB = 100   # skip compression for files smaller than this (KB)
+<div class="tabs">
+  <button id="tabM" class="on" onclick="showTab('m')">結合</button>
+  <button id="tabS" onclick="showTab('s')">分割・抜き出し</button>
+  <button id="tabR" onclick="showTab('r')">解像度</button>
+  <button id="tabL" onclick="showTab('l')">軽くする</button>
+</div>
 
-$Target = (Resolve-Path $Target).Path
-Write-Host "Target: $Target`n"
+<!-- ===== 結合 ===== -->
+<div id="paneM">
+  <div class="card">
+    <div class="drop" id="dropM" onclick="document.getElementById('inM').click()">
+      PDF・画像をここにドロップ<br>またはタップして選択（複数OK）
+    </div>
+    <input type="file" id="inM" multiple accept="application/pdf,image/*">
+    <ul id="files"></ul>
+    <div class="row"><button class="sub" onclick="sortFiles()">名前順に並べ替え</button><button class="sub" onclick="clearFiles()">全部消す</button></div>
+    <button class="main" id="btnM" onclick="doMerge()" disabled>1本にまとめてダウンロード</button>
+  </div>
+</div>
 
-$NEN   = [string][char]0x5E74
-$GATSU = [string][char]0x6708
-$EN    = [string][char]0x5186
-$MIBUNRUI = -join ([char]0x672A, [char]0x5206, [char]0x985E)
-$KEIRYOU  = -join ([char]0x8EFD, [char]0x91CF, [char]0x7248)
+<!-- ===== 分割 ===== -->
+<div id="paneS" style="display:none">
+  <div class="card">
+    <div class="drop" id="dropS" onclick="document.getElementById('inS').click()">
+      PDFを1つここにドロップ<br>またはタップして選択
+    </div>
+    <input type="file" id="inS" accept="application/pdf">
+    <div id="sInfo" class="hint"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="card" id="sCtl" style="display:none">
+    <div class="hint">ページをタップして選ぶ、または番号で指定（例: 1-3,5 ／ 複数ファイルに分けるなら 1-3/4-6）</div>
+    <input type="text" id="spec" placeholder="例: 1-3,5  または  1-3/4-6" oninput="specToGrid()">
+    <div class="row">
+      <button class="sub" onclick="selAll(true)">全選択</button>
+      <button class="sub" onclick="selAll(false)">解除</button>
+    </div>
+    <button class="main" onclick="doExtract()">選んだページを抜き出す</button>
+    <button class="main" style="background:transparent;color:var(--pri);border:2px solid var(--pri)" onclick="doBurst()">全ページ1枚ずつバラす（zip）</button>
+  </div>
+</div>
 
-$pdfs = Get-ChildItem -Path $Target -Filter *.pdf -File
-if ($pdfs.Count -eq 0) {
-    Write-Host "No PDF found."
-    Read-Host "Press Enter to close"
-    exit
+<!-- ===== 解像度 ===== -->
+<div id="paneR" style="display:none">
+  <div class="card">
+    <div class="drop" id="dropR" onclick="document.getElementById('inR').click()">
+      PDFを1つここにドロップ<br>またはタップして選択
+    </div>
+    <input type="file" id="inR" accept="application/pdf">
+    <div id="rInfo" class="hint"></div>
+  </div>
+  <div class="card" id="rCtl" style="display:none">
+    <div class="hint">出力する解像度（dpi）。提出要件が「200dpi以上」なら 200 か 300 を選ぶ</div>
+    <div class="row">
+      <button class="sub dpi" data-dpi="150" onclick="pickDpi(this)">150</button>
+      <button class="sub dpi on" data-dpi="200" onclick="pickDpi(this)">200</button>
+      <button class="sub dpi" data-dpi="300" onclick="pickDpi(this)">300</button>
+      <button class="sub dpi" data-dpi="400" onclick="pickDpi(this)">400</button>
+    </div>
+    <div class="hint" style="margin-top:10px">画質（JPEG）。数字が大きいほど綺麗・重い</div>
+    <div class="row">
+      <button class="sub q" data-q="0.75" onclick="pickQ(this)">標準</button>
+      <button class="sub q on" data-q="0.88" onclick="pickQ(this)">高</button>
+      <button class="sub q" data-q="0.95" onclick="pickQ(this)">最高</button>
+    </div>
+    <button class="main" onclick="doResample()">この解像度で書き出す</button>
+    <div class="hint">※ 全ページを画像化して作り直すので、文字のコピペ・検索はできなくなります。元の画質より細かくはなりません（数値上の解像度は指定通りになります）</div>
+  </div>
+</div>
+
+<!-- ===== 軽くする ===== -->
+<div id="paneL" style="display:none">
+  <div class="card">
+    <div class="drop" id="dropL" onclick="document.getElementById('inL').click()">
+      PDFを1つここにドロップ<br>またはタップして選択
+    </div>
+    <input type="file" id="inL" accept="application/pdf">
+    <div id="lInfo" class="hint"></div>
+  </div>
+  <div class="card" id="lCtl" style="display:none">
+    <div class="hint">どれくらい軽くする？</div>
+    <div class="row">
+      <button class="sub lv" data-dpi="150" data-q="0.8" onclick="pickLv(this)">弱<br><small>150dpi・綺麗</small></button>
+      <button class="sub lv on" data-dpi="100" data-q="0.7" onclick="pickLv(this)">中<br><small>100dpi・メール向き</small></button>
+      <button class="sub lv" data-dpi="72" data-q="0.6" onclick="pickLv(this)">強<br><small>72dpi・とにかく軽く</small></button>
+    </div>
+    <button class="main" onclick="doLight()">軽くしてダウンロード</button>
+    <div class="hint">※ 全ページ画像化するので文字のコピペ・検索はできなくなります。元が文字だけの軽いPDFは逆に重くなることがあります（結果のサイズは完了時に表示）</div>
+  </div>
+</div>
+
+<div id="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const { PDFDocument, degrees } = PDFLib;
+
+function setStatus(m, ok){ const e=document.getElementById('status'); e.textContent=m; e.className=ok?'ok':'ng'; }
+function showTab(t){
+  document.getElementById('paneM').style.display = t==='m'?'':'none';
+  document.getElementById('paneS').style.display = t==='s'?'':'none';
+  document.getElementById('paneR').style.display = t==='r'?'':'none';
+  document.getElementById('paneL').style.display = t==='l'?'':'none';
+  document.getElementById('tabM').classList.toggle('on', t==='m');
+  document.getElementById('tabS').classList.toggle('on', t==='s');
+  document.getElementById('tabR').classList.toggle('on', t==='r');
+  document.getElementById('tabL').classList.toggle('on', t==='l');
+  setStatus('',true);
+}
+function download(bytes, name, mime='application/pdf'){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([bytes],{type:mime})); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+function stamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; }
+function setupDrop(el, onFiles){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over')});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');onFiles([...e.dataTransfer.files])});
 }
 
-$patterns = @(
-    @{ re = '(20\d{2})\s*\u5E74\s*(\d{1,2})\s*\u6708'; kind = 'western' },
-    @{ re = '(20\d{2})[/\-\.\uFF0E\uFF0F](\d{1,2})[/\-\.\uFF0E\uFF0F]\d{1,2}'; kind = 'western' },
-    @{ re = '\u4EE4\u548C\s*(\d{1,2})\s*\u5E74\s*(\d{1,2})\s*\u6708'; kind = 'reiwa' },
-    @{ re = '[R\uFF32]\s*(\d{1,2})[\.\uFF0E\u5E74/]\s*(\d{1,2})[\.\uFF0E\u6708/]'; kind = 'reiwa' }
-)
+// ================= 結合 =================
+let mFiles=[];
+setupDrop(document.getElementById('dropM'), addFiles);
+document.getElementById('inM').addEventListener('change', e=>{ addFiles([...e.target.files]); e.target.value=''; });
+function addFiles(list){
+  list.forEach(f=>{ if(f.type==='application/pdf'||f.type.startsWith('image/')||/\.pdf$/i.test(f.name)) mFiles.push(f); });
+  renderFiles();
+}
+function renderFiles(){
+  const ul=document.getElementById('files'); ul.innerHTML='';
+  mFiles.forEach((f,i)=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<span class="nm">${i+1}. ${f.name}</span>
+      <button onclick="mv(${i},-1)">↑</button><button onclick="mv(${i},1)">↓</button><button onclick="rm(${i})">×</button>`;
+    ul.appendChild(li);
+  });
+  document.getElementById('btnM').disabled = mFiles.length===0;
+}
+function mv(i,d){ const j=i+d; if(j<0||j>=mFiles.length)return; [mFiles[i],mFiles[j]]=[mFiles[j],mFiles[i]]; renderFiles(); }
+function rm(i){ mFiles.splice(i,1); renderFiles(); }
+function sortFiles(){ mFiles.sort((a,b)=>a.name.localeCompare(b.name,'ja',{numeric:true})); renderFiles(); }
+function clearFiles(){ mFiles=[]; renderFiles(); }
 
-function Find-Month([string]$text) {
-    foreach ($p in $patterns) {
-        $m = [regex]::Match($text, $p.re)
-        if ($m.Success) {
-            $y  = [int]$m.Groups[1].Value
-            $mo = [int]$m.Groups[2].Value
-            if ($p.kind -eq 'reiwa') { $y += 2018 }
-            if ($mo -ge 1 -and $mo -le 12) {
-                return ('{0}{1}{2:00}{3}' -f $y, $NEN, $mo, $GATSU)
-            }
-        }
+async function fileToPdfDoc(f){
+  const buf=await f.arrayBuffer();
+  if(f.type.startsWith('image/')){
+    const doc=await PDFDocument.create();
+    let img, dims;
+    if(f.type==='image/png'){ img=await doc.embedPng(buf); }
+    else if(f.type==='image/jpeg'){ img=await doc.embedJpg(buf); }
+    else { // その他画像はcanvas経由でJPEG化
+      const bmp=await createImageBitmap(f); const c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height;
+      c.getContext('2d').drawImage(bmp,0,0);
+      const jpg=await new Promise(r=>c.toBlob(b=>b.arrayBuffer().then(r),'image/jpeg',.92));
+      img=await doc.embedJpg(jpg);
     }
-    return $null
+    dims=img.scale(1);
+    const page=doc.addPage([dims.width,dims.height]); page.drawImage(img,{x:0,y:0,width:dims.width,height:dims.height});
+    return doc;
+  }
+  return await PDFDocument.load(buf,{ignoreEncryption:true});
+}
+async function doMerge(){
+  const btn=document.getElementById('btnM'); btn.disabled=true; setStatus('結合中…',true);
+  try{
+    const out=await PDFDocument.create();
+    for(const f of mFiles){
+      const src=await fileToPdfDoc(f);
+      const pages=await out.copyPages(src, src.getPageIndices());
+      pages.forEach(p=>out.addPage(p));
+    }
+    download(await out.save(), `結合_${stamp()}.pdf`);
+    setStatus(`完了！ ${out.getPageCount()}ページ`,true);
+  }catch(e){ setStatus('エラー: '+e.message,false); }
+  btn.disabled=false;
 }
 
-function Normalize-Num([string]$s) {
-    $s = $s -replace '[\uFF0C,]', ''
-    $sb = ''
-    foreach ($c in $s.ToCharArray()) {
-        $code = [int]$c
-        if ($code -ge 0xFF10 -and $code -le 0xFF19) { $sb += [char]($code - 0xFF10 + 48) } else { $sb += $c }
+// ================= 分割 =================
+let sBuf=null, sTotal=0, sel=new Set(), sName='file';
+setupDrop(document.getElementById('dropS'), l=>loadSplit(l[0]));
+document.getElementById('inS').addEventListener('change', e=>{ loadSplit(e.target.files[0]); e.target.value=''; });
+
+async function loadSplit(f){
+  if(!f) return;
+  setStatus('読み込み中…',true);
+  sBuf=await f.arrayBuffer(); sName=f.name.replace(/\.pdf$/i,''); sel=new Set();
+  document.getElementById('spec').value='';
+  const grid=document.getElementById('grid'); grid.innerHTML='';
+  try{
+    const pdf=await pdfjsLib.getDocument({data:sBuf.slice(0)}).promise;
+    sTotal=pdf.numPages;
+    document.getElementById('sInfo').textContent=`${f.name}　全${sTotal}ページ`;
+    document.getElementById('sCtl').style.display='';
+    for(let i=1;i<=sTotal;i++){
+      const page=await pdf.getPage(i);
+      const vp=page.getViewport({scale:1}); const scale=160/vp.width; const v2=page.getViewport({scale});
+      const c=document.createElement('canvas'); c.width=v2.width; c.height=v2.height;
+      await page.render({canvasContext:c.getContext('2d'),viewport:v2}).promise;
+      const d=document.createElement('div'); d.className='pg'; d.dataset.n=i;
+      d.appendChild(c); const n=document.createElement('span'); n.className='n'; n.textContent=i; d.appendChild(n);
+      d.onclick=()=>{ sel.has(i)?sel.delete(i):sel.add(i); d.classList.toggle('sel'); gridToSpec(); };
+      grid.appendChild(d);
     }
-    $out = 0
-    if ([long]::TryParse($sb, [ref]$out)) { return $out }
-    return 0
+    setStatus('',true);
+  }catch(e){ setStatus('読めなかった: '+e.message,false); }
+}
+function selAll(on){ sel=new Set(on?Array.from({length:sTotal},(_,i)=>i+1):[]); syncGrid(); gridToSpec(); }
+function syncGrid(){ document.querySelectorAll('.pg').forEach(d=>d.classList.toggle('sel',sel.has(+d.dataset.n))); }
+function gridToSpec(){ // 選択 → "1-3,5" の形に
+  const a=[...sel].sort((x,y)=>x-y), out=[]; let s=null,p=null;
+  for(const n of a){ if(s===null){s=p=n;} else if(n===p+1){p=n;} else {out.push(s===p?`${s}`:`${s}-${p}`); s=p=n;} }
+  if(s!==null) out.push(s===p?`${s}`:`${s}-${p}`);
+  document.getElementById('spec').value=out.join(',');
+}
+function parsePages(spec){
+  const pages=[];
+  spec.replace(/，/g,',').replace(/－|ー/g,'-').split(',').forEach(part=>{
+    part=part.trim(); if(!part) return;
+    if(part.includes('-')){ let [a,b]=part.split('-'); a=a.trim()?+a:1; b=b.trim()?+b:sTotal; for(let i=a;i<=b;i++) pages.push(i); }
+    else pages.push(+part);
+  });
+  return [...new Set(pages.filter(n=>n>=1&&n<=sTotal))];
+}
+function specToGrid(){ // 入力 → グリッド選択（"/"区切りは全部まとめて表示）
+  const v=document.getElementById('spec').value; if(v.includes('/')){ sel=new Set(v.split('/').flatMap(parsePages)); } else sel=new Set(parsePages(v));
+  syncGrid();
+}
+async function extractPages(pages){
+  const src=await PDFDocument.load(sBuf,{ignoreEncryption:true}); const out=await PDFDocument.create();
+  const copied=await out.copyPages(src, pages.map(n=>n-1)); copied.forEach(p=>out.addPage(p));
+  return await out.save();
+}
+async function doExtract(){
+  if(!sBuf) return;
+  const v=document.getElementById('spec').value.replace(/／/g,'/').trim();
+  const groups=v.includes('/') ? v.split('/').map(s=>s.trim()).filter(Boolean) : [v];
+  setStatus('処理中…',true);
+  try{
+    if(groups.length===1){
+      const pages=parsePages(groups[0]); if(!pages.length){ setStatus('ページを選んでね',false); return; }
+      download(await extractPages(pages), `${sName}_p${groups[0].replace(/\s/g,'').replace(/,/g,'_')}.pdf`);
+      setStatus(`完了！ ${pages.length}ページ抜き出し`,true);
+    }else{
+      const zip=new JSZip(); let cnt=0;
+      for(const g of groups){ const pages=parsePages(g); if(!pages.length) continue;
+        zip.file(`${sName}_p${g.replace(/\s/g,'').replace(/,/g,'_')}.pdf`, await extractPages(pages)); cnt++; }
+      if(!cnt){ setStatus('有効なページがないよ',false); return; }
+      download(await zip.generateAsync({type:'uint8array'}), `${sName}_分割.zip`, 'application/zip');
+      setStatus(`完了！ ${cnt}ファイルをzipで出力`,true);
+    }
+  }catch(e){ setStatus('エラー: '+e.message,false); }
+}
+async function doBurst(){
+  if(!sBuf) return; setStatus('処理中…',true);
+  try{
+    const zip=new JSZip(); const w=String(sTotal).length;
+    for(let i=1;i<=sTotal;i++) zip.file(`${sName}_p${String(i).padStart(w,'0')}.pdf`, await extractPages([i]));
+    download(await zip.generateAsync({type:'uint8array'}), `${sName}_分割.zip`, 'application/zip');
+    setStatus(`完了！ ${sTotal}ページをzipで出力`,true);
+  }catch(e){ setStatus('エラー: '+e.message,false); }
 }
 
-# Amount: prefer number near total keywords, else largest yen-marked number
-function Find-Amount([string]$text) {
-    $num = '[\u00A5\uFFE5]?\s*([0-9\uFF10-\uFF19][0-9,\uFF10-\uFF19\uFF0C]*)\s*(\u5186|-)?'
-    $keys = '(\u5408\u8A08|\u7A0E\u8FBC|\u304A\u8CB7\u4E0A|\u8A08|\u5408\u8A08\u91D1\u984D|\u5FA1\u5408\u8A08)'
-    $best = $null
-    $m = [regex]::Matches($text, $keys + '[^0-9\u00A5\uFFE5\uFF10-\uFF19]{0,15}' + $num)
-    foreach ($x in $m) {
-        $v = Normalize-Num $x.Groups[2].Value
-        if ($v -gt 0 -and ($best -eq $null -or $v -gt $best)) { $best = $v }
-    }
-    if ($best -ne $null) { return $best }
-    $m = [regex]::Matches($text, '[\u00A5\uFFE5]\s*([0-9\uFF10-\uFF19][0-9,\uFF10-\uFF19\uFF0C]*)')
-    foreach ($x in $m) {
-        $v = Normalize-Num $x.Groups[1].Value
-        if ($v -gt 0 -and ($best -eq $null -or $v -gt $best)) { $best = $v }
-    }
-    return $best
+// ================= 解像度 =================
+let rBuf=null, rName='file', rSize=0, rDpi=200, rQ=0.88;
+setupDrop(document.getElementById('dropR'), l=>loadR(l[0]));
+document.getElementById('inR').addEventListener('change', e=>{ loadR(e.target.files[0]); e.target.value=''; });
+function pickDpi(b){ document.querySelectorAll('.dpi').forEach(x=>x.classList.remove('on')); b.classList.add('on'); rDpi=+b.dataset.dpi; }
+function pickQ(b){ document.querySelectorAll('.q').forEach(x=>x.classList.remove('on')); b.classList.add('on'); rQ=+b.dataset.q; }
+function mb(n){ return (n/1048576).toFixed(2)+'MB'; }
+async function loadR(f){
+  if(!f) return;
+  rBuf=await f.arrayBuffer(); rName=f.name.replace(/\.pdf$/i,''); rSize=f.size;
+  try{
+    const pdf=await pdfjsLib.getDocument({data:rBuf.slice(0)}).promise;
+    document.getElementById('rInfo').textContent=`${f.name}　全${pdf.numPages}ページ　${mb(f.size)}`;
+    document.getElementById('rCtl').style.display='';
+    setStatus('',true);
+  }catch(e){ setStatus('読めなかった: '+e.message,false); }
+}
+async function resample(buf, dpi, q){
+  const pdf=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
+  const out=await PDFDocument.create();
+  for(let i=1;i<=pdf.numPages;i++){
+    setStatus(`処理中… ${i}/${pdf.numPages}ページ`,true);
+    const page=await pdf.getPage(i);
+    const vp1=page.getViewport({scale:1});          // 1pt=1px（72dpi）
+    const vp=page.getViewport({scale:dpi/72});       // 指定dpi
+    const c=document.createElement('canvas'); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+    const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+    await page.render({canvasContext:ctx,viewport:vp}).promise;
+    const jpg=await new Promise(r=>c.toBlob(b=>b.arrayBuffer().then(r),'image/jpeg',q));
+    const img=await out.embedJpg(jpg);
+    const pg=out.addPage([vp1.width,vp1.height]);   // 用紙サイズは元のまま
+    pg.drawImage(img,{x:0,y:0,width:vp1.width,height:vp1.height});
+  }
+  return await out.save();
+}
+async function doResample(){
+  if(!rBuf) return;
+  try{
+    const bytes=await resample(rBuf, rDpi, rQ);
+    download(bytes, `${rName}_${rDpi}dpi.pdf`);
+    setStatus(`完了！ ${rDpi}dpi　${mb(rSize)} → ${mb(bytes.length)}`,true);
+  }catch(e){ setStatus('エラー: '+e.message,false); }
 }
 
-# Store name: first meaningful line (skip receipt title / date / customer lines)
-function Find-Store([string]$text) {
-    $skip = '(\u9818\u53CE|\u30EC\u30B7\u30FC\u30C8|\u6A23|\u65E5\u4ED8|\u767A\u884C|20\d{2}|\u4EE4\u548C|^[\d\s/\-:]+$|\u5408\u8A08|\u91D1\u984D)'
-    foreach ($line in ($text -split "[\r\n\a\f]+")) {
-        $l = $line.Trim()
-        if ($l.Length -lt 2) { continue }
-        if ($l -match $skip) { continue }
-        $l = $l -replace '[\\/:*?"<>|]', ''
-        if ($l.Length -gt 30) { $l = $l.Substring(0, 30) }
-        return $l
-    }
-    return $null
+// ================= 軽くする =================
+let lBuf=null, lName='file', lSize=0, lDpi=100, lQ=0.7;
+setupDrop(document.getElementById('dropL'), l=>loadL(l[0]));
+document.getElementById('inL').addEventListener('change', e=>{ loadL(e.target.files[0]); e.target.value=''; });
+function pickLv(b){ document.querySelectorAll('.lv').forEach(x=>x.classList.remove('on')); b.classList.add('on'); lDpi=+b.dataset.dpi; lQ=+b.dataset.q; }
+async function loadL(f){
+  if(!f) return;
+  lBuf=await f.arrayBuffer(); lName=f.name.replace(/\.pdf$/i,''); lSize=f.size;
+  try{
+    const pdf=await pdfjsLib.getDocument({data:lBuf.slice(0)}).promise;
+    document.getElementById('lInfo').textContent=`${f.name}　全${pdf.numPages}ページ　${mb(f.size)}`;
+    document.getElementById('lCtl').style.display='';
+    setStatus('',true);
+  }catch(e){ setStatus('読めなかった: '+e.message,false); }
 }
-
-function Unique-Path([string]$dir, [string]$base, [string]$ext, [string]$self) {
-    $p = Join-Path $dir ($base + $ext)
-    $n = 1
-    while ((Test-Path $p) -and ($p -ne $self)) {
-        $p = Join-Path $dir ("{0}_{1}{2}" -f $base, $n, $ext)
-        $n++
-    }
-    return $p
+async function doLight(){
+  if(!lBuf) return;
+  try{
+    const bytes=await resample(lBuf, lDpi, lQ);
+    const pct=Math.round(bytes.length/lSize*100);
+    download(bytes, `${lName}_軽量.pdf`);
+    setStatus(pct>=100 ? `完了。ただし ${mb(lSize)} → ${mb(bytes.length)} で軽くなりませんでした（元が文字PDFかも）`
+                       : `完了！ ${mb(lSize)} → ${mb(bytes.length)}（${pct}%）`, pct<100);
+  }catch(e){ setStatus('エラー: '+e.message,false); }
 }
-
-$word = New-Object -ComObject Word.Application
-$word.Visible = $false
-$word.DisplayAlerts = 0
-
-$stats = @{ ok = 0; small = 0; skip = 0 }
-
-foreach ($pdf in $pdfs) {
-    $dest = $MIBUNRUI
-    $newBase = $pdf.BaseName
-    $doc = $null
-    $tmpOut = $null
-    try {
-        $doc = $word.Documents.Open($pdf.FullName, $false, $true, $false)
-        $text = $doc.Content.Text
-        if ([string]::IsNullOrWhiteSpace($text)) {
-            $dest = $MIBUNRUI + "(no text)"
-        } else {
-            $head = $text.Substring(0, [Math]::Min(3000, $text.Length))
-            $found = Find-Month $head
-            if ($found) { $dest = $found }
-            $store  = Find-Store $head
-            $amount = Find-Amount $head
-            if ($store -and $amount) {
-                $newBase = '{0}_{1}{2}' -f $store, $amount, $EN
-            } elseif ($store) {
-                $newBase = $store
-            } elseif ($amount) {
-                $newBase = '{0}{1}' -f $amount, $EN
-            }
-        }
-
-        # Compressed copy: export to temp with "minimum size" option (17 = PDF, 1 = wdExportOptimizeForMinimumSize)
-        if ($COMPRESS -and ($pdf.Length -ge $COMPRESS_MIN_KB * 1024)) {
-            $tmpOut = Join-Path $env:TEMP ("pdfsort_" + [guid]::NewGuid().ToString("N") + ".pdf")
-            $doc.ExportAsFixedFormat($tmpOut, 17, $false, 1, 0, 1, 1, 0, $false, $false, 0, $false, $true, $false)
-        }
-        $doc.Close(0)
-        $doc = $null
-    } catch {
-        Write-Host "x $($pdf.Name): failed ($($_.Exception.Message))"
-        $dest = $MIBUNRUI + "(error)"
-        if ($doc -ne $null) { try { $doc.Close(0) } catch {} ; $doc = $null }
-    }
-
-    $destDir = $Target
-    if ($MOVE_TO_MONTH) {
-        $destDir = Join-Path $Target $dest
-        if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir | Out-Null }
-    }
-
-    $destPath = Unique-Path $destDir $newBase $pdf.Extension $pdf.FullName
-    $origSize = $pdf.Length
-    if ($destPath -ne $pdf.FullName) { Move-Item -Path $pdf.FullName -Destination $destPath }
-    Write-Host "o $($pdf.Name) -> $destPath"
-
-    if ($tmpOut -and (Test-Path $tmpOut)) {
-        $newSize = (Get-Item $tmpOut).Length
-        if ($newSize -lt $origSize * 0.9) {
-            $kDir = Join-Path $destDir $KEIRYOU
-            if (-not (Test-Path $kDir)) { New-Item -ItemType Directory -Path $kDir | Out-Null }
-            $kBase = [System.IO.Path]::GetFileNameWithoutExtension($destPath)
-            $kPath = Unique-Path $kDir $kBase ".pdf" ""
-            Move-Item -Path $tmpOut -Destination $kPath
-            Write-Host ("    light: {0:N0} KB -> {1:N0} KB  ({2})" -f ($origSize/1KB), ($newSize/1KB), $kPath)
-            $stats.ok++
-        } else {
-            Remove-Item $tmpOut -ErrorAction SilentlyContinue
-            Write-Host ("    light: no gain ({0:N0} KB -> {1:N0} KB), skipped" -f ($origSize/1KB), ($newSize/1KB))
-            $stats.small++
-        }
-    } elseif ($COMPRESS) {
-        $stats.skip++
-    }
-}
-
-$word.Quit()
-[System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null
-
-if ($COMPRESS) {
-    Write-Host ("`nLight copies: {0} saved, {1} no gain, {2} skipped (small/error)" -f $stats.ok, $stats.small, $stats.skip)
-}
-Write-Host "`nDone"
-Read-Host "Press Enter to close"
+</script>
+</body>
+</html>
