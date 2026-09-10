@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>図面・書類</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -20,7 +19,7 @@
       margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
       text-decoration: none; color: inherit;
     }
-    .card:active { background: #eef3fb; }
+    a.card:active { background: #eef3fb; }
     .icon {
       flex: 0 0 44px; height: 44px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
@@ -38,11 +37,18 @@
       text-decoration: none;
     }
     .toolbar .primary { background: #1e5aa8; color: #fff; }
-    #status { text-align: center; font-size: 14px; color: #888; padding: 24px 0; }
+    #status { text-align: center; font-size: 13px; color: #888; padding: 12px 0; min-height: 20px; }
     #status.ng { color: #c0392b; }
     .empty { text-align: center; color: #888; padding: 32px 0; font-size: 14px; }
-
-    /* ---- QRシート ---- */
+    .form label { display: block; font-size: 14px; margin-bottom: 6px; color: #555; }
+    .form input {
+      width: 100%; padding: 14px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;
+    }
+    .form button {
+      width: 100%; padding: 16px; font-size: 17px; font-weight: bold;
+      border: none; border-radius: 10px; background: #1e5aa8; color: #fff;
+    }
     .qr-head { display: none; font-size: 18px; font-weight: bold; margin-bottom: 8mm; }
     .qr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
     .qr-card {
@@ -69,7 +75,7 @@
   <div class="sub" id="subtitle"></div>
   <div class="toolbar" id="toolbar"></div>
   <div id="list"></div>
-  <div id="status">読み込み中...</div>
+  <div id="status"></div>
 
   <script>
     // ============================================
@@ -77,14 +83,16 @@
     // ============================================
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbwpfJgmDkLnsplwMtsXkNEOP30Y08HDVrr-uzy5sKAGxlCqs0-Fkz17fNB84PTKKUGONg/exec';
 
-    // QRに埋め込む自分自身のURL(GitHub Pages上のこのファイル)
     const SELF_URL = location.origin + location.pathname;
 
-    // URL: なし=工種一覧 / ?k=工種ID=PDF一覧 / ?qr=QRシート
+    // URL: ?k=工種ID=PDF一覧(職人・QR用) / ?admin=管理画面(工種一覧) / ?admin&qr=QRシート / なし=案内だけ
     const params = new URLSearchParams(location.search);
     const folderId = params.get('k');
+    const adminMode = params.has('admin');
     const qrMode = params.has('qr');
     const $ = id => document.getElementById(id);
+
+    let adminKey = sessionStorage.getItem('zumen_admin_key') || '';
 
     function setStatus(msg, ng) {
       const el = $('status');
@@ -92,7 +100,6 @@
       el.className = ng ? 'ng' : '';
     }
 
-    // GET方式(ブラウザで直接開いて動作確認できるのと同じ経路)
     function api(req) {
       const q = Object.keys(req).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(req[k])).join('&');
       return fetch(GAS_URL + '?' + q)
@@ -108,77 +115,142 @@
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
 
-    function fmtSize(b) {
-      if (!b) return '';
-      if (b < 1024 * 1024) return Math.round(b / 1024) + ' KB';
-      return (b / 1024 / 1024).toFixed(1) + ' MB';
-    }
-
     function linkTo(q) { return SELF_URL + (q ? '?' + q : ''); }
 
     // ============================================
-    // 画面1: 工種一覧(QR無しで開いたとき)
+    // 職人用: 工種内のPDF一覧(QRを読むとここ / ここから他へは行けない)
+    //   前回の結果をスマホに覚えておいて即表示 → 裏で最新を取りに行く
+    // ============================================
+    const LS_KEY = 'zumen_files_' + folderId;
+
+    function renderFiles(res, fromCache) {
+      $('title').textContent = res.koushuName;
+      $('subtitle').textContent = 'タップするとPDFが開きます';
+      document.title = res.koushuName + ' - 図面・書類';
+      if (!res.files.length) { $('list').innerHTML = '<div class="empty">まだPDFがありません</div>'; return; }
+      $('list').innerHTML = res.files.map(f =>
+        '<a class="card" href="https://drive.google.com/file/d/' + encodeURIComponent(f.id) + '/view" target="_blank" rel="noopener">' +
+          '<div class="icon pdf">PDF</div>' +
+          '<div><div class="name">' + esc(f.name) + '</div>' +
+          '<div class="meta">' + esc(f.updated) + '</div></div>' +
+          '<div class="chev">›</div>' +
+        '</a>').join('');
+    }
+
+    function showFiles(force) {
+      $('toolbar').innerHTML = '<button onclick="showFiles(true)">更新</button>';
+      let hadCache = false;
+      if (!force) {
+        try {
+          const c = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+          if (c && c.files) { renderFiles(c, true); hadCache = true; }
+        } catch (e) {}
+      }
+      setStatus(hadCache ? '最新を確認中...' : '読み込み中...');
+      api({ action: 'files', folderId: folderId, nocache: force ? 1 : 0 }).then(res => {
+        renderFiles(res, false);
+        try { localStorage.setItem(LS_KEY, JSON.stringify(res)); } catch (e) {}
+        setStatus('');
+      }).catch(err => setStatus(hadCache ? '' : 'エラー: ' + err, true));
+    }
+
+    // ============================================
+    // パラメータ無し: 案内だけ
+    // ============================================
+    function showGuide() {
+      $('title').textContent = '図面・書類';
+      $('list').innerHTML = '<div class="empty">現場に貼ってあるQRコードを<br>スマホのカメラで読み取ってください</div>';
+    }
+
+    // ============================================
+    // 管理: 合言葉
+    // ============================================
+    function showLogin(msg) {
+      $('title').textContent = '管理画面';
+      $('subtitle').textContent = '';
+      $('toolbar').innerHTML = '';
+      $('list').innerHTML =
+        '<div class="card form" style="display:block">' +
+          '<label>合言葉</label>' +
+          '<input id="keyInput" type="password" placeholder="管理用の合言葉" onkeydown="if(event.key===\'Enter\')doLogin()">' +
+          '<button onclick="doLogin()">入る</button>' +
+        '</div>';
+      setStatus(msg || '', !!msg);
+      $('keyInput').focus();
+    }
+
+    function doLogin() {
+      const k = $('keyInput').value.trim();
+      if (!k) return setStatus('合言葉を入れて', true);
+      adminKey = k;
+      setStatus('確認中...');
+      api({ action: 'koushu', key: adminKey, nocache: 0 }).then(res => {
+        sessionStorage.setItem('zumen_admin_key', adminKey);
+        qrMode ? renderQr(res) : renderKoushu(res);
+      }).catch(err => { adminKey = ''; showLogin('エラー: ' + err); });
+    }
+
+    function adminFail(err) {
+      adminKey = ''; sessionStorage.removeItem('zumen_admin_key');
+      showLogin('エラー: ' + err);
+    }
+
+    // ============================================
+    // 管理: 工種一覧
     // ============================================
     function showKoushu(nocache) {
-      $('title').textContent = '図面・書類';
+      if (!adminKey) return showLogin();
+      setStatus('読み込み中...');
+      $('list').innerHTML = '';
+      api({ action: 'koushu', key: adminKey, nocache: nocache ? 1 : 0 }).then(renderKoushu).catch(adminFail);
+    }
+
+    function renderKoushu(res) {
+      $('title').textContent = '管理画面';
+      $('subtitle').textContent = res.rootName || '';
       $('toolbar').innerHTML =
         '<button onclick="showKoushu(true)">更新</button>' +
-        '<a href="' + linkTo('qr') + '">QRシート</a>';
-      $('list').innerHTML = '';
-      setStatus('読み込み中...');
-      api({ action: 'koushu', nocache: nocache ? 1 : 0 }).then(res => {
-        $('subtitle').textContent = res.rootName || '';
-        if (!res.koushu.length) { $('list').innerHTML = '<div class="empty">工種フォルダがまだないよ</div>'; setStatus(''); return; }
-        $('list').innerHTML = res.koushu.map(k =>
-          '<a class="card" href="' + linkTo('k=' + encodeURIComponent(k.id)) + '">' +
-            '<div class="icon folder">工種</div>' +
-            '<div><div class="name">' + esc(k.name) + '</div></div>' +
-            '<div class="chev">›</div>' +
-          '</a>').join('');
-        setStatus('');
-      }).catch(err => setStatus('エラー: ' + err, true));
+        '<a href="' + linkTo('admin&qr') + '">QRシート</a>';
+      if (!res.koushu.length) { $('list').innerHTML = '<div class="empty">工種フォルダがまだないよ</div>'; setStatus(''); return; }
+      $('list').innerHTML = res.koushu.map(k =>
+        '<a class="card" href="' + linkTo('k=' + encodeURIComponent(k.id)) + '" target="_blank" rel="noopener">' +
+          '<div class="icon folder">工種</div>' +
+          '<div><div class="name">' + esc(k.name) + '</div>' +
+          '<div class="meta">職人が見る画面を開く</div></div>' +
+          '<div class="chev">›</div>' +
+        '</a>').join('');
+      setStatus('');
     }
 
     // ============================================
-    // 画面2: 工種内のPDF一覧(QRを読むとここ)
+    // 管理: QRシート(QRライブラリはここでだけ読み込む)
     // ============================================
-    function showFiles(nocache) {
-      $('toolbar').innerHTML =
-        '<a href="' + linkTo('') + '">他の工種</a>' +
-        '<button onclick="showFiles(true)">更新</button>';
-      $('list').innerHTML = '';
-      setStatus('読み込み中...');
-      api({ action: 'files', folderId: folderId, nocache: nocache ? 1 : 0 }).then(res => {
-        $('title').textContent = res.koushuName;
-        $('subtitle').textContent = 'タップするとPDFが開きます';
-        document.title = res.koushuName + ' - 図面・書類';
-        if (!res.files.length) { $('list').innerHTML = '<div class="empty">まだPDFがありません</div>'; setStatus(''); return; }
-        // サブフォルダで分けずに、全部まとめて名前順
-        const files = res.files.slice().sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-        $('list').innerHTML = files.map(f =>
-          '<a class="card" href="https://drive.google.com/file/d/' + encodeURIComponent(f.id) + '/view" target="_blank" rel="noopener">' +
-            '<div class="icon pdf">PDF</div>' +
-            '<div><div class="name">' + esc(f.name) + '</div>' +
-            '<div class="meta">' + esc(f.updated) + (f.size ? ' ・ ' + fmtSize(f.size) : '') + '</div></div>' +
-            '<div class="chev">›</div>' +
-          '</a>').join('');
-        setStatus('');
-      }).catch(err => setStatus('エラー: ' + err, true));
+    function loadQrLib() {
+      return new Promise((ok, ng) => {
+        if (window.QRCode) return ok();
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        s.onload = ok; s.onerror = () => ng('QRライブラリが読めなかった');
+        document.head.appendChild(s);
+      });
     }
 
-    // ============================================
-    // 画面3: QRシート(印刷用・工種ごとに1枚)
-    // ============================================
     function showQr() {
+      if (!adminKey) return showLogin();
+      setStatus('読み込み中...');
+      $('list').innerHTML = '';
+      api({ action: 'koushu', key: adminKey, nocache: 1 }).then(renderQr).catch(adminFail);
+    }
+
+    function renderQr(res) {
       $('title').textContent = 'QRシート';
       $('subtitle').textContent = '工種ごとのQR。印刷して現場に貼る。PDFを追加してもQRはそのまま使える';
       $('toolbar').innerHTML =
-        '<a href="' + linkTo('') + '">一覧に戻る</a>' +
+        '<a href="' + linkTo('admin') + '">管理画面に戻る</a>' +
         '<button class="primary" onclick="window.print()">印刷する</button>';
       $('list').innerHTML = '';
-      setStatus('読み込み中...');
-      api({ action: 'koushu', nocache: 1 }).then(res => {
-        if (!res.koushu.length) { $('list').innerHTML = '<div class="empty">工種フォルダがまだないよ</div>'; setStatus(''); return; }
+      if (!res.koushu.length) { $('list').innerHTML = '<div class="empty">工種フォルダがまだないよ</div>'; setStatus(''); return; }
+      loadQrLib().then(() => {
         const head = document.createElement('div');
         head.className = 'qr-head';
         head.textContent = (res.rootName || '') + ' 図面・書類QR';
@@ -196,8 +268,7 @@
             '<div class="url">' + esc(url) + '</div>';
           grid.appendChild(card);
           new QRCode(card.querySelector('#qr' + i), {
-            text: url, width: 180, height: 180,
-            correctLevel: QRCode.CorrectLevel.M,
+            text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M,
           });
         });
         $('list').appendChild(grid);
@@ -208,9 +279,10 @@
     // ============================================
     // 起動
     // ============================================
-    if (qrMode) showQr();
-    else if (folderId) showFiles();
-    else showKoushu();
+    if (folderId) showFiles();
+    else if (adminMode && qrMode) showQr();
+    else if (adminMode) showKoushu();
+    else showGuide();
   </script>
 </body>
 </html>
