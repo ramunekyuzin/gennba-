@@ -101,6 +101,21 @@
       </div>
     </section>
 
+    <section id="sec-docs" class="sec">
+      <div class="card">
+        <h2>PDF資料をアップロード</h2>
+        <input id="d_title" placeholder="表示名(空ならファイル名)">
+        <input id="d_file" type="file" accept="application/pdf">
+        <button id="d_btn" onclick="uploadPdf()">アップロード</button>
+        <div class="msg" id="d_msg"></div>
+        <div class="s" style="font-size:12px;color:#888;margin-top:6px">目安: 1ファイル20MBまで。Googleドライブの「現場ポータル_資料」フォルダに保存されます</div>
+      </div>
+      <div class="card">
+        <h2>資料一覧</h2>
+        <div class="list" id="d_list"></div>
+      </div>
+    </section>
+
     <a class="back" href="portal.html">← ポータルを見る</a>
   </main>
 
@@ -108,6 +123,7 @@
     <button class="on" onclick="showTab('contact')"><span class="ic">📞</span>連絡先</button>
     <button onclick="showTab('news')"><span class="ic">📣</span>お知らせ</button>
     <button onclick="showTab('info')"><span class="ic">🏗</span>現場情報</button>
+    <button onclick="showTab('docs')"><span class="ic">📄</span>資料</button>
   </nav>
 
   <script>
@@ -121,7 +137,7 @@
 
     function showTab(name) {
       document.querySelectorAll('.sec').forEach(s => s.classList.toggle('on', s.id === 'sec-' + name));
-      document.querySelectorAll('nav.tabs button').forEach((b, i) => b.classList.toggle('on', ['contact','news','info'][i] === name));
+      document.querySelectorAll('nav.tabs button').forEach((b, i) => b.classList.toggle('on', ['contact','news','info','docs'][i] === name));
       window.scrollTo(0, 0);
     }
 
@@ -179,6 +195,38 @@
         <input class="i_val" data-key="${esc(r['項目'])}" value="${esc(r['内容'])}">`).join('');
 
       document.getElementById('r_body').value = (DATA['現場ルール'] || []).map(r => r['内容']).join('\n');
+
+      const ds = DATA['資料'] || [];
+      document.getElementById('d_list').innerHTML = ds.length ? ds.slice().reverse().map(r => `
+        <div class="item"><div class="t"><a href="${esc(r['URL'])}" target="_blank" rel="noopener">📄 ${esc(r['名前'])}</a><br><span class="s">${esc(r['日付'])}</span></div><button onclick="delPdf(${r._row})">削除</button></div>`).join('') : '<div class="s">まだありません</div>';
+    }
+
+    function uploadPdf() {
+      const f = document.getElementById('d_file').files[0];
+      if (!f) { setMsg('d_msg', 'PDFを選んでね', false); return; }
+      if (f.size > 20 * 1024 * 1024) { setMsg('d_msg', '20MB以下にしてね', false); return; }
+      const btn = document.getElementById('d_btn'); btn.disabled = true;
+      setMsg('d_msg', 'アップロード中...(' + Math.round(f.size / 1024) + 'KB)', true);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        post('uploadPdf', { name: f.name, title: document.getElementById('d_title').value.trim(), base64 }).then(res => {
+          btn.disabled = false;
+          if (!res.ok) { setMsg('d_msg', 'エラー: ' + res.error, false); return; }
+          setMsg('d_msg', 'アップロードしたよ!', true);
+          document.getElementById('d_file').value = ''; document.getElementById('d_title').value = '';
+          load();
+        }).catch(err => { btn.disabled = false; setMsg('d_msg', '通信エラー: ' + err, false); });
+      };
+      reader.readAsDataURL(f);
+    }
+
+    function delPdf(row) {
+      if (!confirm('資料を削除する？(ドライブのファイルもゴミ箱へ)')) return;
+      post('deletePdf', { row }).then(res => {
+        if (!res.ok) { alert('エラー: ' + res.error); return; }
+        load();
+      }).catch(err => alert('通信エラー: ' + err));
     }
 
     function addContact() {
