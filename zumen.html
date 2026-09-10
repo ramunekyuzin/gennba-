@@ -50,7 +50,11 @@
       border: none; border-radius: 10px; background: #1e5aa8; color: #fff;
     }
     .qr-head { display: none; font-size: 18px; font-weight: bold; margin-bottom: 8mm; }
-    .qr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .qr-grid { display: grid; grid-template-columns: repeat(var(--cols, 2), 1fr); gap: 16px; }
+    .qr-opts { display: flex; gap: 8px; margin-bottom: 14px; }
+    .qr-opts select {
+      flex: 1; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 8px; background: #fff;
+    }
     .qr-card {
       background: #fff; border: 2px solid #222; border-radius: 12px;
       padding: 18px 12px; text-align: center; break-inside: avoid;
@@ -62,11 +66,10 @@
     .qr-card .url { font-size: 9px; color: #999; margin-top: 6px; word-break: break-all; }
     @media print {
       body { background: #fff; padding: 0; max-width: none; }
-      .toolbar, .sub, h1, #status { display: none; }
+      .toolbar, .sub, h1, #status, .qr-opts { display: none; }
       .qr-head { display: block; }
       .qr-grid { gap: 10mm; }
       .qr-card { page-break-inside: avoid; }
-      @page { size: A4; margin: 12mm; }
     }
   </style>
 </head>
@@ -76,6 +79,7 @@
   <div class="toolbar" id="toolbar"></div>
   <div id="list"></div>
   <div id="status"></div>
+  <style id="pageStyle">@media print { @page { size: A4; margin: 12mm; } }</style>
 
   <script>
     // ============================================
@@ -250,6 +254,22 @@
         '<button class="primary" onclick="window.print()">印刷する</button>';
       $('list').innerHTML = '';
       if (!res.koushu.length) { $('list').innerHTML = '<div class="empty">工種フォルダがまだないよ</div>'; setStatus(''); return; }
+      const opts = document.createElement('div');
+      opts.className = 'qr-opts';
+      opts.innerHTML =
+        '<select id="paperSel" onchange="applyQrOpts()">' +
+          '<option value="A4">用紙 A4</option><option value="A3">用紙 A3</option>' +
+          '<option value="A4 landscape">A4 横</option><option value="A3 landscape">A3 横</option>' +
+        '</select>' +
+        '<select id="colsSel" onchange="applyQrOpts()">' +
+          '<option value="2">2列</option><option value="3">3列</option><option value="4">4列</option><option value="5">5列</option>' +
+        '</select>';
+      $('list').appendChild(opts);
+      try {
+        const p = localStorage.getItem('zumen_paper'), c = localStorage.getItem('zumen_cols');
+        if (p) $('paperSel').value = p;
+        if (c) $('colsSel').value = c;
+      } catch (e) {}
       loadQrLib().then(() => {
         const head = document.createElement('div');
         head.className = 'qr-head';
@@ -272,9 +292,27 @@
           });
         });
         $('list').appendChild(grid);
+        applyQrOpts();
         setStatus('');
       }).catch(err => setStatus('エラー: ' + err, true));
     }
+
+    // 用紙・列数の切り替え(選んだ内容はスマホに覚えておく)
+    function applyQrOpts() {
+      const paper = $('paperSel') ? $('paperSel').value : (localStorage.getItem('zumen_paper') || 'A4');
+      const cols  = $('colsSel')  ? $('colsSel').value  : (localStorage.getItem('zumen_cols')  || '2');
+      $('pageStyle').textContent = '@media print { @page { size: ' + paper + '; margin: 12mm; } }';
+      document.documentElement.style.setProperty('--cols', cols);
+      try { localStorage.setItem('zumen_paper', paper); localStorage.setItem('zumen_cols', cols); } catch (e) {}
+    }
+    // 前回の選択を復元
+    (function () {
+      const p = localStorage.getItem('zumen_paper'), c = localStorage.getItem('zumen_cols');
+      document.addEventListener('DOMContentLoaded', () => {
+        if ($('paperSel') && p) $('paperSel').value = p;
+        if ($('colsSel') && c) $('colsSel').value = c;
+      });
+    })();
 
     // ============================================
     // 起動
