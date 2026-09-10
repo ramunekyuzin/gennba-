@@ -26,7 +26,6 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 13px; font-weight: bold; color: #fff;
     }
-    .icon.genba { background: #2d7d46; }
     .icon.folder { background: #1e5aa8; }
     .icon.pdf { background: #c0392b; }
     .name { font-size: 16px; font-weight: bold; word-break: break-all; }
@@ -52,7 +51,6 @@
     }
     .qr-card .qr { display: flex; justify-content: center; margin-bottom: 12px; }
     .qr-card .qr img, .qr-card .qr canvas { width: 180px; height: 180px; }
-    .qr-card .genba { font-size: 13px; color: #555; }
     .qr-card .title { font-size: 22px; font-weight: bold; }
     .qr-card .hint { font-size: 12px; color: #666; margin-top: 6px; }
     .qr-card .url { font-size: 9px; color: #999; margin-top: 6px; word-break: break-all; }
@@ -82,9 +80,8 @@
     // QRに埋め込む自分自身のURL(GitHub Pages上のこのファイル)
     const SELF_URL = location.origin + location.pathname;
 
-    // URL: なし=現場一覧 / ?g=現場ID=工種一覧 / ?k=工種ID=PDF一覧 / ?qr&g=現場ID=QRシート
+    // URL: なし=工種一覧 / ?k=工種ID=PDF一覧 / ?qr=QRシート
     const params = new URLSearchParams(location.search);
-    const genbaId = params.get('g');
     const folderId = params.get('k');
     const qrMode = params.has('qr');
     const $ = id => document.getElementById(id);
@@ -95,15 +92,16 @@
       el.className = ng ? 'ng' : '';
     }
 
+    // GET方式(ブラウザで直接開いて動作確認できるのと同じ経路)
     function api(req) {
-      if (!GAS_URL) return Promise.reject('GAS_URL が未設定');
-      return fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(req),
-      })
-      .then(r => r.json())
-      .then(res => { if (!res.ok) throw res.error; return res.result; });
+      const q = Object.keys(req).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(req[k])).join('&');
+      return fetch(GAS_URL + '?' + q)
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok) throw res.error;
+          if (!res.result) throw 'GASから結果が返ってこなかった(デプロイが古い可能性)';
+          return res.result;
+        });
     }
 
     function esc(s) {
@@ -119,47 +117,22 @@
     function linkTo(q) { return SELF_URL + (q ? '?' + q : ''); }
 
     // ============================================
-    // 画面1: 現場一覧(パラメータ無し)
-    // ============================================
-    function showGenba(nocache) {
-      $('title').textContent = '図面・書類';
-      $('toolbar').innerHTML = '<button onclick="showGenba(true)">更新</button>';
-      $('list').innerHTML = '';
-      setStatus('読み込み中...');
-      api({ action: 'genba', nocache: !!nocache }).then(res => {
-        $('subtitle').textContent = '現場を選んでください';
-        if (!res.genba.length) { $('list').innerHTML = '<div class="empty">現場フォルダがまだないよ</div>'; setStatus(''); return; }
-        $('list').innerHTML = res.genba.map(g =>
-          '<a class="card" href="' + linkTo('g=' + encodeURIComponent(g.id)) + '">' +
-            '<div class="icon genba">現場</div>' +
-            '<div><div class="name">' + esc(g.name) + '</div>' +
-            '<div class="meta">工種 ' + g.koushuCount + ' 件</div></div>' +
-            '<div class="chev">›</div>' +
-          '</a>').join('');
-        setStatus('');
-      }).catch(err => setStatus('エラー: ' + err, true));
-    }
-
-    // ============================================
-    // 画面2: 工種一覧(?g=現場ID)
+    // 画面1: 工種一覧(QR無しで開いたとき)
     // ============================================
     function showKoushu(nocache) {
+      $('title').textContent = '図面・書類';
       $('toolbar').innerHTML =
-        '<a href="' + linkTo('') + '">他の現場</a>' +
         '<button onclick="showKoushu(true)">更新</button>' +
-        '<a href="' + linkTo('qr&g=' + encodeURIComponent(genbaId)) + '">QRシート</a>';
+        '<a href="' + linkTo('qr') + '">QRシート</a>';
       $('list').innerHTML = '';
       setStatus('読み込み中...');
-      api({ action: 'koushu', genbaId: genbaId, nocache: !!nocache }).then(res => {
-        $('title').textContent = res.genbaName;
-        $('subtitle').textContent = '工種を選んでください';
-        document.title = res.genbaName + ' - 図面・書類';
+      api({ action: 'koushu', nocache: nocache ? 1 : 0 }).then(res => {
+        $('subtitle').textContent = res.rootName || '';
         if (!res.koushu.length) { $('list').innerHTML = '<div class="empty">工種フォルダがまだないよ</div>'; setStatus(''); return; }
         $('list').innerHTML = res.koushu.map(k =>
           '<a class="card" href="' + linkTo('k=' + encodeURIComponent(k.id)) + '">' +
             '<div class="icon folder">工種</div>' +
-            '<div><div class="name">' + esc(k.name) + '</div>' +
-            '<div class="meta">PDF ' + k.count + ' 件</div></div>' +
+            '<div><div class="name">' + esc(k.name) + '</div></div>' +
             '<div class="chev">›</div>' +
           '</a>').join('');
         setStatus('');
@@ -167,21 +140,22 @@
     }
 
     // ============================================
-    // 画面3: PDF一覧(?k=工種ID / QRを読むとここ)
+    // 画面2: 工種内のPDF一覧(QRを読むとここ)
     // ============================================
     function showFiles(nocache) {
-      $('toolbar').innerHTML = '<button onclick="showFiles(true)">更新</button>';
+      $('toolbar').innerHTML =
+        '<a href="' + linkTo('') + '">他の工種</a>' +
+        '<button onclick="showFiles(true)">更新</button>';
       $('list').innerHTML = '';
       setStatus('読み込み中...');
-      api({ action: 'files', folderId: folderId, nocache: !!nocache }).then(res => {
+      api({ action: 'files', folderId: folderId, nocache: nocache ? 1 : 0 }).then(res => {
         $('title').textContent = res.koushuName;
-        $('subtitle').textContent = res.genbaName + ' ・ タップするとPDFが開きます';
-        document.title = res.koushuName + ' - ' + res.genbaName;
-        $('toolbar').innerHTML =
-          '<a href="' + linkTo('g=' + encodeURIComponent(res.genbaId)) + '">他の工種</a>' +
-          '<button onclick="showFiles(true)">更新</button>';
+        $('subtitle').textContent = 'タップするとPDFが開きます';
+        document.title = res.koushuName + ' - 図面・書類';
         if (!res.files.length) { $('list').innerHTML = '<div class="empty">まだPDFがありません</div>'; setStatus(''); return; }
-        $('list').innerHTML = res.files.map(f =>
+        // サブフォルダで分けずに、全部まとめて名前順
+        const files = res.files.slice().sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+        $('list').innerHTML = files.map(f =>
           '<a class="card" href="https://drive.google.com/file/d/' + encodeURIComponent(f.id) + '/view" target="_blank" rel="noopener">' +
             '<div class="icon pdf">PDF</div>' +
             '<div><div class="name">' + esc(f.name) + '</div>' +
@@ -193,21 +167,21 @@
     }
 
     // ============================================
-    // 画面4: QRシート(?qr&g=現場ID / 印刷用・工種ごとに1枚)
+    // 画面3: QRシート(印刷用・工種ごとに1枚)
     // ============================================
     function showQr() {
       $('title').textContent = 'QRシート';
       $('subtitle').textContent = '工種ごとのQR。印刷して現場に貼る。PDFを追加してもQRはそのまま使える';
       $('toolbar').innerHTML =
-        '<a href="' + linkTo('g=' + encodeURIComponent(genbaId)) + '">戻る</a>' +
+        '<a href="' + linkTo('') + '">一覧に戻る</a>' +
         '<button class="primary" onclick="window.print()">印刷する</button>';
       $('list').innerHTML = '';
       setStatus('読み込み中...');
-      api({ action: 'koushu', genbaId: genbaId, nocache: true }).then(res => {
+      api({ action: 'koushu', nocache: 1 }).then(res => {
         if (!res.koushu.length) { $('list').innerHTML = '<div class="empty">工種フォルダがまだないよ</div>'; setStatus(''); return; }
         const head = document.createElement('div');
         head.className = 'qr-head';
-        head.textContent = res.genbaName + ' 図面・書類QR';
+        head.textContent = (res.rootName || '') + ' 図面・書類QR';
         $('list').appendChild(head);
         const grid = document.createElement('div');
         grid.className = 'qr-grid';
@@ -217,7 +191,6 @@
           card.className = 'qr-card';
           card.innerHTML =
             '<div class="qr" id="qr' + i + '"></div>' +
-            '<div class="genba">' + esc(res.genbaName) + '</div>' +
             '<div class="title">' + esc(k.name) + '</div>' +
             '<div class="hint">スマホのカメラで読むと図面が見れます</div>' +
             '<div class="url">' + esc(url) + '</div>';
@@ -235,10 +208,9 @@
     // ============================================
     // 起動
     // ============================================
-    if (qrMode && genbaId) showQr();
+    if (qrMode) showQr();
     else if (folderId) showFiles();
-    else if (genbaId) showKoushu();
-    else showGenba();
+    else showKoushu();
   </script>
 </body>
 </html>
