@@ -184,7 +184,7 @@
                   ${r['名前'] && r['会社'] ? `<div class="company">${esc(r['会社'])}</div>` : ''}
                   ${r['備考'] ? `<div class="note">${esc(r['備考'])}</div>` : ''}
                 </div>
-                ${r['電話'] ? `<a class="tel" href="tel:${esc(r['電話'].replace(/[^0-9+#*]/g,''))}">${esc(r['電話'])}</a>` : ''}
+                ${r['電話'] ? `<a class="tel" href="tel:${esc(r['電話'].replace(/[^0-9+#*]/g,''))}">📞</a>` : ''}
               </div>`).join('')).join('')
         : '<div class="empty">見つかりません</div>';
     }
