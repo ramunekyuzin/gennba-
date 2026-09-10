@@ -23,11 +23,11 @@
   h1{font-size:22px;margin:0 0 4px}
   .lead{color:var(--sub);margin:0 0 20px;font-size:14px}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
-  .drop{border:2px dashed var(--line);background:var(--drop);border-radius:10px;padding:34px 16px;text-align:center;cursor:pointer;transition:border-color .15s}
+  .drop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:120px;border:2px dashed var(--line);background:var(--drop);border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;transition:border-color .15s}
   .drop.over{border-color:var(--accent)}
-  .drop input{display:none}
-  .drop strong{display:block;font-size:17px}
-  .drop span{color:var(--sub);font-size:14px}
+  .drop input{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+  .drop .t1{display:block;font-size:17px;font-weight:700;line-height:1.4}
+  .drop .t2{display:block;color:var(--sub);font-size:14px;line-height:1.4}
   .row{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end}
   label.f{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--sub);flex:1 1 180px}
   label.f input,label.f select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:44px}
@@ -38,8 +38,19 @@
   button:disabled{opacity:.45;cursor:default}
   .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
   h2{font-size:17px;margin:0 0 10px}
-  table{width:100%;border-collapse:collapse;font-size:15px}
-  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  table{width:100%;border-collapse:collapse;font-size:15px;table-layout:fixed}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  #daily th:first-child,#daily td:first-child{width:60%}
+  #daily th:last-child,#daily td:last-child{width:40%}
+  .hit-top td{border-bottom:none;padding-bottom:4px;white-space:nowrap}
+  .hit-top td.chk{width:44px}
+  .hit-top td.dt{width:150px}
+  .hit-top td.am{width:140px}
+  .hit-top td.sp{width:auto}
+  .hit-raw td{padding-top:0}
+  .hit-raw .raw{white-space:normal}
+  input.cell{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-height:40px;width:100%}
+  input.cell.amt{text-align:right}
   th{color:var(--sub);font-weight:600;font-size:13px}
   td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   tr.total td{font-weight:700;border-top:2px solid var(--ink);border-bottom:none}
@@ -60,11 +71,11 @@
   <p class="lead">請求書PDFを入れると、品名に指定ワードを含む行から日付と金額を拾って、日別と月合計を出します。処理はこのブラウザの中だけで行われ、ファイルはどこにも送信されません。</p>
 
   <div class="panel">
-    <label class="drop" id="drop">
+    <div class="drop" id="drop" role="button" tabindex="0">
       <input type="file" id="files" accept="application/pdf,.pdf" multiple>
-      <strong>PDFをここにドロップ、またはタップして選択</strong>
-      <span>複数ファイルまとめてOK（文字が選択できるPDFのみ）</span>
-    </label>
+      <span class="t1">PDFをここにドロップ、またはクリックして選択</span>
+      <span class="t2">複数ファイルまとめてOK（文字が選択できるPDFのみ）</span>
+    </div>
 
     <div class="row" style="margin-top:14px">
       <label class="f">拾うワード（カンマ区切り）
@@ -198,16 +209,17 @@ function renderHits(){
   const t = $("hits");
   if(!hits.length){ t.innerHTML = `<tr><td class="empty">指定ワードを含む行が見つかりませんでした。ワードを変えるか、PDFが文字選択できるか確認してください。</td></tr>`; return; }
   const kws = keywords();
-  let html = `<tr><th></th><th>日付</th><th class="n">金額</th><th>行の内容</th></tr>`;
+  let html = "";
   hits.forEach((h,i)=>{
     let esc = h.line.replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
     for(const k of kws) esc = esc.split(k).join(`<mark>${k}</mark>`);
-    html += `<tr>
-      <td><input type="checkbox" data-i="${i}" class="use" ${h.use?"checked":""} style="width:20px;height:20px"></td>
-      <td><input type="text" data-i="${i}" class="date" value="${h.date}" style="width:120px;font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px"></td>
-      <td class="n"><input type="text" data-i="${i}" class="amt" value="${h.amount??""}" inputmode="numeric" style="width:110px;text-align:right;font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px"></td>
-      <td class="raw"><div class="file">${h.file} p.${h.page}</div>${esc}</td>
-    </tr>`;
+    html += `<tr class="hit-top">
+      <td class="chk"><input type="checkbox" data-i="${i}" class="use" ${h.use?"checked":""} style="width:20px;height:20px"></td>
+      <td class="dt"><input type="text" data-i="${i}" class="cell date" value="${h.date}" placeholder="日付"></td>
+      <td class="am"><input type="text" data-i="${i}" class="cell amt" value="${h.amount??""}" inputmode="numeric" placeholder="金額"></td>
+      <td class="sp file">${h.file} p.${h.page}</td>
+    </tr>
+    <tr class="hit-raw"><td colspan="4" class="raw">${esc}</td></tr>`;
   });
   t.innerHTML = html;
   t.querySelectorAll(".use").forEach(el=>el.onchange=e=>{hits[+e.target.dataset.i].use=e.target.checked; renderDaily();});
@@ -298,6 +310,8 @@ const drop = $("drop");
 ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
 ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
 drop.addEventListener("drop", e => setFiles(e.dataTransfer.files));
+drop.addEventListener("click", () => $("files").click());
+drop.addEventListener("keydown", e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); $("files").click(); } });
 
 $("run").onclick = async () => {
   const opt = {
