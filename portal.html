@@ -68,7 +68,7 @@
 
     <section id="sec-contact" class="sec">
       <div class="card">
-        <input id="q" placeholder="名前・会社・役割で検索" oninput="renderContacts()">
+        <input id="q" placeholder="名前・役割で検索" oninput="renderContacts()">
         <div id="contacts"></div>
       </div>
     </section>
@@ -164,11 +164,10 @@
     function renderContacts() {
       const q = (document.getElementById('q').value || '').trim().toLowerCase();
       let list = DATA['連絡先'] || [];
-      if (q) list = list.filter(r => ['区分','役割','会社','名前','備考'].some(k => (r[k] || '').toLowerCase().includes(q)));
-      // 緊急を先頭に、あとは区分ごとにまとめる
-      list = list.slice().sort((a, b) => (b['緊急'] ? 1 : 0) - (a['緊急'] ? 1 : 0));
+      if (q) list = list.filter(r => ['役割','会社','名前','備考'].some(k => (r[k] || '').toLowerCase().includes(q)));
+      // 緊急を先頭、あとは職員
       const groups = {};
-      list.forEach(r => { const g = r['緊急'] ? '🚨 緊急' : (r['区分'] || 'その他'); (groups[g] = groups[g] || []).push(r); });
+      list.forEach(r => { const g = r['緊急'] ? '🚨 緊急' : '職員'; (groups[g] = groups[g] || []).push(r); });
       document.getElementById('contacts').innerHTML = Object.keys(groups).length
         ? Object.keys(groups).map(g => `<h2 style="font-size:14px;color:#1e5aa8;margin:12px 0 4px">${esc(g)}</h2>` +
             groups[g].map(r => `
