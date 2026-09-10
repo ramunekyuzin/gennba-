@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>砕石費用 抜き出し</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f3ee; --panel:#ffffff; --ink:#1f1d1a; --sub:#6b665e; --line:#d9d4ca;
+    --accent:#2f5d50; --accent-ink:#ffffff; --drop:#e9e5dc; --hit:#fff4c2; --bad:#b3261e;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#181a1b; --panel:#22252a; --ink:#ececec; --sub:#a4a8ad; --line:#3a3e44;
+      --accent:#6fb59f; --accent-ink:#0f1a16; --drop:#2a2e33; --hit:#3d3a1f; --bad:#ff8a80;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif}
+  main{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;margin:0 0 4px}
+  .lead{color:var(--sub);margin:0 0 20px;font-size:14px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  .drop{border:2px dashed var(--line);background:var(--drop);border-radius:10px;padding:34px 16px;text-align:center;cursor:pointer;transition:border-color .15s}
+  .drop.over{border-color:var(--accent)}
+  .drop input{display:none}
+  .drop strong{display:block;font-size:17px}
+  .drop span{color:var(--sub);font-size:14px}
+  .row{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--sub);flex:1 1 180px}
+  label.f input,label.f select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:44px}
+  label.c{display:flex;align-items:center;gap:8px;font-size:15px;min-height:44px}
+  label.c input{width:20px;height:20px}
+  button{font:inherit;font-size:16px;min-height:44px;padding:10px 18px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+  button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  button:disabled{opacity:.45;cursor:default}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  h2{font-size:17px;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--sub);font-weight:600;font-size:13px}
+  td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  tr.total td{font-weight:700;border-top:2px solid var(--ink);border-bottom:none}
+  tr.month td{background:var(--drop);font-weight:700}
+  .raw{font-size:13px;color:var(--sub);word-break:break-all}
+  .raw mark{background:var(--hit);color:var(--ink);padding:0 2px}
+  .status{font-size:14px;color:var(--sub);margin-top:10px;min-height:1.4em}
+  .status.err{color:var(--bad)}
+  .file{font-size:13px;color:var(--sub)}
+  .empty{color:var(--sub);font-size:15px;text-align:center;padding:20px 0}
+  .wrap{overflow-x:auto}
+  @media (max-width:600px){ th,td{padding:8px 6px;font-size:14px} }
+</style>
+</head>
+<body>
+<main>
+  <h1>砕石費用 抜き出し</h1>
+  <p class="lead">請求書PDFを入れると、品名に指定ワードを含む行から日付と金額を拾って、日別と月合計を出します。処理はこのブラウザの中だけで行われ、ファイルはどこにも送信されません。</p>
+
+  <div class="panel">
+    <label class="drop" id="drop">
+      <input type="file" id="files" accept="application/pdf,.pdf" multiple>
+      <strong>PDFをここにドロップ、またはタップして選択</strong>
+      <span>複数ファイルまとめてOK（文字が選択できるPDFのみ）</span>
+    </label>
+
+    <div class="row" style="margin-top:14px">
+      <label class="f">拾うワード（カンマ区切り）
+        <input id="kw" value="砕石" placeholder="砕石, RC-40, C-40">
+      </label>
+      <label class="f">年が書かれていないときの年
+        <input id="year" type="number" value="2026" min="2000" max="2100">
+      </label>
+      <label class="f">金額の取り方
+        <select id="amtMode">
+          <option value="right">行の一番右の数字（金額欄）</option>
+          <option value="max">行の中で一番大きい数字</option>
+        </select>
+      </label>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <label class="c"><input type="checkbox" id="carry" checked> 日付がない行は、直前に出てきた日付を使う</label>
+      <label class="c"><input type="checkbox" id="skipSum" checked> 「合計」「小計」を含む行は除外</label>
+    </div>
+    <div class="actions">
+      <button class="pri" id="run" disabled>抜き出す</button>
+      <button id="csv" disabled>CSVをダウンロード</button>
+      <button id="clear" disabled>クリア</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel" id="resultPanel" hidden>
+    <h2>日別・月合計</h2>
+    <div class="wrap"><table id="daily"></table></div>
+  </div>
+
+  <div class="panel" id="hitPanel" hidden>
+    <h2>拾った行（確認用）</h2>
+    <p class="lead" style="margin-bottom:8px">チェックを外した行は集計から除きます。金額の読み違いがあれば数字を直せます。</p>
+    <div class="wrap"><table id="hits"></table></div>
+  </div>
+</main>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const $ = id => document.getElementById(id);
+let loadedFiles = [];   // File[]
+let hits = [];          // {id,file,page,date,amount,line,use}
+
+// ---------- PDF → 行テキスト ----------
+async function pdfToLines(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  const pages = [];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    // y座標でまとめて行にする
+    const rows = [];
+    for(const it of tc.items){
+      if(!it.str || !it.str.trim()) continue;
+      const x = it.transform[4], y = it.transform[5];
+      let row = rows.find(r => Math.abs(r.y - y) < 3);
+      if(!row){ row = {y, items:[]}; rows.push(row); }
+      row.items.push({x, s:it.str});
+    }
+    rows.sort((a,b)=>b.y-a.y);
+    const lines = rows.map(r => r.items.sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").replace(/\s+/g," ").trim());
+    pages.push(lines);
+  }
+  return pages;
+}
+
+// ---------- 解析ロジック ----------
+const DATE_RE = /(?:(\d{4})[\/\-年.](\d{1,2})[\/\-月.](\d{1,2})日?)|(?:(?:令和|R|Ｒ)\s?(\d{1,2})[年.\/\-](\d{1,2})[月.\/\-](\d{1,2})日?)|(?:(?<![\d,])(\d{1,2})[\/月](\d{1,2})日?(?![\d,\/]))/g;
+
+function findDates(line, defaultYear){
+  const out = [];
+  for(const m of line.matchAll(DATE_RE)){
+    let y,mo,d;
+    if(m[1]){ y=+m[1]; mo=+m[2]; d=+m[3]; }
+    else if(m[4]){ y=2018 + (+m[4]); mo=+m[5]; d=+m[6]; }
+    else { y=defaultYear; mo=+m[7]; d=+m[8]; }
+    if(mo<1||mo>12||d<1||d>31) continue;
+    out.push({y,mo,d,text:m[0],index:m.index});
+  }
+  return out;
+}
+
+function fmtDate(o){ return `${o.y}/${String(o.mo).padStart(2,"0")}/${String(o.d).padStart(2,"0")}`; }
+
+function findAmount(line, dates, mode){
+  let s = line;
+  for(const d of dates) s = s.replace(d.text, " ".repeat(d.text.length));
+  const cands = [];
+  for(const m of s.matchAll(/(?<![\d.])(\d{1,3}(?:,\d{3})+|\d+)(?![\d,])/g)){
+    const raw = m[1];
+    const v = parseInt(raw.replace(/,/g,""),10);
+    if(!Number.isFinite(v)) continue;
+    // 数量っぽいもの(小数の前後)は除外
+    const after = s.slice(m.index+raw.length, m.index+raw.length+2);
+    if(after.startsWith(".")) continue;
+    const before = s.slice(Math.max(0,m.index-1), m.index);
+    if(before===".") continue;
+    cands.push({v,idx:m.index,raw});
+  }
+  if(!cands.length) return null;
+  if(mode==="max") return cands.reduce((a,b)=>b.v>a.v?b:a).v;
+  return cands[cands.length-1].v;
+}
+
+function extract(pages, fileName, opt){
+  const res = [];
+  let lastDate = null;
+  const kws = opt.keywords;
+  for(let p=0;p<pages.length;p++){
+    for(const line of pages[p]){
+      const dates = findDates(line, opt.year);
+      if(dates.length) lastDate = dates[0];
+      if(!kws.some(k => line.includes(k))) continue;
+      if(opt.skipSum && /合計|小計|税/.test(line)) continue;
+      const date = dates.length ? dates[0] : (opt.carry ? lastDate : null);
+      const amount = findAmount(line, dates, opt.amtMode);
+      res.push({file:fileName, page:p+1, date: date?fmtDate(date):"", amount, line, use:true});
+    }
+  }
+  return res;
+}
+
+// ---------- 表示 ----------
+function yen(n){ return n==null ? "" : n.toLocaleString("ja-JP"); }
+
+function renderHits(){
+  const t = $("hits");
+  if(!hits.length){ t.innerHTML = `<tr><td class="empty">指定ワードを含む行が見つかりませんでした。ワードを変えるか、PDFが文字選択できるか確認してください。</td></tr>`; return; }
+  const kws = keywords();
+  let html = `<tr><th></th><th>日付</th><th class="n">金額</th><th>行の内容</th></tr>`;
+  hits.forEach((h,i)=>{
+    let esc = h.line.replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+    for(const k of kws) esc = esc.split(k).join(`<mark>${k}</mark>`);
+    html += `<tr>
+      <td><input type="checkbox" data-i="${i}" class="use" ${h.use?"checked":""} style="width:20px;height:20px"></td>
+      <td><input type="text" data-i="${i}" class="date" value="${h.date}" style="width:120px;font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px"></td>
+      <td class="n"><input type="text" data-i="${i}" class="amt" value="${h.amount??""}" inputmode="numeric" style="width:110px;text-align:right;font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px"></td>
+      <td class="raw"><div class="file">${h.file} p.${h.page}</div>${esc}</td>
+    </tr>`;
+  });
+  t.innerHTML = html;
+  t.querySelectorAll(".use").forEach(el=>el.onchange=e=>{hits[+e.target.dataset.i].use=e.target.checked; renderDaily();});
+  t.querySelectorAll(".date").forEach(el=>el.onchange=e=>{hits[+e.target.dataset.i].date=e.target.value.trim(); renderDaily();});
+  t.querySelectorAll(".amt").forEach(el=>el.onchange=e=>{
+    const v = parseInt(e.target.value.replace(/[^\d]/g,""),10);
+    hits[+e.target.dataset.i].amount = Number.isFinite(v)?v:null; renderDaily();
+  });
+}
+
+function aggregate(){
+  const byDay = new Map();
+  for(const h of hits){
+    if(!h.use || h.amount==null) continue;
+    const key = h.date || "日付不明";
+    byDay.set(key, (byDay.get(key)||0)+h.amount);
+  }
+  const days = [...byDay.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  const months = new Map();
+  for(const [d,v] of days){
+    const mk = d==="日付不明" ? "日付不明" : d.slice(0,7);
+    months.set(mk,(months.get(mk)||0)+v);
+  }
+  return {days, months};
+}
+
+function renderDaily(){
+  const {days, months} = aggregate();
+  const t = $("daily");
+  if(!days.length){ t.innerHTML = `<tr><td class="empty">集計対象がありません。</td></tr>`; return; }
+  let html = `<tr><th>日付</th><th class="n">砕石費用（円）</th></tr>`;
+  let curM = null, grand = 0;
+  for(const [d,v] of days){
+    const mk = d==="日付不明" ? "日付不明" : d.slice(0,7);
+    if(curM!==null && mk!==curM) html += monthRow(curM, months.get(curM));
+    curM = mk;
+    html += `<tr><td>${d}</td><td class="n">${yen(v)}</td></tr>`;
+    grand += v;
+  }
+  html += monthRow(curM, months.get(curM));
+  if(months.size>1) html += `<tr class="total"><td>総合計</td><td class="n">${yen(grand)}</td></tr>`;
+  t.innerHTML = html;
+}
+function monthRow(mk, v){
+  const label = mk==="日付不明" ? "日付不明 合計" : `${+mk.slice(0,4)}年${+mk.slice(5,7)}月 合計`;
+  return `<tr class="month"><td>${label}</td><td class="n">${yen(v)}</td></tr>`;
+}
+
+// ---------- CSV ----------
+function downloadCSV(){
+  const {days, months} = aggregate();
+  const rows = [["日付","砕石費用"]];
+  let curM = null;
+  for(const [d,v] of days){
+    const mk = d==="日付不明" ? "日付不明" : d.slice(0,7);
+    if(curM!==null && mk!==curM) rows.push([mLabel(curM), months.get(curM)]);
+    curM = mk;
+    rows.push([d,v]);
+  }
+  if(curM!==null) rows.push([mLabel(curM), months.get(curM)]);
+  rows.push([]);
+  rows.push(["--- 拾った行（確認用） ---"]);
+  rows.push(["使用","日付","金額","ファイル","ページ","行の内容"]);
+  for(const h of hits) rows.push([h.use?"○":"", h.date, h.amount??"", h.file, h.page, h.line]);
+  const csv = rows.map(r=>r.map(c=>`"${String(c??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `砕石費用_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function mLabel(mk){ return mk==="日付不明" ? "日付不明 合計" : `${+mk.slice(0,4)}年${+mk.slice(5,7)}月 合計`; }
+
+// ---------- イベント ----------
+function keywords(){ return $("kw").value.split(/[,、，]/).map(s=>s.trim()).filter(Boolean); }
+function setStatus(msg, err){ const s=$("status"); s.textContent=msg; s.classList.toggle("err",!!err); }
+
+function setFiles(list){
+  loadedFiles = [...list].filter(f=>/\.pdf$/i.test(f.name) || f.type==="application/pdf");
+  $("run").disabled = !loadedFiles.length;
+  $("clear").disabled = !loadedFiles.length;
+  setStatus(loadedFiles.length ? `${loadedFiles.length}件のPDFを読み込み待ち：${loadedFiles.map(f=>f.name).join("、")}` : "PDFファイルが選ばれていません", !loadedFiles.length);
+}
+
+$("files").onchange = e => setFiles(e.target.files);
+const drop = $("drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop", e => setFiles(e.dataTransfer.files));
+
+$("run").onclick = async () => {
+  const opt = {
+    keywords: keywords(),
+    year: parseInt($("year").value,10) || new Date().getFullYear(),
+    amtMode: $("amtMode").value,
+    carry: $("carry").checked,
+    skipSum: $("skipSum").checked,
+  };
+  if(!opt.keywords.length){ setStatus("拾うワードを1つ以上入れてください", true); return; }
+  hits = [];
+  $("run").disabled = true;
+  let noText = [];
+  for(let i=0;i<loadedFiles.length;i++){
+    const f = loadedFiles[i];
+    setStatus(`読み取り中 ${i+1}/${loadedFiles.length}：${f.name}`);
+    try{
+      const pages = await pdfToLines(f);
+      if(pages.every(p=>p.length===0)) noText.push(f.name);
+      hits.push(...extract(pages, f.name, opt));
+    }catch(err){
+      console.error(err);
+      noText.push(`${f.name}（開けませんでした）`);
+    }
+  }
+  hits.forEach((h,i)=>h.id=i);
+  renderHits(); renderDaily();
+  $("resultPanel").hidden = false;
+  $("hitPanel").hidden = false;
+  $("csv").disabled = !hits.length;
+  $("run").disabled = false;
+  let msg = `完了：${hits.length}行を拾いました`;
+  if(noText.length) msg += `　／　文字を読み取れなかったPDF：${noText.join("、")}（スキャン画像の可能性あり）`;
+  setStatus(msg, noText.length>0);
+};
+
+$("csv").onclick = downloadCSV;
+
+$("clear").onclick = () => {
+  loadedFiles = []; hits = [];
+  $("files").value = "";
+  $("resultPanel").hidden = true; $("hitPanel").hidden = true;
+  $("run").disabled = true; $("csv").disabled = true; $("clear").disabled = true;
+  setStatus("");
+};
+</script>
+</body>
+</html>
