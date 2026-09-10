@@ -56,14 +56,9 @@
     <section id="sec-contact" class="sec">
       <div class="card">
         <h2>連絡先を登録</h2>
-        <div class="row2">
-          <select id="c_kubun">
-            <option>元請</option><option>協力業者</option><option>発注者</option><option>設計</option><option>緊急</option><option>その他</option>
-          </select>
-          <input id="c_role" placeholder="役割(例: 所長・電気)">
-        </div>
-        <input id="c_company" placeholder="会社名">
         <input id="c_name" placeholder="名前">
+        <input id="c_role" placeholder="役割(例: 所長・主任・事務)">
+        <input id="c_company" placeholder="会社名(任意)">
         <input id="c_tel" type="tel" placeholder="電話番号">
         <input id="c_note" placeholder="備考(任意)">
         <label class="chk"><input type="checkbox" id="c_kinkyu"> 緊急連絡先として上に出す</label>
@@ -192,7 +187,7 @@
       if (!v('c_tel')) { setMsg('c_msg', '電話番号を入れてね', false); return; }
       setMsg('c_msg', '送信中...', true);
       post('addContact', {
-        '区分': v('c_kubun'), '役割': v('c_role'), '会社': v('c_company'), '名前': v('c_name'),
+        '区分': '職員', '役割': v('c_role'), '会社': v('c_company'), '名前': v('c_name'),
         '電話': v('c_tel'), '備考': v('c_note'), '緊急': document.getElementById('c_kinkyu').checked ? '○' : '',
       }).then(res => {
         if (!res.ok) { setMsg('c_msg', 'エラー: ' + res.error, false); return; }
