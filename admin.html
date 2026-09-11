@@ -31,10 +31,32 @@
     nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; border-top: 1px solid #ddd; }
     nav.tabs button { background: none; color: #666; font-size: 12px; padding: 10px 0 12px; border-radius: 0; font-weight: normal; }
     nav.tabs button .ic { display: block; font-size: 20px; margin-bottom: 2px; }
+    nav.tabs button { font-size: 11px; }
     nav.tabs button.on { color: #1e5aa8; font-weight: bold; }
     .sec { display: none; } .sec.on { display: block; }
     #status { text-align: center; color: #888; font-size: 13px; padding: 20px; }
     a.back { display: block; text-align: center; color: #1e5aa8; font-size: 14px; margin: 8px 0 16px; }
+    #poster { background: #fff; border: 2px solid #1e5aa8; border-radius: 12px; padding: 20px 16px; text-align: center; }
+    #poster .p-title { font-size: 22px; font-weight: bold; color: #1e5aa8; }
+    #poster .p-site { font-size: 15px; color: #444; margin-top: 4px; }
+    #poster .p-qr { display: flex; justify-content: center; margin: 16px 0; }
+    #poster .p-qr img, #poster .p-qr canvas { width: 220px !important; height: 220px !important; }
+    #poster .p-desc { font-size: 15px; line-height: 1.7; white-space: pre-wrap; text-align: left; display: inline-block; }
+    #poster .p-dest { margin-top: 12px; font-size: 13px; color: #666; }
+    #poster .p-url { font-size: 11px; color: #999; word-break: break-all; margin-top: 8px; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      header, nav.tabs, .card:not(#posterCard), a.back, #posterCard > :not(#poster) { display: none !important; }
+      main { max-width: none; padding: 0; }
+      #posterCard { box-shadow: none; padding: 0; }
+      #poster { border-width: 3px; padding: 40px 30px; }
+      #poster .p-title { font-size: 34px; }
+      #poster .p-site { font-size: 22px; }
+      #poster .p-qr img, #poster .p-qr canvas { width: 360px !important; height: 360px !important; }
+      #poster .p-desc { font-size: 22px; }
+      #poster .p-dest { font-size: 18px; }
+      #poster .p-url { font-size: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -87,6 +109,7 @@
     <section id="sec-info" class="sec">
       <div class="card">
         <h2>現場情報を編集</h2>
+        <div class="s" style="font-size:12px;color:#888;margin-bottom:8px">内容を空にして保存するとその項目は消えます</div>
         <div id="info_form"></div>
         <input id="i_newkey" placeholder="項目を追加(例: 搬入口)">
         <input id="i_newval" placeholder="内容">
@@ -116,6 +139,37 @@
       </div>
     </section>
 
+    <section id="sec-qr" class="sec">
+      <div class="card">
+        <h2>QRコードを作る</h2>
+        <label style="font-size:13px;color:#666">飛び先の画面</label>
+        <select id="q_dest" onchange="renderQr()">
+          <option value="portal">現場ポータル(職人・職員向け: 連絡先・お知らせ・資料)</option>
+          <option value="admin">管理画面(自分用)</option>
+        </select>
+        <label style="font-size:13px;color:#666">見出し</label>
+        <input id="q_title" value="現場ポータル" oninput="renderQr()">
+        <label style="font-size:13px;color:#666">説明文(掲示物に印刷される)</label>
+        <textarea id="q_desc" rows="4" oninput="renderQr()">スマホのカメラでこのQRを読み取ってください。
+・担当者への連絡(名前タップで電話)
+・お知らせ・現場ルール
+・図面などの資料(PDF)
+が見られます。</textarea>
+        <button onclick="window.print()">🖨 印刷する</button>
+      </div>
+      <div class="card" id="posterCard">
+        <h2>プレビュー(掲示物)</h2>
+        <div id="poster">
+          <div class="p-title" id="p_title">現場ポータル</div>
+          <div class="p-site" id="p_site"></div>
+          <div class="p-qr" id="p_qr"></div>
+          <div class="p-desc" id="p_desc"></div>
+          <div class="p-dest" id="p_dest"></div>
+          <div class="p-url" id="p_url"></div>
+        </div>
+      </div>
+    </section>
+
     <a class="back" href="portal.html">← ポータルを見る</a>
   </main>
 
@@ -124,7 +178,10 @@
     <button onclick="showTab('news')"><span class="ic">📣</span>お知らせ</button>
     <button onclick="showTab('info')"><span class="ic">🏗</span>現場情報</button>
     <button onclick="showTab('docs')"><span class="ic">📄</span>資料</button>
+    <button onclick="showTab('qr')"><span class="ic">🔳</span>QR</button>
   </nav>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx-UTuS9k4NNP_bzp_fSF6yEEZe08PSAk9byDCaptjsGry3Fq55jl8xbL3gf8Odyx3IEA/exec';
@@ -136,8 +193,9 @@
     function adminPin() { return localStorage.getItem('portal_admin') || ''; }
 
     function showTab(name) {
+      if (name === 'qr') renderQr();
       document.querySelectorAll('.sec').forEach(s => s.classList.toggle('on', s.id === 'sec-' + name));
-      document.querySelectorAll('nav.tabs button').forEach((b, i) => b.classList.toggle('on', ['contact','news','info','docs'][i] === name));
+      document.querySelectorAll('nav.tabs button').forEach((b, i) => b.classList.toggle('on', ['contact','news','info','docs','qr'][i] === name));
       window.scrollTo(0, 0);
     }
 
@@ -201,6 +259,32 @@
         <div class="item"><div class="t"><a href="${esc(r['URL'])}" target="_blank" rel="noopener">📄 ${esc(r['名前'])}</a><br><span class="s">${esc(r['日付'])}</span></div><button onclick="delPdf(${r._row})">削除</button></div>`).join('') : '<div class="s">まだありません</div>';
     }
 
+    // ============================================
+    // QR作成
+    // ============================================
+    function targetUrl(dest) {
+      const base = location.href.split('?')[0].split('#')[0];
+      return base.replace(/[^/]*$/, dest === 'admin' ? 'admin.html' : 'portal.html');
+    }
+
+    function renderQr() {
+      const dest = document.getElementById('q_dest').value;
+      const url = targetUrl(dest);
+      const info = (DATA && DATA['現場情報']) || [];
+      const siteName = ((info.find(r => r['項目'] === '現場名') || {})['内容']) || '';
+      document.getElementById('p_title').textContent = document.getElementById('q_title').value.trim() || '現場ポータル';
+      document.getElementById('p_site').textContent = siteName;
+      document.getElementById('p_desc').textContent = document.getElementById('q_desc').value;
+      document.getElementById('p_dest').textContent = dest === 'admin'
+        ? '▶ 読み取ると「管理画面」(登録・編集用)が開きます'
+        : '▶ 読み取ると「現場ポータル」(連絡先・お知らせ・資料)が開きます';
+      document.getElementById('p_url').textContent = url;
+      const box = document.getElementById('p_qr');
+      box.innerHTML = '';
+      if (typeof QRCode === 'undefined') { box.textContent = 'QRライブラリ読み込み中...'; return; }
+      new QRCode(box, { text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+    }
+
     function uploadPdf() {
       const f = document.getElementById('d_file').files[0];
       if (!f) { setMsg('d_msg', 'PDFを選んでね', false); return; }
@@ -259,9 +343,10 @@
     }
 
     function saveInfo() {
-      const items = [...document.querySelectorAll('.i_val')].map(el => ({ '項目': el.dataset.key, '内容': el.value.trim() }));
+      // 内容を空にした項目は削除扱い
+      const items = [...document.querySelectorAll('.i_val')].map(el => ({ '項目': el.dataset.key, '内容': el.value.trim() })).filter(x => x['内容']);
       const nk = document.getElementById('i_newkey').value.trim(), nv = document.getElementById('i_newval').value.trim();
-      if (nk) items.push({ '項目': nk, '内容': nv });
+      if (nk && nv) items.push({ '項目': nk, '内容': nv });
       setMsg('i_msg', '保存中...', true);
       post('setInfo', items).then(res => {
         if (!res.ok) { setMsg('i_msg', 'エラー: ' + res.error, false); return; }
