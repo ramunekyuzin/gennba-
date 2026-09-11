@@ -43,6 +43,24 @@
     #poster .p-qr img, #poster .p-qr canvas { width: 220px !important; height: 220px !important; }
     #poster .p-desc { font-size: 15px; line-height: 1.7; white-space: pre-wrap; text-align: left; display: inline-block; }
     #poster .p-dest { margin-top: 12px; font-size: 13px; color: #666; }
+    #poster .p-row { display: flex; justify-content: center; align-items: center; gap: 18px; margin: 16px 0; flex-wrap: wrap; }
+    #poster .p-arrow { font-size: 28px; color: #1e5aa8; }
+    .phone { width: 150px; background: #fff; border: 3px solid #333; border-radius: 18px; overflow: hidden; text-align: left; font-size: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+    .phone .ph-head { background: #1e5aa8; color: #fff; padding: 8px 7px 6px; }
+    .phone .ph-head b { font-size: 9.5px; display: block; }
+    .phone .ph-head span { opacity: .85; font-size: 7px; }
+    .phone .ph-body { padding: 5px; background: #f5f6f8; min-height: 150px; }
+    .phone .ph-card { background: #fff; border-radius: 5px; padding: 5px 6px; margin-bottom: 5px; }
+    .phone .ph-card h4 { font-size: 7.5px; color: #1e5aa8; margin-bottom: 3px; }
+    .phone .ph-line { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #eee; }
+    .phone .ph-line:last-child { border-bottom: none; }
+    .phone .ph-line .n { color: #1e5aa8; text-decoration: underline; font-weight: bold; }
+    .phone .ph-line .r { color: #777; font-size: 7px; }
+    .phone .ph-line .t { background: #1a8a3c; color: #fff; border-radius: 3px; padding: 1px 3px; font-size: 7px; }
+    .phone .ph-tabs { display: flex; background: #fff; border-top: 1px solid #ddd; }
+    .phone .ph-tabs div { flex: 1; text-align: center; padding: 3px 0; font-size: 6.5px; color: #777; }
+    .phone .ph-tabs div.on { color: #1e5aa8; font-weight: bold; }
+    .p-caption { font-size: 12px; color: #666; text-align: center; margin-top: 4px; }
     #poster .p-url { font-size: 11px; color: #999; word-break: break-all; margin-top: 8px; }
     @media print {
       body { background: #fff; padding: 0; }
@@ -52,7 +70,14 @@
       #poster { border-width: 3px; padding: 40px 30px; }
       #poster .p-title { font-size: 34px; }
       #poster .p-site { font-size: 22px; }
-      #poster .p-qr img, #poster .p-qr canvas { width: 360px !important; height: 360px !important; }
+      #poster .p-qr img, #poster .p-qr canvas { width: 300px !important; height: 300px !important; }
+      #poster .p-row { gap: 30px; margin: 30px 0; }
+      #poster .p-arrow { font-size: 44px; }
+      .phone { width: 230px; font-size: 12px; border-width: 4px; border-radius: 26px; }
+      .phone .ph-head b { font-size: 14px; } .phone .ph-head span { font-size: 10px; }
+      .phone .ph-body { min-height: 230px; }
+      .phone .ph-card h4 { font-size: 11px; } .phone .ph-line .r, .phone .ph-line .t { font-size: 10px; } .phone .ph-tabs div { font-size: 10px; }
+      .p-caption { font-size: 16px; }
       #poster .p-desc { font-size: 22px; }
       #poster .p-dest { font-size: 18px; }
       #poster .p-url { font-size: 14px; }
@@ -155,14 +180,25 @@
 ・お知らせ・現場ルール
 ・図面などの資料(PDF)
 が見られます。</textarea>
-        <button onclick="window.print()">🖨 印刷する</button>
+        <button onclick="openPrint()">🖨 印刷用ページを開く</button>
+        <div class="s" style="font-size:12px;color:#888;margin-top:6px">掲示物だけの画面が開きます。そこで印刷、またはPDF保存してください</div>
       </div>
       <div class="card" id="posterCard">
         <h2>プレビュー(掲示物)</h2>
         <div id="poster">
           <div class="p-title" id="p_title">現場ポータル</div>
           <div class="p-site" id="p_site"></div>
-          <div class="p-qr" id="p_qr"></div>
+          <div class="p-row">
+            <div>
+              <div class="p-qr" id="p_qr"></div>
+              <div class="p-caption">① QRを読み取る</div>
+            </div>
+            <div class="p-arrow">➜</div>
+            <div>
+              <div id="p_phone"></div>
+              <div class="p-caption">② こんな画面が開く</div>
+            </div>
+          </div>
           <div class="p-desc" id="p_desc"></div>
           <div class="p-dest" id="p_dest"></div>
           <div class="p-url" id="p_url"></div>
@@ -279,10 +315,63 @@
         ? '▶ 読み取ると「管理画面」(登録・編集用)が開きます'
         : '▶ 読み取ると「現場ポータル」(連絡先・お知らせ・資料)が開きます';
       document.getElementById('p_url').textContent = url;
+      document.getElementById('p_phone').innerHTML = phoneMock(dest, siteName);
       const box = document.getElementById('p_qr');
       box.innerHTML = '';
       if (typeof QRCode === 'undefined') { box.textContent = 'QRライブラリ読み込み中...'; return; }
       new QRCode(box, { text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+    }
+
+    // 掲示物だけを別タブで開いて印刷
+    function openPrint() {
+      renderQr();
+      const css = document.querySelector('style').textContent;
+      const html = document.getElementById('poster').outerHTML;
+      const w = window.open('', '_blank');
+      if (!w) { alert('ポップアップがブロックされました。許可してもう一度押してね'); return; }
+      w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>現場ポータル 掲示物</title>
+        <style>${css}
+          body { background: #fff !important; padding: 16px !important; font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+          #poster { max-width: 700px; margin: 0 auto; }
+          .pbtn { display: block; max-width: 700px; margin: 12px auto; padding: 14px; background: #1e5aa8; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; width: 100%; }
+          @media print { .pbtn { display: none; } body { padding: 0 !important; } }
+        </style></head><body>
+        <button class="pbtn" onclick="window.print()">🖨 この画面を印刷 / PDF保存</button>
+        ${html}
+        <button class="pbtn" onclick="window.close()">閉じる</button>
+        </body></html>`);
+      w.document.close();
+    }
+
+    // 「開くとこんな画面」のスマホ見本(実データの先頭3人を使う)
+    function phoneMock(dest, siteName) {
+      if (dest === 'admin') {
+        return `<div class="phone">
+          <div class="ph-head" style="background:#444"><b>🔧 管理画面</b><span>登録・編集用</span></div>
+          <div class="ph-body">
+            <div class="ph-card"><h4>連絡先を登録</h4>
+              <div style="border:1px solid #ccc;border-radius:3px;padding:3px;margin-bottom:3px;color:#aaa">名前</div>
+              <div style="border:1px solid #ccc;border-radius:3px;padding:3px;margin-bottom:3px;color:#aaa">電話番号</div>
+              <div style="background:#1e5aa8;color:#fff;border-radius:3px;padding:3px;text-align:center">登録する</div>
+            </div>
+          </div>
+          <div class="ph-tabs"><div class="on">📞連絡先</div><div>📣お知らせ</div><div>🏗現場情報</div><div>📄資料</div><div>🔳QR</div></div>
+        </div>`;
+      }
+      const cs = ((DATA && DATA['連絡先']) || []).slice(0, 3);
+      const rows = cs.length ? cs.map(r => `<div class="ph-line"><div><span class="r">${esc(r['役割'])}</span><br><span class="n">${esc(r['名前'] || r['会社'])}</span></div><span class="t">📞</span></div>`).join('')
+        : `<div class="ph-line"><div><span class="r">所長</span><br><span class="n">〇〇</span></div><span class="t">📞</span></div>
+           <div class="ph-line"><div><span class="r">主任</span><br><span class="n">〇〇</span></div><span class="t">📞</span></div>`;
+      const news = (((DATA && DATA['お知らせ']) || []).slice(-1)[0] || {})['内容'] || 'お知らせがここに出ます';
+      return `<div class="phone">
+        <div class="ph-head"><b>${esc(siteName || '現場ポータル')}</b><span>${esc(siteName ? '現場ポータル' : '連絡先・お知らせ・資料')}</span></div>
+        <div class="ph-body">
+          <div class="ph-card"><h4>お知らせ</h4><div style="color:#333">${esc(news).slice(0, 30)}</div></div>
+          <div class="ph-card"><h4>連絡先(名前タップで電話)</h4>${rows}</div>
+          <div class="ph-card"><h4>資料(PDF)</h4><div style="color:#1e5aa8">📄 図面 ›</div></div>
+        </div>
+        <div class="ph-tabs"><div class="on">🏗ホーム</div><div>📞連絡先</div><div>📋ルール</div></div>
+      </div>`;
     }
 
     function uploadPdf() {
