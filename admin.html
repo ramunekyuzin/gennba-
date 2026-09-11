@@ -40,7 +40,7 @@
     #poster .p-title { font-size: 22px; font-weight: bold; color: #1e5aa8; }
     #poster .p-site { font-size: 15px; color: #444; margin-top: 4px; }
     #poster .p-qr { display: flex; justify-content: center; margin: 16px 0; }
-    #poster .p-qr img, #poster .p-qr canvas { width: 220px !important; height: 220px !important; }
+    #poster .p-qr img { width: 220px; height: 220px; display: block; }
     #poster .p-desc { font-size: 15px; line-height: 1.7; white-space: pre-wrap; text-align: left; display: inline-block; }
     #poster .p-dest { margin-top: 12px; font-size: 13px; color: #666; }
     #poster .p-row { display: flex; justify-content: center; align-items: center; gap: 18px; margin: 16px 0; flex-wrap: wrap; }
@@ -70,7 +70,7 @@
       #poster { border-width: 3px; padding: 40px 30px; }
       #poster .p-title { font-size: 34px; }
       #poster .p-site { font-size: 22px; }
-      #poster .p-qr img, #poster .p-qr canvas { width: 300px !important; height: 300px !important; }
+      #poster .p-qr img { width: 300px; height: 300px; }
       #poster .p-row { gap: 30px; margin: 30px 0; }
       #poster .p-arrow { font-size: 44px; }
       .phone { width: 230px; font-size: 12px; border-width: 4px; border-radius: 26px; }
@@ -217,7 +217,6 @@
     <button onclick="showTab('qr')"><span class="ic">🔳</span>QR</button>
   </nav>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx-UTuS9k4NNP_bzp_fSF6yEEZe08PSAk9byDCaptjsGry3Fq55jl8xbL3gf8Odyx3IEA/exec';
@@ -317,9 +316,7 @@
       document.getElementById('p_url').textContent = url;
       document.getElementById('p_phone').innerHTML = phoneMock(dest, siteName);
       const box = document.getElementById('p_qr');
-      box.innerHTML = '';
-      if (typeof QRCode === 'undefined') { box.textContent = 'QRライブラリ読み込み中...'; return; }
-      new QRCode(box, { text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+      box.innerHTML = `<img alt="QRコード" src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=8&data=${encodeURIComponent(url)}">`;
     }
 
     // 掲示物だけを別タブで開いて印刷
