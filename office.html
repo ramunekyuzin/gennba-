@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#1c2430" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="事務所ツール">
+<title>事務所ツール</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f1ea;
+    --paper: #ffffff;
+    --ink: #1f2933;
+    --ink-2: #5b6570;
+    --line: #dcd6c8;
+    --accent: #c2410c;
+    --accent-soft: #fde8dc;
+    --muted: #e9e4d8;
+    --shadow: 0 1px 2px rgba(0,0,0,.06), 0 6px 18px rgba(0,0,0,.05);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161b22;
+      --paper: #1f2731;
+      --ink: #eef1f5;
+      --ink-2: #a3adb8;
+      --line: #313b47;
+      --accent: #fb923c;
+      --accent-soft: #3a2a1f;
+      --muted: #2a3340;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  header h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: .02em; }
+  header h1 small { display: block; font-size: 13px; font-weight: 500; color: var(--ink-2); letter-spacing: .08em; margin-bottom: 2px; }
+  .clock { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; text-align: right; white-space: nowrap; }
+
+  .search {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px 14px; margin-bottom: 22px; box-shadow: var(--shadow);
+  }
+  .search svg { flex: none; width: 20px; height: 20px; stroke: var(--ink-2); }
+  .search input {
+    flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink);
+    font: inherit; font-size: 17px; min-width: 0;
+  }
+  .search input::placeholder { color: var(--ink-2); }
+  .search button {
+    display: none; border: 0; background: var(--muted); color: var(--ink-2);
+    width: 32px; height: 32px; border-radius: 50%; font-size: 18px; line-height: 1; cursor: pointer;
+  }
+  .search.has-text button { display: inline-flex; align-items: center; justify-content: center; }
+
+  section { margin-bottom: 26px; }
+  section h2 {
+    font-size: 15px; font-weight: 700; color: var(--ink-2); margin: 0 0 10px 2px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  section.hidden { display: none; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    display: flex; gap: 14px; align-items: center;
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; min-height: 84px; text-decoration: none; color: inherit;
+    box-shadow: var(--shadow); transition: transform .08s ease, border-color .15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card:active { transform: scale(.985); }
+  .card:hover { border-color: var(--accent); }
+  .card.hidden { display: none; }
+  .icon {
+    flex: none; width: 48px; height: 48px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-size: 22px; font-weight: 800;
+  }
+  .body { flex: 1; min-width: 0; }
+  .name { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .desc { font-size: 14px; color: var(--ink-2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .arrow { flex: none; color: var(--ink-2); font-size: 20px; }
+  .tag {
+    font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+    background: var(--muted); color: var(--ink-2); white-space: nowrap;
+  }
+  .card.soon { opacity: .6; cursor: default; }
+  .card.soon:hover { border-color: var(--line); }
+  .card.soon:active { transform: none; }
+
+  .empty { text-align: center; color: var(--ink-2); padding: 32px 0; display: none; }
+  .empty.show { display: block; }
+
+  footer { text-align: center; color: var(--ink-2); font-size: 12px; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1><small>GENBA OFFICE</small>事務所ツール</h1>
+    <div class="clock" id="clock"></div>
+  </header>
+
+  <div class="search" id="searchBox">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="ツールを検索" autocomplete="off" enterkeyhint="search">
+    <button id="clear" type="button" aria-label="クリア">×</button>
+  </div>
+
+  <div id="sections"></div>
+  <div class="empty" id="empty">見つからなかった</div>
+
+  <footer>タップで各ツールが開きます</footer>
+</div>
+
+<script>
+/* =========================================================
+   ツール一覧 — ここに1行足せば増える
+   name: 表示名 / desc: 一言説明 / url: 開く先(空なら準備中扱い)
+   icon: カードに出す1〜2文字 / tag: 右側の小ラベル(任意)
+   newTab: true で別タブ(既定 true)
+   ========================================================= */
+const BASE = "https://miyao130414harumi-commits.github.io/genba-navi/";
+
+const TOOLS = [
+  { cat: "現場",
+    items: [
+      { name: "現場ポータル",   desc: "現場情報・担当者・連絡先まとめ",           icon: "P", url: "" , tag: "準備中" },
+      { name: "図面QR",         desc: "工種ごとの図面・書類PDFを閲覧",            icon: "図", url: BASE + "zumen.html" },
+      { name: "資料ビューア",   desc: "現場資料の検索・目次ジャンプ",            icon: "資", url: BASE + "shiryo.html" },
+      { name: "現場ナビ AI",    desc: "図面・写真・AI解析のメインアプリ",         icon: "ナ", url: BASE },
+    ]},
+  { cat: "事務",
+    items: [
+      { name: "現場コスト集計", desc: "日別費用を月・日・項目で表とグラフ",       icon: "¥",  url: "https://script.google.com/macros/s/AKfycbx9w4AwDNLV53qh8ktRJXYXlqsKxznR2sjO10LA7kJhDJvivu5xVZukNTf2_IjntxUH/exec" },
+      { name: "原価区分振り分け", desc: "請求書の品名を資材/労務/外注/設備に判定", icon: "区", url: BASE + "kubun.html" },
+      { name: "カレンダー登録", desc: "人別カレンダーに予定を登録",              icon: "暦", url: BASE + "calendar.html" },
+      { name: "PDF振り分け・修復", desc: "会社PCのローカルツール(bat起動)",       icon: "PDF", url: "", tag: "PC内" },
+    ]},
+  { cat: "勉強",
+    items: [
+      { name: "研修問題集",     desc: "施工管理技士の一問一答・四択",            icon: "問", url: "", tag: "URL未設定" },
+    ]},
+];
+
+/* ---------- ここから下は触らなくてOK ---------- */
+const sectionsEl = document.getElementById("sections");
+const emptyEl    = document.getElementById("empty");
+const qEl        = document.getElementById("q");
+const clearEl    = document.getElementById("clear");
+const searchBox  = document.getElementById("searchBox");
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function render(){
+  sectionsEl.innerHTML = TOOLS.map(sec => `
+    <section data-cat="${esc(sec.cat)}">
+      <h2>${esc(sec.cat)}</h2>
+      <div class="grid">
+        ${sec.items.map(t => {
+          const soon = !t.url;
+          const tag  = t.tag ? `<span class="tag">${esc(t.tag)}</span>` : "";
+          const tagAttr = t.newTab === false ? "" : ` target="_blank" rel="noopener"`;
+          const open = soon ? `<div class="card soon" data-key="${esc(t.name + " " + t.desc)}">`
+                            : `<a class="card" href="${esc(t.url)}"${tagAttr} data-key="${esc(t.name + " " + t.desc)}">`;
+          const close = soon ? `</div>` : `</a>`;
+          return `${open}
+            <div class="icon">${esc(t.icon || t.name.slice(0,1))}</div>
+            <div class="body">
+              <div class="name">${esc(t.name)}${tag}</div>
+              <div class="desc">${esc(t.desc || "")}</div>
+            </div>
+            <div class="arrow">${soon ? "" : "›"}</div>
+          ${close}`;
+        }).join("")}
+      </div>
+    </section>`).join("");
+}
+
+function filter(){
+  const q = qEl.value.trim().toLowerCase();
+  searchBox.classList.toggle("has-text", q.length > 0);
+  let shown = 0;
+  document.querySelectorAll("section").forEach(sec => {
+    let secShown = 0;
+    sec.querySelectorAll(".card").forEach(card => {
+      const hit = !q || card.dataset.key.toLowerCase().includes(q);
+      card.classList.toggle("hidden", !hit);
+      if (hit) secShown++;
+    });
+    sec.classList.toggle("hidden", secShown === 0);
+    shown += secShown;
+  });
+  emptyEl.classList.toggle("show", shown === 0);
+}
+
+function tick(){
+  const d = new Date();
+  const w = ["日","月","火","水","木","金","土"][d.getDay()];
+  const pad = n => String(n).padStart(2,"0");
+  document.getElementById("clock").textContent =
+    `${d.getMonth()+1}/${d.getDate()}(${w}) ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+qEl.addEventListener("input", filter);
+clearEl.addEventListener("click", () => { qEl.value = ""; filter(); qEl.focus(); });
+render(); filter(); tick(); setInterval(tick, 15000);
+</script>
+</body>
+</html>
