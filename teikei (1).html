@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0f1720" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef0ec" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="定型文">
+<title>定型文ジェネレーター</title>
+<script>(function(){var t=localStorage.getItem("officeTheme");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t);})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #eef0ec; --grid: rgba(20,40,60,.07); --ink: #142a3a; --ink-2: #5d6f7d;
+    --rule: #142a3a; --hair: rgba(20,42,58,.18); --accent: #e0632a; --paper: #f8f8f5; --danger: #b3261e;
+  }
+  html[data-theme="dark"] {
+    --bg: #0f1720; --grid: rgba(120,170,220,.09); --ink: #e8edf2; --ink-2: #8fa2b3;
+    --rule: #e8edf2; --hair: rgba(232,237,242,.18); --accent: #ff8a4c; --paper: #17222d; --danger: #ff6b6b;
+    color-scheme: dark;
+  }
+  html[data-theme="light"] { color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme]) {
+      --bg: #0f1720; --grid: rgba(120,170,220,.09); --ink: #e8edf2; --ink-2: #8fa2b3;
+      --rule: #e8edf2; --hair: rgba(232,237,242,.18); --accent: #ff8a4c; --paper: #17222d; --danger: #ff6b6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--ink);
+    font-family: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 28px 20px 110px; }
+
+  /* ---- 表題欄 ---- */
+  .title-block { position: relative; border: 2px solid var(--rule); display: grid; grid-template-columns: 1fr auto; margin-bottom: 20px; background: var(--paper); }
+  .title-block .l { padding: 14px 16px 12px; border-right: 2px solid var(--rule); }
+  .title-block .kicker { font-size: 11px; letter-spacing: .28em; color: var(--ink-2); margin-bottom: 4px; }
+  .title-block h1 { margin: 0; font-size: 30px; font-weight: 900; line-height: 1.1; letter-spacing: .02em; }
+  .title-block .r { display: grid; grid-template-rows: 1fr 1fr; min-width: 120px; }
+  .title-block .r div { padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; }
+  .title-block .r div + div { border-top: 2px solid var(--rule); }
+  .title-block .r small { font-size: 10px; letter-spacing: .2em; color: var(--ink-2); }
+  .title-block .r b { font-size: 17px; font-weight: 700; white-space: nowrap; }
+  .theme { position: absolute; top: -2px; right: -2px; border: 2px solid var(--rule); background: var(--paper); color: var(--ink); font-size: 11px; font-weight: 700; letter-spacing: .12em; padding: 5px 9px; cursor: pointer; }
+  .back { display: inline-block; font-size: 12px; letter-spacing: .1em; color: var(--ink-2); text-decoration: none; margin-bottom: 14px; }
+  .back:hover { color: var(--accent); }
+
+  /* ---- セクション見出し ---- */
+  section { margin-bottom: 34px; }
+  section.hidden { display: none; }
+  section h2 { margin: 0 0 12px; display: flex; align-items: baseline; gap: 12px; font-size: 20px; font-weight: 900; letter-spacing: .04em; }
+  section h2 .no { font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .1em; }
+  section h2::after { content: ""; flex: 1; border-bottom: 2px solid var(--rule); transform: translateY(-6px); }
+
+  /* ---- 入力(下線式) ---- */
+  label { display: block; font-size: 12px; color: var(--ink-2); letter-spacing: .08em; margin: 14px 0 4px; }
+  input, textarea, select {
+    width: 100%; padding: 12px 6px; font: inherit; font-size: 16px; border: 0; border-bottom: 2px solid var(--hair);
+    background: transparent; color: var(--ink); outline: 0; border-radius: 0; -webkit-appearance: none; appearance: none;
+  }
+  input:focus, textarea:focus, select:focus { border-bottom-color: var(--accent); }
+  textarea { resize: vertical; line-height: 1.6; }
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%), linear-gradient(135deg, var(--ink-2) 50%, transparent 50%); background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 28px; }
+  select option { color: #142a3a; background: #f8f8f5; }
+  html[data-theme="dark"] select option { color: #e8edf2; background: #17222d; }
+  @media (prefers-color-scheme: dark) { html:not([data-theme]) select option { color: #e8edf2; background: #17222d; } }
+  .r2 { display: flex; gap: 14px; }
+  .r2 > * { flex: 1; min-width: 0; }
+
+  /* ---- セグメント選択(トーン/種類) ---- */
+  .seg { display: flex; flex-wrap: wrap; gap: 0; border: 2px solid var(--rule); margin-top: 6px; }
+  .seg button { flex: 1; min-width: 70px; border: 0; border-right: 2px solid var(--rule); background: var(--paper); color: var(--ink); padding: 12px 6px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--rule); color: var(--paper); }
+  html[data-theme="dark"] .seg button.on { color: #0f1720; }
+
+  /* ---- ボタン ---- */
+  .btns { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .btns button, .btn { flex: 1; min-width: 120px; border: 2px solid var(--rule); padding: 14px 10px; font: inherit; font-size: 15px; font-weight: 900; cursor: pointer; background: var(--paper); color: var(--ink); box-shadow: 4px 4px 0 var(--rule); text-decoration: none; text-align: center; -webkit-tap-highlight-color: transparent; }
+  .btns button:active, .btn:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--rule); }
+  .btns .ok, .btn.ok { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btns button:disabled { opacity: .5; box-shadow: none; }
+  .btns button.wide { flex-basis: 100%; }
+  .msg { font-size: 14px; margin-top: 10px; min-height: 20px; }
+  .msg.ng { color: var(--danger); }
+  .msg.ok { color: var(--accent); }
+
+  /* ---- 目録行 ---- */
+  .row { position: relative; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 14px; padding: 14px 4px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--hair); -webkit-tap-highlight-color: transparent; cursor: pointer; transition: padding-left .12s ease; }
+  .row:last-child { border-bottom: 0; }
+  .row:hover, .row:active { padding-left: 10px; }
+  .row:hover .name, .row:active .name { color: var(--accent); }
+  .row.hidden { display: none; }
+  .row .idx { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .row .name { font-size: 18px; font-weight: 700; line-height: 1.25; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; transition: color .12s; }
+  .row .desc { font-size: 13px; color: var(--ink-2); margin-top: 3px; word-break: break-all; }
+  .row .desc mark { background: transparent; color: var(--accent); font-weight: 700; }
+  .row .go { font-size: 22px; color: var(--ink-2); padding-right: 4px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border: 1px solid var(--ink-2); color: var(--ink-2); letter-spacing: .06em; white-space: nowrap; }
+  .tools { display: none; gap: 6px; }
+  body.edit .tools { display: flex; }
+  body.edit .go { display: none; }
+  .tools button { border: 1px solid var(--hair); background: var(--paper); color: var(--ink); border-radius: 6px; padding: 7px 11px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .tools button.del { color: var(--danger); }
+
+  /* ---- 検索 ---- */
+  .search { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid var(--rule); padding: 6px 2px 10px; margin-bottom: 26px; }
+  .search .no { font-size: 12px; color: var(--ink-2); letter-spacing: .1em; }
+  .search input { flex: 1; border: 0; padding: 4px 0; font-size: 18px; min-width: 0; }
+  .search input::placeholder { color: var(--ink-2); }
+  .search button { display: none; border: 0; background: transparent; color: var(--ink-2); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
+  .search.has-text button { display: block; }
+
+  /* ---- FAB ---- */
+  .fab { position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; gap: 10px; z-index: 5; }
+  .fab button { border: 2px solid var(--rule); background: var(--paper); color: var(--ink); padding: 12px 18px; font: inherit; font-size: 15px; font-weight: 900; letter-spacing: .04em; cursor: pointer; box-shadow: 4px 4px 0 var(--rule); }
+  .fab button:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--rule); }
+  .fab button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .fab button.add { display: none; }
+  body.edit .fab button.add { display: inline-block; }
+
+  /* ---- モーダル ---- */
+  .modal-bg { position: fixed; inset: 0; background: rgba(10,20,30,.55); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
+  .modal-bg.show { display: flex; }
+  .modal { width: 100%; max-width: 560px; background: var(--paper); color: var(--ink); border: 2px solid var(--rule); border-bottom: 0; padding: 20px 18px calc(24px + env(safe-area-inset-bottom)); max-height: 90vh; overflow: auto; }
+  @media (min-width: 600px) { .modal-bg { align-items: center; } .modal { border-bottom: 2px solid var(--rule); box-shadow: 8px 8px 0 var(--rule); } }
+  .modal h3 { margin: 0 0 6px; font-size: 20px; font-weight: 900; }
+  .modal .btns button { box-shadow: none; }
+
+  .empty, .loading { text-align: center; color: var(--ink-2); padding: 36px 0; }
+  .empty { display: none; }
+  .empty.show { display: block; }
+  footer { margin-top: 40px; font-size: 11px; color: var(--ink-2); letter-spacing: .1em; text-align: right; }
+
+  #outSubject { font-weight: 700; }
+  #outBody { min-height: 260px; font-size: 15px; }
+  .out-box { border: 2px solid var(--rule); background: var(--paper); padding: 4px 14px 14px; }
+  .out-box.empty-out { border-style: dashed; color: var(--ink-2); text-align: center; padding: 40px 14px; font-size: 14px; }
+  .gen-wrap { position: relative; }
+  .spin { display: none; text-align: center; padding: 10px; color: var(--ink-2); font-size: 14px; letter-spacing: .1em; }
+  .spin.show { display: block; }
+  .row .desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back mono" href="./office.html">← OFFICE TOOLS</a>
+
+  <div class="title-block">
+    <button class="theme mono" id="themeBtn" type="button" aria-label="表示切替">AUTO</button>
+    <div class="l">
+      <div class="kicker mono">GENBA OFFICE / TEIKEI</div>
+      <h1>定型文ジェネレーター</h1>
+    </div>
+    <div class="r">
+      <div><small class="mono">DATE</small><b class="mono" id="date"></b></div>
+      <div><small class="mono">TIME</small><b class="mono" id="time"></b></div>
+    </div>
+  </div>
+
+  <!-- 01 入力 -->
+  <section>
+    <h2><span class="no mono">01</span>入力</h2>
+
+    <label>種類</label>
+    <div class="seg" id="kindSeg">
+      <button type="button" data-v="依頼" class="on">依頼</button>
+      <button type="button" data-v="催促">催促</button>
+      <button type="button" data-v="お礼">お礼</button>
+      <button type="button" data-v="お詫び">お詫び</button>
+      <button type="button" data-v="確認">確認</button>
+      <button type="button" data-v="その他">その他</button>
+    </div>
+    <input id="kindFree" placeholder="その他の内容(例: 日程変更のお知らせ)" style="display:none;margin-top:6px">
+
+    <label>トーン</label>
+    <div class="seg" id="toneSeg">
+      <button type="button" data-v="丁寧">丁寧</button>
+      <button type="button" data-v="普通" class="on">普通</button>
+      <button type="button" data-v="急ぎ">急ぎ</button>
+    </div>
+
+    <div class="r2">
+      <div>
+        <label>相手名</label>
+        <input id="toName" placeholder="例: ○○建材 田中様">
+      </div>
+      <div>
+        <label>差出人(署名用・端末に保存)</label>
+        <input id="fromName" placeholder="例: 株式会社○○ 山田">
+      </div>
+    </div>
+
+    <label>用件(箇条書きでOK)</label>
+    <textarea id="matter" rows="4" placeholder="例:&#10;・9月分の請求書がまだ届いていない&#10;・9/20までに送ってほしい"></textarea>
+
+    <label>補足(任意)</label>
+    <input id="memo" placeholder="例: 前回も遅れたので少し強めに / 電話でも伝えてある">
+
+    <div class="btns">
+      <button type="button" class="ok wide" id="genBtn" onclick="generate()">AIで文面を作る</button>
+    </div>
+    <div class="spin mono" id="spin">GENERATING …</div>
+    <div class="msg" id="genMsg"></div>
+  </section>
+
+  <!-- 02 出力 -->
+  <section>
+    <h2><span class="no mono">02</span>出力</h2>
+    <div class="out-box empty-out" id="outEmpty">まだ生成していません</div>
+    <div class="out-box" id="outBox" style="display:none">
+      <label>件名</label>
+      <input id="outSubject" placeholder="件名">
+      <label>本文(直接編集できる)</label>
+      <textarea id="outBody" rows="12"></textarea>
+      <label>宛先メールアドレス(下書き用・任意)</label>
+      <input id="toMail" type="email" inputmode="email" placeholder="example@example.com">
+      <div class="btns">
+        <button type="button" onclick="copyOut()" id="copyBtn">コピー</button>
+        <button type="button" onclick="gmailDraft()" id="draftBtn">Gmail下書き作成</button>
+        <button type="button" onclick="gmailOpen()">Gmailで開く</button>
+        <button type="button" onclick="openSave()">パターン保存</button>
+      </div>
+      <div class="msg" id="outMsg"></div>
+    </div>
+  </section>
+
+  <!-- 03 パターン -->
+  <section>
+    <h2><span class="no mono">03</span>保存パターン</h2>
+    <div class="loading" id="loading">読み込み中…</div>
+    <div id="patterns"></div>
+    <div class="empty" id="empty">保存されたパターンはまだない</div>
+  </section>
+
+  <footer class="mono" id="count"></footer>
+</div>
+
+<div class="fab">
+  <button id="editBtn">編集</button>
+</div>
+
+<!-- 合言葉 -->
+<div class="modal-bg" id="passModal">
+  <div class="modal">
+    <h3>合言葉</h3>
+    <div class="msg" style="margin:0 0 6px">生成・保存・下書き作成に必要(タブを閉じるまで覚える)</div>
+    <input id="passInput" type="password" autocomplete="off" enterkeyhint="done">
+    <div class="msg" id="passMsg"></div>
+    <div class="btns">
+      <button type="button" onclick="closeModal('passModal')">やめる</button>
+      <button type="button" class="ok" id="passOk" onclick="submitPass()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- パターン保存 -->
+<div class="modal-bg" id="saveModal">
+  <div class="modal">
+    <h3 id="saveTitle">パターンを保存</h3>
+    <input type="hidden" id="sId">
+    <label>パターン名</label>
+    <input id="sName" placeholder="例: 請求書催促(建材屋)">
+    <div class="msg" id="saveMsg"></div>
+    <div class="btns">
+      <button type="button" onclick="closeModal('saveModal')">やめる</button>
+      <button type="button" class="ok" id="saveOk" onclick="submitSave()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================
+// GASのWebアプリURL(デプロイ後にここへ貼る)
+// ============================================
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz3UxM5aX9_CvkdLEdymviphyE6tcA7_TcKTW3JncjEVMSAxXOo3J0jWIPTI-U5fRxcXQ/exec";
+
+let PATTERNS = [];
+let PASS = sessionStorage.getItem("officePass") || "";
+let afterPass = null;   // 合言葉入力後に続けて実行する処理
+
+const $ = id => document.getElementById(id);
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function pad2(n){ return String(n).padStart(2, "0"); }
+function setMsg(id, text, cls){ const m = $(id); m.textContent = text || ""; m.className = "msg " + (cls || ""); }
+
+async function api(body){
+  if (!GAS_URL) throw new Error("GAS_URL が未設定");
+  const r = await fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!j.ok) {
+    if (/合言葉/.test(j.error || "")) { PASS = ""; sessionStorage.removeItem("officePass"); }
+    throw new Error(j.error || "エラー");
+  }
+  return j.result;
+}
+
+// 合言葉が無ければ聞いてから fn を実行
+function withPass(fn){
+  if (PASS) { fn(); return; }
+  afterPass = fn;
+  setMsg("passMsg", "");
+  $("passInput").value = "";
+  openModal("passModal");
+  setTimeout(() => $("passInput").focus(), 50);
+}
+async function submitPass(){
+  const p = $("passInput").value;
+  $("passOk").disabled = true;
+  try {
+    await api({ action: "checkPass", pass: p });
+    PASS = p; sessionStorage.setItem("officePass", p);
+    closeModal("passModal");
+    const fn = afterPass; afterPass = null;
+    if (fn) fn();
+  } catch (e) { setMsg("passMsg", e.message, "ng"); }
+  $("passOk").disabled = false;
+}
+$("passInput").addEventListener("keydown", e => { if (e.key === "Enter") submitPass(); });
+
+// ---------- セグメント ----------
+function segVal(id){ const b = $(id).querySelector("button.on"); return b ? b.dataset.v : ""; }
+function segSet(id, v){ $(id).querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === v)); if (id === "kindSeg") $("kindFree").style.display = (v === "その他") ? "block" : "none"; }
+["kindSeg","toneSeg"].forEach(id => $(id).addEventListener("click", e => { const b = e.target.closest("button"); if (b) segSet(id, b.dataset.v); }));
+
+// 差出人は端末に保存
+$("fromName").value = localStorage.getItem("teikeiFrom") || "";
+$("fromName").addEventListener("input", () => localStorage.setItem("teikeiFrom", $("fromName").value));
+
+// ---------- 生成 ----------
+function collect(){
+  return {
+    "種類": segVal("kindSeg"),
+    "種類詳細": segVal("kindSeg") === "その他" ? $("kindFree").value.trim() : "",
+    "トーン": segVal("toneSeg"),
+    "相手名": $("toName").value.trim(),
+    "差出人": $("fromName").value.trim(),
+    "用件": $("matter").value.trim(),
+    "補足": $("memo").value.trim(),
+  };
+}
+function generate(){
+  const d = collect();
+  if (!d["用件"]) { setMsg("genMsg", "用件を入れてね", "ng"); return; }
+  withPass(async () => {
+    $("genBtn").disabled = true; $("spin").classList.add("show"); setMsg("genMsg", "");
+    try {
+      const r = await api({ action: "generate", pass: PASS, data: d });
+      showOut(r.subject, r.body);
+      setMsg("genMsg", "できた。気に入らなければ用件を直して再生成", "ok");
+      $("outBox").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) { setMsg("genMsg", e.message, "ng"); }
+    $("genBtn").disabled = false; $("spin").classList.remove("show");
+  });
+}
+function showOut(subject, body){
+  $("outEmpty").style.display = "none";
+  $("outBox").style.display = "block";
+  $("outSubject").value = subject || "";
+  $("outBody").value = body || "";
+  setMsg("outMsg", "");
+}
+
+// ---------- 出力ボタン ----------
+async function copyOut(){
+  const s = $("outSubject").value.trim(), b = $("outBody").value;
+  const text = s ? `件名: ${s}\n\n${b}` : b;
+  try { await navigator.clipboard.writeText(text); setMsg("outMsg", "コピーした", "ok"); }
+  catch (_) { $("outBody").select(); document.execCommand("copy"); setMsg("outMsg", "コピーした", "ok"); }
+}
+function gmailDraft(){
+  const body = $("outBody").value.trim();
+  if (!body) { setMsg("outMsg", "本文が空", "ng"); return; }
+  withPass(async () => {
+    $("draftBtn").disabled = true; setMsg("outMsg", "下書き作成中…");
+    try {
+      const r = await api({ action: "draft", pass: PASS, data: { to: $("toMail").value.trim(), subject: $("outSubject").value.trim(), body: body } });
+      setMsg("outMsg", "Gmailの下書きに入れた(スクリプト所有者のアカウント)", "ok");
+    } catch (e) { setMsg("outMsg", e.message, "ng"); }
+    $("draftBtn").disabled = false;
+  });
+}
+// 自分のGmailで作成画面を開く(ログイン中のアカウントで開く。全員使える)
+function gmailOpen(){
+  const u = "https://mail.google.com/mail/?view=cm&fs=1"
+    + "&to=" + encodeURIComponent($("toMail").value.trim())
+    + "&su=" + encodeURIComponent($("outSubject").value.trim())
+    + "&body=" + encodeURIComponent($("outBody").value);
+  window.open(u, "_blank", "noopener");
+}
+
+// ---------- パターン ----------
+async function load(){
+  if (!GAS_URL) { $("loading").textContent = "GAS_URL が未設定"; return; }
+  try {
+    const r = await fetch(GAS_URL + "?t=" + Date.now());
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error);
+    PATTERNS = j.result;
+    $("loading").style.display = "none";
+    render();
+  } catch (e) { $("loading").textContent = "読み込み失敗: " + e.message; }
+}
+function render(){
+  $("patterns").innerHTML = PATTERNS.map((p, i) => `
+    <div class="row" onclick="applyPattern('${esc(p["ID"])}')">
+      <div class="idx mono">${pad2(i + 1)}</div>
+      <div>
+        <div class="name">${esc(p["名前"])}<span class="tag">${esc(p["種類"])}</span><span class="tag">${esc(p["トーン"])}</span></div>
+        <div class="desc">${esc(p["相手名"] ? p["相手名"] + " / " : "")}${esc(p["用件"])}</div>
+      </div>
+      <div class="go">↑</div>
+      <div class="tools">
+        <button type="button" onclick="event.stopPropagation();renamePattern('${esc(p["ID"])}')">名前</button>
+        <button type="button" class="del" onclick="event.stopPropagation();delPattern('${esc(p["ID"])}','${esc(p["名前"])}')">削除</button>
+      </div>
+    </div>`).join("");
+  $("empty").classList.toggle("show", PATTERNS.length === 0);
+  $("count").textContent = `SAVED ${PATTERNS.length} PATTERNS`;
+}
+function applyPattern(id){
+  if (document.body.classList.contains("edit")) return;
+  const p = PATTERNS.find(x => x["ID"] === id); if (!p) return;
+  const kinds = ["依頼","催促","お礼","お詫び","確認"];
+  if (kinds.includes(p["種類"])) { segSet("kindSeg", p["種類"]); $("kindFree").value = ""; }
+  else { segSet("kindSeg", "その他"); $("kindFree").value = p["種類"] === "その他" ? "" : p["種類"]; }
+  segSet("toneSeg", p["トーン"] || "普通");
+  $("toName").value = p["相手名"] || "";
+  $("matter").value = p["用件"] || "";
+  if (p["本文"]) showOut(p["件名"], p["本文"]);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  setMsg("genMsg", `「${p["名前"]}」を呼び出した。そのまま使うか、直して再生成`, "ok");
+}
+function openSave(){
+  $("sId").value = "";
+  $("saveTitle").textContent = "パターンを保存";
+  const d = collect();
+  $("sName").value = (d["相手名"] ? d["相手名"] + " " : "") + d["種類"];
+  setMsg("saveMsg", "");
+  openModal("saveModal");
+  setTimeout(() => $("sName").focus(), 50);
+}
+function renamePattern(id){
+  const p = PATTERNS.find(x => x["ID"] === id); if (!p) return;
+  $("sId").value = id;
+  $("saveTitle").textContent = "パターン名を変更";
+  $("sName").value = p["名前"];
+  setMsg("saveMsg", "");
+  openModal("saveModal");
+}
+function submitSave(){
+  const name = $("sName").value.trim();
+  if (!name) { setMsg("saveMsg", "名前を入れてね", "ng"); return; }
+  const id = $("sId").value;
+  withPass(async () => {
+    $("saveOk").disabled = true; setMsg("saveMsg", "保存中…");
+    try {
+      if (id) {
+        await api({ action: "update", pass: PASS, id: id, data: { "名前": name } });
+      } else {
+        const d = collect();
+        await api({ action: "add", pass: PASS, data: {
+          "名前": name,
+          "種類": d["種類"] === "その他" && d["種類詳細"] ? d["種類詳細"] : d["種類"],
+          "トーン": d["トーン"], "相手名": d["相手名"], "用件": d["用件"],
+          "件名": $("outSubject").value.trim(), "本文": $("outBody").value,
+        } });
+      }
+      closeModal("saveModal");
+      await load();
+    } catch (e) { setMsg("saveMsg", e.message, "ng"); }
+    $("saveOk").disabled = false;
+  });
+}
+function delPattern(id, name){
+  if (!confirm(`「${name}」を削除する？`)) return;
+  withPass(async () => {
+    try { await api({ action: "delete", pass: PASS, id: id }); await load(); }
+    catch (e) { alert(e.message); }
+  });
+}
+
+// ---------- 編集モード ----------
+function openModal(id){ $(id).classList.add("show"); }
+function closeModal(id){ $(id).classList.remove("show"); }
+$("editBtn").addEventListener("click", () => {
+  if (document.body.classList.contains("edit")) { document.body.classList.remove("edit"); $("editBtn").textContent = "編集"; return; }
+  withPass(() => { document.body.classList.add("edit"); $("editBtn").textContent = "完了"; });
+});
+document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("show"); }));
+
+// ---------- 表示モード(AUTO → LIGHT → DARK) office.htmlと共有 ----------
+const THEMES = ["auto", "light", "dark"];
+function applyTheme(t){
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  $("themeBtn").textContent = t.toUpperCase();
+  localStorage.setItem("officeTheme", t);
+}
+$("themeBtn").addEventListener("click", () => {
+  const cur = localStorage.getItem("officeTheme") || "auto";
+  applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
+});
+applyTheme(localStorage.getItem("officeTheme") || "auto");
+
+// ---------- 表題欄の日時 ----------
+function tick(){
+  const d = new Date(), w = ["日","月","火","水","木","金","土"][d.getDay()];
+  $("date").textContent = `${d.getFullYear()}.${pad2(d.getMonth()+1)}.${pad2(d.getDate())} ${w}`;
+  $("time").textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+tick(); setInterval(tick, 15000);
+load();
+</script>
+</body>
+</html>
