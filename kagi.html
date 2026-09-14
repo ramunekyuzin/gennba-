@@ -15,10 +15,20 @@
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbzOjG9xuXF9GXTy3CRgZ5u2HGxm40_YTRe6xT4adWwv-bIuMxlnQDZVXSdH5nK0GAlFKg/exec';
     const params = new URLSearchParams(location.search);
     const mode = params.get('mode') || '';
-    // QR生成用に、このページ自身のURL(クエリなし)をGASに渡す
+
+    // 端末ID(初回だけ生成してこのスマホに保存)
+    let dev = '';
+    try {
+      dev = localStorage.getItem('kagi_dev') || '';
+      if (!dev) {
+        dev = 'd-' + (crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10));
+        localStorage.setItem('kagi_dev', dev);
+      }
+    } catch (e) { dev = ''; }
+
     const front = location.origin + location.pathname;
     document.getElementById('app').src =
-      GAS_URL + '?mode=' + encodeURIComponent(mode) + '&front=' + encodeURIComponent(front);
+      GAS_URL + '?mode=' + encodeURIComponent(mode) + '&dev=' + encodeURIComponent(dev) + '&front=' + encodeURIComponent(front);
   </script>
 </body>
 </html>
