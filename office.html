@@ -480,7 +480,9 @@ html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .unit-mark{border:2p
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxKW8JNfxJs2HLOGGRZVWvSgUhsDG-oLFT0Bw0osTJy6wqtc4Ngtg9s_36py_Ae39_J/exec";
 
 let TOOLS = [];      // シートから取ったフラットな配列
-let PASS = sessionStorage.getItem("officePass") || "";
+let PASS = localStorage.getItem("officePass") || sessionStorage.getItem("officePass") || "";
+function savePass(p){ PASS = p; localStorage.setItem("officePass", p); }
+function clearPass(){ PASS = ""; localStorage.removeItem("officePass"); sessionStorage.removeItem("officePass"); }
 
 const sectionsEl = document.getElementById("sections");
 const emptyEl    = document.getElementById("empty");
@@ -700,16 +702,19 @@ document.getElementById("passInput").addEventListener("keydown", e => { if (e.ke
 
 async function submitPass(){
   const p = document.getElementById("passInput").value;
-  const btn = document.getElementById("passOk");
-  btn.disabled = true;
+  if (!p) return;
+  // 先に編集モードへ入って、合言葉の確認は裏で行う(体感を速くする)
+  savePass(p);
+  closeModal("passModal");
+  enterEdit();
   try {
     await api({ action: "checkPass", pass: p });
-    PASS = p; sessionStorage.setItem("officePass", p);
-    closeModal("passModal"); enterEdit();
   } catch (e) {
-    document.getElementById("passMsg").textContent = e.message; document.getElementById("passMsg").className = "msg ng";
+    clearPass();
+    document.body.classList.remove("edit");
+    document.getElementById("editBtn").textContent = "編集";
+    alert(e.message);
   }
-  btn.disabled = false;
 }
 
 function enterEdit(){
@@ -756,7 +761,7 @@ async function submitForm(){
     await load();
   } catch (e) {
     msg.textContent = e.message; msg.className = "msg ng";
-    if (/合言葉/.test(e.message)) { PASS = ""; sessionStorage.removeItem("officePass"); }
+    if (/合言葉/.test(e.message)) clearPass();
   }
   btn.disabled = false;
 }
@@ -768,7 +773,7 @@ async function delTool(id, name){
     await load();
   } catch (e) {
     alert(e.message);
-    if (/合言葉/.test(e.message)) { PASS = ""; sessionStorage.removeItem("officePass"); }
+    if (/合言葉/.test(e.message)) clearPass();
   }
 }
 
