@@ -157,6 +157,13 @@
   .summary { position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
   .summary-item { display:flex; align-items:center; gap:8px; min-height:34px; padding:6px 12px; border-radius:10px; background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.1); color:#dbeafe; font-size:13px; }
   .summary-item strong { color:#fff; font-size:15px; }
+  .theme-panel { display:flex; align-items:center; gap:8px; margin:0 0 18px; padding:10px; overflow-x:auto; scrollbar-width:none; background:var(--paper); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); }
+  .theme-panel::-webkit-scrollbar { display:none; }
+  .theme-label { flex:none; padding:0 7px; color:var(--ink-2); font-size:13px; font-weight:800; }
+  .mode-divider { flex:none; width:1px; height:26px; background:var(--line); margin:0 2px; }
+  .theme-btn { flex:none; border:1px solid var(--line); background:var(--muted); color:var(--ink-2); border-radius:999px; padding:8px 12px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:.15s; }
+  .theme-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .theme-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 28%,transparent); }
   .edit-status { display:none; align-items:center; color:#fff; background:rgba(37,99,235,.78); border:1px solid rgba(255,255,255,.15); border-radius:999px; padding:5px 10px; font-size:12px; font-weight:800; }
   body.edit .edit-status { display:inline-flex; }
   body.edit .hero { box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 38%,transparent),0 18px 48px rgba(15,23,42,.18); }
@@ -200,6 +207,63 @@
     .fab button { padding:13px 17px; }
   }
   @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+
+  /* B: 現場オレンジ — 親しみやすく視認性の高い業務画面 */
+  html[data-theme="orange"] {
+    --bg:#f7f5f0; --paper:#fffefa; --ink:#29251f; --ink-2:#726b61;
+    --line:#e7dfd2; --accent:#e65b16; --accent-soft:#fff0e5; --muted:#f3eee5;
+    --shadow:0 7px 24px rgba(80,55,24,.08);
+  }
+  html[data-theme="orange"] .hero { color:#2c2115; background:linear-gradient(135deg,#fff8ed 0%,#ffd8a8 55%,#fb923c 130%); box-shadow:0 18px 44px rgba(194,65,12,.14); border:1px solid #f5c98f; }
+  html[data-theme="orange"] .hero::after { border-color:rgba(234,88,12,.08); }
+  html[data-theme="orange"] header h1 small { color:#c2410c; }
+  html[data-theme="orange"] .clock,html[data-theme="orange"] .summary-item { color:#6b4024; background:rgba(255,255,255,.44); border-color:rgba(194,65,12,.14); }
+  html[data-theme="orange"] .summary-item strong { color:#2c2115; }
+
+  /* C: モノクロ — 図面や資料になじむシャープな設計 */
+  html[data-theme="mono"] {
+    --bg:#f2f2f2; --paper:#fff; --ink:#111; --ink-2:#666;
+    --line:#d8d8d8; --accent:#111; --accent-soft:#eeeeee; --muted:#f3f3f3;
+    --shadow:0 5px 0 rgba(0,0,0,.07); --radius:8px;
+  }
+  html[data-theme="mono"] .hero { color:#fff; background:#151515; border-radius:8px; box-shadow:8px 8px 0 #cfcfcf; }
+  html[data-theme="mono"] .hero::after { width:190px; height:190px; border-radius:0; border:1px solid rgba(255,255,255,.16); transform:rotate(24deg); }
+  html[data-theme="mono"] header h1 { letter-spacing:-.03em; }
+  html[data-theme="mono"] header h1 small { color:#bbb; }
+  html[data-theme="mono"] .clock,html[data-theme="mono"] .summary-item { color:#ddd; border-radius:3px; }
+  html[data-theme="mono"] .summary-item strong { color:#fff; }
+  html[data-theme="mono"] .search,html[data-theme="mono"] .theme-panel,html[data-theme="mono"] .card,html[data-theme="mono"] .icon { border-radius:6px; }
+  html[data-theme="mono"] .card:hover { box-shadow:6px 6px 0 #cfcfcf; border-color:#111; }
+  html[data-theme="mono"] .theme-btn { border-radius:4px; }
+
+  /* D: エメラルド — 柔らかく見やすいデジタル管理画面 */
+  html[data-theme="emerald"] {
+    --bg:#eef7f4; --paper:#ffffff; --ink:#17332c; --ink-2:#647d76;
+    --line:#d8e9e3; --accent:#0f8a70; --accent-soft:#def5ed; --muted:#e8f2ee;
+    --shadow:0 10px 28px rgba(15,118,110,.08); --radius:20px;
+  }
+  html[data-theme="emerald"] .hero { background:linear-gradient(135deg,#064e3b 0%,#0f766e 60%,#0891b2 120%); box-shadow:0 18px 46px rgba(6,78,59,.2); }
+  html[data-theme="emerald"] header h1 small { color:#99f6e4; }
+  html[data-theme="emerald"] .clock,html[data-theme="emerald"] .summary-item { color:#ccfbf1; }
+  html[data-theme="emerald"] .card:hover { box-shadow:0 16px 40px rgba(15,138,112,.15); }
+
+  /* 表示モード：4テーマすべてに適用 */
+  html[data-mode="dark"] {
+    color-scheme:dark;
+    --bg:#0b1019; --paper:#141c2a; --ink:#f0f4fa; --ink-2:#9aa7ba;
+    --line:#29354a; --accent-soft:#182a46; --muted:#1d2737;
+    --danger:#f87171; --shadow:0 10px 34px rgba(0,0,0,.3);
+  }
+  html[data-mode="dark"][data-theme="blue"] { --accent:#60a5fa; }
+  html[data-mode="dark"][data-theme="orange"] { --accent:#fb923c; --accent-soft:#3c281d; }
+  html[data-mode="dark"][data-theme="orange"] .hero { color:#fff; background:linear-gradient(135deg,#1c1917 0%,#7c2d12 72%,#c2410c 130%); border-color:#7c2d12; box-shadow:0 18px 46px rgba(0,0,0,.3); }
+  html[data-mode="dark"][data-theme="orange"] .clock,html[data-mode="dark"][data-theme="orange"] .summary-item { color:#ffedd5; background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.12); }
+  html[data-mode="dark"][data-theme="orange"] .summary-item strong { color:#fff; }
+  html[data-mode="dark"][data-theme="mono"] { --accent:#f5f5f5; --accent-soft:#292929; --bg:#090909; --paper:#161616; --ink:#f5f5f5; --ink-2:#aaa; --line:#363636; --muted:#242424; }
+  html[data-mode="dark"][data-theme="mono"] .hero { background:#050505; box-shadow:8px 8px 0 #333; }
+  html[data-mode="dark"][data-theme="mono"] .card:hover { box-shadow:6px 6px 0 #333; border-color:#eee; }
+  html[data-mode="dark"][data-theme="emerald"] { --accent:#34d399; --accent-soft:#153b34; --bg:#081612; --paper:#10231f; --ink:#ecfdf5; --ink-2:#92b8ad; --line:#244039; --muted:#19302a; }
+  html[data-mode="dark"][data-theme="emerald"] .hero { background:linear-gradient(135deg,#022c22 0%,#115e59 68%,#155e75 120%); }
 </style>
 </head>
 <body>
@@ -216,6 +280,19 @@
       <span class="edit-status">編集モード中</span>
     </div>
   </div>
+
+  <nav class="theme-panel" aria-label="デザインを選択">
+    <span class="theme-label">デザイン</span>
+    <button class="theme-btn active" type="button" data-theme="blue">A ブルー</button>
+    <button class="theme-btn" type="button" data-theme="orange">B オレンジ</button>
+    <button class="theme-btn" type="button" data-theme="mono">C モノクロ</button>
+    <button class="theme-btn" type="button" data-theme="emerald">D エメラルド</button>
+    <span class="mode-divider" aria-hidden="true"></span>
+    <span class="theme-label">表示</span>
+    <button class="theme-btn mode-btn active" type="button" data-mode-choice="auto">自動</button>
+    <button class="theme-btn mode-btn" type="button" data-mode-choice="light">☀ ライト</button>
+    <button class="theme-btn mode-btn" type="button" data-mode-choice="dark">☾ ダーク</button>
+  </nav>
 
   <div class="search" id="searchBox">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -296,6 +373,45 @@ const loadingEl  = document.getElementById("loading");
 const qEl        = document.getElementById("q");
 const clearEl    = document.getElementById("clear");
 const searchBox  = document.getElementById("searchBox");
+
+// ---------- デザイン切り替え ----------
+const savedTheme = localStorage.getItem("officeTheme") || "blue";
+function setTheme(theme){
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll(".theme-btn[data-theme]").forEach(btn => {
+    const active = btn.dataset.theme === theme;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+  localStorage.setItem("officeTheme", theme);
+}
+document.querySelectorAll(".theme-btn[data-theme]").forEach(btn => btn.addEventListener("click", () => setTheme(btn.dataset.theme)));
+setTheme(savedTheme);
+
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+let modeChoice = localStorage.getItem("officeMode") || "auto";
+function setMode(choice){
+  modeChoice = choice;
+  const resolved = choice === "auto" ? (systemDark.matches ? "dark" : "light") : choice;
+  document.documentElement.dataset.mode = resolved;
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    const active = btn.dataset.modeChoice === choice;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+  localStorage.setItem("officeMode", choice);
+  document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.remove());
+  const themeMeta = document.createElement("meta");
+  themeMeta.name = "theme-color";
+  themeMeta.content = resolved === "dark" ? "#0b1019" : "#f3f6fb";
+  document.head.appendChild(themeMeta);
+}
+document.querySelectorAll(".mode-btn").forEach(btn => btn.addEventListener("click", e => {
+  e.stopPropagation();
+  setMode(btn.dataset.modeChoice);
+}));
+systemDark.addEventListener?.("change", () => { if (modeChoice === "auto") setMode("auto"); });
+setMode(modeChoice);
 
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
