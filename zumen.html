@@ -14,6 +14,8 @@ html[data-theme="dark"][data-design="site"]{--bg:#182022;--paper:#202d31;--field
 @media(max-width:650px){.wrap{padding:20px 14px 30px}.masthead{align-items:flex-start;flex-direction:column;gap:14px}.settings{width:100%;gap:6px}.settings button{flex:1}.settings select{flex:1}.hero{padding:24px 21px}.hero h1{font-size:28px}.sub{font-size:12px}.hero-badge{margin-top:14px}#list{grid-template-columns:1fr;gap:10px}.card{padding:18px 16px}.list-head{align-items:flex-start;flex-wrap:wrap}.toolbar button,.toolbar a{padding:10px 12px}.qr-grid{gap:7px}.qr-card{padding:10px 4px;border-top-width:4px}.qr-card .qr{padding:7px;margin-bottom:5px}.qr-card .hint,.qr-card .url{font-size:8px}.qr-card .title{font-size:12px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 @media print{html,body{color-scheme:light;background:#fff!important;color:#000!important}.wrap{max-width:none;padding:0;margin:0}.masthead,.hero,.list-head,#status,.qr-opts,.footer{display:none!important}#list{display:block}.qr-head{display:block;font-size:18px;font-weight:700;margin-bottom:8mm;color:#000}.qr-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:6mm}.qr-card{page-break-inside:avoid;break-inside:avoid;border:1px solid #222;border-top:2mm solid #222;border-radius:0;padding:4mm 2mm;box-shadow:none;color:#000;background:#fff}.qr-card .qr{padding:2.5mm;max-width:55mm;margin-bottom:2mm}.qr-card .qr img,.qr-card .qr canvas{width:180px;max-width:100%;height:auto!important}.qr-card .title{font-size:14pt}.qr-card .hint{font-size:8pt;color:#333}.qr-card .url{font-size:6pt;color:#555}}
+
+#list>.qr-create{grid-column:1 / -1}.qr-create{display:block;padding:26px;border-top:4px solid var(--accent)}.qr-create .kicker{font-size:10px;letter-spacing:.12em;color:var(--accent);font-weight:700}.qr-create h2{font-size:21px;margin:5px 0 9px}.qr-create p{font-size:13px;color:var(--sub);line-height:1.9}.qr-create ol{display:flex;gap:20px;flex-wrap:wrap;padding:16px 0 16px 20px;font-size:12px;color:var(--sub)}.qr-create li{padding-right:12px}.qr-create .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:7px}.qr-create a{padding:12px 18px;border:1px solid var(--line);border-radius:7px;text-decoration:none;color:var(--ink);font-size:13px;font-weight:700}.qr-create a.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}@media(max-width:650px){.qr-create{padding:22px 18px}.qr-create ol{display:block}.qr-create li{margin:6px 0}.qr-create a{text-align:center;flex:1;white-space:nowrap}}@media print{.qr-create{display:none!important}}
 </style>
 </head>
 <body>
@@ -103,15 +105,17 @@ html[data-theme="dark"][data-design="site"]{--bg:#182022;--paper:#202d31;--field
     function showGuide() {
       $('title').textContent = '図面・書類';
       $('list').innerHTML = '<div class="empty"><span class="guide-art" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 10V2h8m12 0h8v8M2 22v8h8m12 0h8v-8M8 8h5v5H8zM19 8h5v5h-5zM8 19h5v5H8zM19 19h5v5h-5z"/></svg></span><strong class="guide-title">QRから、必要な図面へ。</strong>現場に貼ってあるQRコードを<br>スマホのカメラで読み取ってください<div class="guide-steps">カメラを向ける → リンクを開く → 図面を選ぶ</div></div>';
+      $('list').innerHTML += '<section class="card qr-create"><div class="kicker">QR SHEET / 現場掲示用</div><h2>図面を開くQRを作成</h2><p>登録済みの工種ごとにQRシートを作成できます。PDFを追加しても、同じQRを続けて使えます。</p><ol><li>管理用の合言葉でログイン</li><li>用紙サイズ・列数を選択</li><li>印刷して現場に掲示</li></ol><div class="actions"><a class="primary" href="' + linkTo('admin&qr') + '">＋ QRを作成する</a><a href="' + linkTo('admin') + '">工種一覧を確認</a></div></section>';
+
     }
 
     // ============================================
     // 管理: 合言葉
     // ============================================
     function showLogin(msg) {
-      $('title').textContent = '管理画面'; $('listLabel').textContent = '管理者向け';
-      $('subtitle').textContent = '';
-      $('toolbar').innerHTML = '';
+      $('title').textContent = qrMode ? 'QR作成' : '管理画面'; $('listLabel').textContent = '管理者向け';
+      $('subtitle').textContent = qrMode ? 'ログイン後、工種ごとのQRシートを作成できます。' : '';
+      $('toolbar').innerHTML = '<a href="' + linkTo('') + '">トップに戻る</a>';
       $('list').innerHTML =
         '<div class="card form" style="display:block">' +
           '<h2>管理者ログイン</h2><p>工種一覧の確認・QRシートの印刷はこちら。</p><label for="keyInput">合言葉</label>' +
@@ -153,7 +157,7 @@ html[data-theme="dark"][data-design="site"]{--bg:#182022;--paper:#202d31;--field
       $('subtitle').textContent = res.rootName || ''; $('listLabel').textContent = '工種一覧 / ' + res.koushu.length + '工種';
       $('toolbar').innerHTML =
         '<button onclick="showKoushu(true)">更新</button>' +
-        '<a href="' + linkTo('admin&qr') + '">QRシート</a>';
+        '<a href="' + linkTo('admin&qr') + '">QR作成・印刷</a>';
       if (!res.koushu.length) { $('list').innerHTML = '<div class="empty">工種フォルダはまだありません</div>'; setStatus(''); return; }
       $('list').innerHTML = res.koushu.map(k =>
         '<a class="card" href="' + linkTo('k=' + encodeURIComponent(k.id)) + '" target="_blank" rel="noopener">' +
@@ -186,7 +190,7 @@ html[data-theme="dark"][data-design="site"]{--bg:#182022;--paper:#202d31;--field
     }
 
     function renderQr(res) {
-      $('title').textContent = 'QRシート'; $('listLabel').textContent = '現場掲示用 / ' + res.koushu.length + '工種';
+      $('title').textContent = 'QR作成・印刷'; $('listLabel').textContent = '現場掲示用 / ' + res.koushu.length + '工種';
       $('subtitle').textContent = '工種ごとのQR。印刷して現場に貼る。PDFを追加してもQRはそのまま使える';
       $('toolbar').innerHTML =
         '<a href="' + linkTo('admin') + '">管理画面に戻る</a>' +
