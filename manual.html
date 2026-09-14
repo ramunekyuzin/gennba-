@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="マニュアル">
 <title>事務所マニュアル</title>
-<script>(function(){var t=localStorage.getItem("officeTheme");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t);})();</script>
+<script>(function(){var t=localStorage.getItem("manualHubMode");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t);})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -26,6 +26,11 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
 .wrap{max-width:1120px;padding-bottom:110px}.dashboard{display:flex;gap:10px;margin:0 0 24px}.stat{display:flex;align-items:baseline;gap:8px;padding:12px 18px;border:1px solid var(--hair);border-radius:12px;background:var(--paper)}.stat strong{font-size:24px;line-height:1.2;color:var(--accent)}.stat span{font-size:12px;color:var(--ink-2)}.search-area{position:sticky;top:0;z-index:3;background:var(--bg);padding:12px 0 18px}.search{display:flex;align-items:center;gap:14px;padding:14px 18px;border:1px solid var(--hair);border-radius:13px;background:var(--paper);box-shadow:var(--shadow)}.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}.search svg{color:var(--accent);flex-shrink:0}.search input{flex:1;min-width:0;padding:0;border:0;border-radius:0;background:transparent;font-size:16px;outline:0;box-shadow:none}.search input::-webkit-search-cancel-button{-webkit-appearance:none}.search button{display:none;border:0;background:var(--field);color:var(--ink-2);border-radius:7px;width:30px;height:30px;font-size:20px;padding:0}.search.has-text button{display:block}.search-meta{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-size:12px;color:var(--ink-2)}.edit-note{display:none;background:var(--soft);color:var(--accent);border:1px solid var(--hair);border-radius:10px;padding:12px 16px;font-size:13px;margin-bottom:18px}body.edit .edit-note{display:block}#sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}section{min-width:0;border:1px solid var(--hair);border-radius:16px;background:var(--paper);box-shadow:var(--shadow);padding:22px}section.hidden,.row.hidden{display:none}h2{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding-bottom:16px;border-bottom:1px solid var(--hair);font-size:17px;overflow-wrap:anywhere}h2 .no{display:grid;place-items:center;width:30px;height:30px;flex-shrink:0;background:var(--soft);color:var(--accent);font-size:11px;border-radius:9px}.cat-count{margin-left:auto;font-size:11px;font-weight:500;color:var(--ink-2);white-space:nowrap}.row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:start;gap:10px;padding:17px 0;color:var(--ink);border-bottom:1px solid var(--hair);cursor:pointer;border-radius:4px}.row:last-child{border-bottom:0;padding-bottom:2px}.row:focus-visible{outline:3px solid var(--accent);outline-offset:4px}.row:hover .name{color:var(--accent)}.idx{color:var(--accent);background:var(--field);border-radius:7px;padding:6px 3px;font-size:10px;text-align:center}.name{font-size:16px;font-weight:700;line-height:1.65;overflow-wrap:anywhere}.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.tags:empty{display:none}.tag{font-size:10px;background:var(--soft);color:var(--accent);border-radius:5px;padding:2px 7px}.desc{font-size:13px;line-height:1.8;margin-top:8px;color:var(--ink-2);overflow-wrap:anywhere}.desc:empty{display:none}mark{background:var(--soft);color:var(--accent);border-radius:3px;font-weight:700}.cache-note{font-size:10px;color:var(--ink-2);margin-top:8px;overflow-wrap:anywhere}.go{color:var(--ink-2);font-size:20px}.tools{display:none;gap:6px;grid-column:2 / -1;flex-wrap:wrap;justify-content:flex-end}body.edit .tools{display:flex}body.edit .go{display:none}body.edit .row{cursor:default}.tools button{border:1px solid var(--hair);border-radius:7px;padding:7px 10px;background:var(--field);color:var(--ink);font-size:12px}.tools button.del{color:var(--danger)}.fab{position:fixed;right:24px;bottom:calc(22px + env(safe-area-inset-bottom));display:flex;gap:8px;padding:7px;background:var(--paper);border:1px solid var(--hair);border-radius:14px;box-shadow:0 8px 32px #0002;z-index:5}.fab button{border:1px solid var(--hair);background:var(--paper);color:var(--ink);border-radius:9px;padding:11px 16px;font-size:13px;font-weight:700}.fab button.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}.fab .add{display:none}body.edit .fab .add{display:block}body.edit #editBtn{background:var(--soft);color:var(--accent);border-color:var(--accent)}button:disabled{opacity:.5;cursor:wait}button:hover:not(:disabled){filter:brightness(.97)}label{display:block;font-size:12px;color:var(--ink-2);font-weight:700;margin:17px 0 7px}input,textarea,select{width:100%;padding:12px 13px;border:1px solid var(--hair);border-radius:9px;background:var(--field);color:var(--ink);font:inherit;font-size:16px;outline:0}input::placeholder{color:var(--ink-2);opacity:.8}input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}.btns{display:flex;gap:10px;margin-top:22px}.btns button{flex:1;border:1px solid var(--hair);border-radius:9px;padding:12px;background:var(--paper);color:var(--ink);font-size:14px;font-weight:700}.btns .ok{background:var(--accent);border-color:var(--accent);color:var(--paper)}.msg{font-size:13px;margin-top:10px}.msg:empty{display:none}.msg.ng{color:var(--danger)}.msg.ok{color:var(--accent)}.modal-bg{display:none;position:fixed;inset:0;align-items:center;justify-content:center;padding:20px;background:#07132699;backdrop-filter:blur(5px);z-index:10}.modal-bg.show{display:flex}.modal{width:100%;max-width:520px;padding:28px;border:1px solid var(--hair);border-radius:18px;background:var(--paper);max-height:90dvh;overflow:auto;box-shadow:0 24px 80px #0004}.modal h3{font-size:21px;margin:0 0 12px}.empty,.loading{text-align:center;padding:50px 22px;border:1px dashed var(--hair);border-radius:14px;background:var(--paper);font-size:14px;color:var(--ink-2);line-height:1.8}.empty{display:none}.empty.show{display:block}footer{text-align:center;font-size:10px;letter-spacing:.12em;color:var(--ink-2);margin-top:28px}.viewer{position:fixed;inset:0;background:var(--bg);z-index:20;display:none;flex-direction:column}.viewer.show{display:flex}.viewer .bar{display:flex;align-items:center;gap:18px;padding:calc(14px + env(safe-area-inset-top)) 24px 14px;background:var(--paper);border-bottom:1px solid var(--hair)}.viewer .bar .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:16px;font-weight:700}.viewer .bar .t small{display:block;font-size:10px;color:var(--accent);margin-bottom:3px}.viewer .bar button,.viewer .bar a{flex-shrink:0;border:1px solid var(--hair);border-radius:9px;padding:10px 13px;background:var(--field);color:var(--ink);font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap}.viewer iframe{flex:1;min-height:0;border:0;width:100%;background:white}.viewer .hint{font-size:11px;color:var(--ink-2);text-align:center;background:var(--paper);border-top:1px solid var(--hair);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
 @media(max-width:750px){.wrap{padding:22px 16px 110px}.title-block{margin:24px 0 20px}.title-block .r{display:none}.intro{font-size:13px}.settings{gap:12px}.settings-group{gap:4px}.palette,.mode{padding:8px;font-size:11px}.dashboard{gap:8px;margin-bottom:10px}.stat{padding:10px 14px;flex:1;justify-content:center}.stat strong{font-size:22px}#sections{grid-template-columns:1fr;gap:16px}section{padding:20px}.search-meta{font-size:11px}.search-meta .search-help{display:none}.search{padding:13px 14px;gap:10px}.search input{font-size:16px}.fab{right:14px;bottom:calc(14px + env(safe-area-inset-bottom))}.fab button{padding:10px 13px}.modal-bg{padding:0;align-items:flex-end}.modal{border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom))}.viewer .bar{gap:10px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}.viewer .bar .t{font-size:14px}.viewer .bar button,.viewer .bar a{padding:9px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
+
+.title-block{padding:28px 30px;border:1px solid var(--hair);border-radius:20px;background:linear-gradient(125deg,var(--paper),var(--soft));margin:24px 0 18px}.title-block .r{gap:16px}.dashboard .stat{border-radius:10px}.patterns-section{margin-top:24px}.row .go{display:grid;place-items:center;width:28px;height:28px;border:1px solid var(--hair);border-radius:7px;font-size:16px}.row:hover .go{background:var(--soft);border-color:var(--accent)}body.edit .row .go{display:none}.cache-note{font-family:inherit;font-size:10px}.viewer .bar{border-top:3px solid var(--accent)}
+@media(max-width:750px){.title-block{padding:23px 20px}.title-block h1{font-size:27px}.dashboard .stat{padding:10px}.row .go{width:24px;height:24px}.viewer .bar .t small{max-width:100%;overflow:hidden;text-overflow:ellipsis}}
+
+.appearance-settings{margin:0 0 18px;border:1px solid var(--hair);border-radius:12px;background:var(--paper)}.appearance-settings summary{cursor:pointer;padding:12px 15px;color:var(--ink);font-size:12px;font-weight:700;list-style-position:inside;min-height:44px}.settings-summary-note{font-size:11px;font-weight:400;color:var(--ink-2);margin-left:12px}.appearance-settings summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:10px}.appearance-settings .settings{padding:14px 15px;margin:0;border-top:1px solid var(--hair)}@media(max-width:380px){.settings-summary-note{font-size:10px;margin-left:8px}}
 </style>
 </head>
 <body>
@@ -36,7 +41,7 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
     
     <div class="l">
       <div class="kicker mono">GENBA OFFICE / MANUAL</div>
-      <h1>事務所マニュアル</h1><p class="intro">必要な手順に、すぐたどり着く。事務所のナレッジをひとつに。</p>
+      <h1>事務所マニュアル</h1><p class="intro">手順も、図面も、ひとつに。必要な資料へすぐアクセス。</p>
     </div>
     <div class="r">
       <div><small class="mono">DATE</small><b class="mono" id="date"></b></div>
@@ -44,7 +49,7 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
     </div>
   </div>
 
-<div class="settings"><div class="settings-group" role="group" aria-label="配色"><span class="settings-label">デザイン</span><button class="palette" data-palette-value="blue" type="button" aria-pressed="false"><i style="--swatch:#285ddb" aria-hidden="true"></i>ブルー</button><button class="palette" data-palette-value="orange" type="button" aria-pressed="false"><i style="--swatch:#c7652c" aria-hidden="true"></i>オレンジ</button><button class="palette" data-palette-value="mono" type="button" aria-pressed="false"><i style="--swatch:#627086" aria-hidden="true"></i>モノクロ</button><button class="palette" data-palette-value="emerald" type="button" aria-pressed="false"><i style="--swatch:#168a70" aria-hidden="true"></i>エメラルド</button></div><div class="settings-group" role="group" aria-label="表示モード"><span class="settings-label">表示</span><button class="mode" data-mode="auto" type="button" aria-pressed="false">自動</button><button class="mode" data-mode="light" type="button" aria-pressed="false">☀ ライト</button><button class="mode" data-mode="dark" type="button" aria-pressed="false">☾ ダーク</button></div></div><div class="dashboard"><div class="stat"><strong class="mono" id="docTotal">—</strong><span>マニュアル</span></div><div class="stat"><strong class="mono" id="catTotal">—</strong><span>カテゴリ</span></div></div><div class="search-area">
+<details class="appearance-settings" id="appearanceSettings"><summary>デザイン設定<span class="settings-summary-note">配色・表示モード</span></summary><div class="settings"><div class="settings-group" role="group" aria-label="配色"><span class="settings-label">デザイン</span><button class="palette" data-palette-value="blue" type="button" aria-pressed="false"><i style="--swatch:#285ddb" aria-hidden="true"></i>ブルー</button><button class="palette" data-palette-value="orange" type="button" aria-pressed="false"><i style="--swatch:#c7652c" aria-hidden="true"></i>オレンジ</button><button class="palette" data-palette-value="mono" type="button" aria-pressed="false"><i style="--swatch:#627086" aria-hidden="true"></i>モノクロ</button><button class="palette" data-palette-value="emerald" type="button" aria-pressed="false"><i style="--swatch:#168a70" aria-hidden="true"></i>エメラルド</button></div><div class="settings-group" role="group" aria-label="表示モード"><span class="settings-label">表示</span><button class="mode" data-mode="auto" type="button" aria-pressed="false">自動</button><button class="mode" data-mode="light" type="button" aria-pressed="false">☀ ライト</button><button class="mode" data-mode="dark" type="button" aria-pressed="false">☾ ダーク</button></div></div></details><div class="dashboard"><div class="stat"><strong class="mono" id="docTotal">—</strong><span>マニュアル</span></div><div class="stat"><strong class="mono" id="catTotal">—</strong><span>カテゴリ</span></div></div><div class="search-area">
   <div class="search" id="searchBox">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
     <input id="q" aria-label="マニュアルを検索" type="search" placeholder="タイトル・タグ・本文を検索" autocomplete="off" enterkeyhint="search">
@@ -102,8 +107,8 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
     <input id="fTitle" placeholder="例: 請求書の処理手順">
     <label>タグ(カンマ区切り・任意)</label>
     <input id="fTag" placeholder="例: 請求書, 月末, 経理">
-    <label>GoogleドキュメントのURL</label>
-    <input id="fUrl" type="url" inputmode="url" placeholder="https://docs.google.com/document/d/…">
+    <label>URL(Googleドキュメント / DriveのPDF・画像 / スプシ / フォルダ)</label>
+    <input id="fUrl" type="url" inputmode="url" placeholder="https://docs.google.com/… または https://drive.google.com/file/d/…">
     <div class="msg" id="formMsg"></div>
     <div class="btns">
       <button type="button" onclick="closeModal('formModal')">やめる</button>
@@ -151,10 +156,18 @@ async function load(){
 }
 
 // ---------- URL変換 ----------
-function docId(url){ const m = String(url || "").match(/\/document\/d\/([a-zA-Z0-9_-]+)/); return m ? m[1] : ""; }
+// Google系のURLはiframeで表示できる /preview 形式に変換(Docs・スプシ・スライド・Driveのファイル=PDF/画像/動画など)
 function embedUrl(url){
-  const id = docId(url);
-  if (id) return `https://docs.google.com/document/d/${id}/preview`;   // 軽くてスマホ向き
+  url = String(url || "");
+  let m;
+  if ((m = url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/)))
+    return `https://docs.google.com/${m[1]}/d/${m[2]}/preview`;
+  if ((m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/)))
+    return `https://drive.google.com/file/d/${m[1]}/preview`;
+  if ((m = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/)))
+    return `https://drive.google.com/file/d/${m[1]}/preview`;
+  if ((m = url.match(/drive\.google\.com\/drive\/folders\/([a-zA-Z0-9_-]+)/)))
+    return `https://drive.google.com/embeddedfolderview?id=${m[1]}#list`;   // フォルダも一覧表示できる
   return url;
 }
 
@@ -182,7 +195,7 @@ function render(){
           <div>
             <div class="name">${esc(d["タイトル"])}</div><div class="tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
             <div class="desc" id="snip-${esc(d["ID"])}"></div>
-            <div class="cache-note mono">${hasCache ? "本文検索に対応 · " + esc(d["更新日時"] || "") : "タイトル・タグから検索できます"}</div>
+            <div class="cache-note mono">${hasCache ? "本文検索対応 · " + esc(d["更新日時"] || "") : (/\/document\/d\//.test(d["URL"]) ? "本文未取得" : "資料を開く")}</div>
           </div>
           <div class="go">→</div>
           <div class="tools">
@@ -347,18 +360,18 @@ function applyTheme(t){
   if(t==="auto") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.dataset.theme=t;
   document.querySelectorAll("[data-mode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mode===t)));
-  localStorage.setItem("officeTheme",t);
+  localStorage.setItem("manualHubMode",t);
 }
 function applyPalette(p){
   if(!["blue","orange","mono","emerald"].includes(p)) p="blue";
   document.documentElement.dataset.palette=p;
   document.querySelectorAll("[data-palette-value]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.paletteValue===p)));
-  localStorage.setItem("manualPalette",p);
+  localStorage.setItem("manualHubPalette",p);
 }
 document.querySelectorAll("[data-mode]").forEach(b=>b.addEventListener("click",()=>applyTheme(b.dataset.mode)));
 document.querySelectorAll("[data-palette-value]").forEach(b=>b.addEventListener("click",()=>applyPalette(b.dataset.paletteValue)));
-applyTheme(localStorage.getItem("officeTheme")||"auto");
-applyPalette(localStorage.getItem("manualPalette")||"blue");
+applyTheme(localStorage.getItem("manualHubMode")||"auto");
+applyPalette(localStorage.getItem("manualHubPalette")||"blue");
 document.querySelectorAll("label").forEach(label=>{const el=label.nextElementSibling;if(el&&el.id&&el.tagName==="INPUT")label.htmlFor=el.id;});
 document.querySelectorAll(".msg,.loading").forEach(el=>{el.setAttribute("role","status");el.setAttribute("aria-live","polite");});
 // ---------- 表題欄の日時 ----------
