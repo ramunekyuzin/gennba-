@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>鍵貸出管理</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #f5f6f8; }
+    iframe { border: none; width: 100%; height: 100%; display: block; }
+  </style>
+</head>
+<body>
+  <iframe id="app" allow="clipboard-write"></iframe>
+  <script>
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzOjG9xuXF9GXTy3CRgZ5u2HGxm40_YTRe6xT4adWwv-bIuMxlnQDZVXSdH5nK0GAlFKg/exec';
+    const params = new URLSearchParams(location.search);
+    const mode = params.get('mode') || '';
+    // QR生成用に、このページ自身のURL(クエリなし)をGASに渡す
+    const front = location.origin + location.pathname;
+    document.getElementById('app').src =
+      GAS_URL + '?mode=' + encodeURIComponent(mode) + '&front=' + encodeURIComponent(front);
+  </script>
+</body>
+</html>
