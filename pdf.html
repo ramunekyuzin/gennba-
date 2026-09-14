@@ -4,81 +4,41 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>PDFまとめ屋</title>
+<title>PDFまとめ屋 — ペーパースタジオ</title><script>try{var t=localStorage.getItem('pdfStudioTheme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}</script>
 <style>
-  :root{--bg:#f5f6f8;--card:#fff;--fg:#222;--sub:#666;--line:#d5d8de;--pri:#1e5aa8;--ok:#1a8a3c;--ng:#c0392b;--sel:#1e5aa8}
-  @media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1e2126;--fg:#e8e8e8;--sub:#aaa;--line:#3a3f47;--pri:#3b82f6;--ok:#4ade80;--ng:#f87171;--sel:#3b82f6}}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--fg);padding:16px;max-width:640px;margin:0 auto}
-  h1{font-size:20px;margin-bottom:4px}
-  .note{font-size:12px;color:var(--sub);margin-bottom:14px}
-  .tabs{display:flex;gap:8px;margin-bottom:12px}
-  .tabs button{flex:1;padding:14px;font-size:16px;font-weight:bold;border:2px solid var(--pri);border-radius:10px;background:transparent;color:var(--pri)}
-  .tabs button.on{background:var(--pri);color:#fff}
-  .sub.on{background:var(--pri);color:#fff;border-color:var(--pri)}
-  .sub small{font-weight:normal;font-size:11px;opacity:.85}
-  .card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.12)}
-  .drop{border:2px dashed var(--line);border-radius:12px;padding:28px 12px;text-align:center;color:var(--sub);font-size:15px;cursor:pointer}
-  .drop.over{border-color:var(--pri);color:var(--pri)}
-  input[type=file]{display:none}
-  input[type=text]{width:100%;padding:14px;font-size:16px;border:1px solid var(--line);border-radius:8px;margin:8px 0;background:var(--bg);color:var(--fg)}
-  button.main{width:100%;padding:16px;font-size:17px;font-weight:bold;border:none;border-radius:10px;background:var(--pri);color:#fff;margin-top:8px}
-  button.main:disabled{opacity:.45}
-  button.sub{padding:10px 14px;font-size:14px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg)}
-  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .row .sub{flex:1}
-  #status{text-align:center;font-size:14px;margin-top:10px;min-height:20px}
-  .ok{color:var(--ok)}.ng{color:var(--ng)}
-  ul#files{list-style:none;margin-top:10px}
-  ul#files li{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
-  ul#files li .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  ul#files li button{padding:8px 10px;font-size:14px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--fg)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin-top:12px}
-  .pg{position:relative;border:3px solid transparent;border-radius:8px;overflow:hidden;background:var(--bg);cursor:pointer}
-  .pg canvas{width:100%;display:block}
-  .pg .n{position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;font-size:12px;padding:2px 6px;border-radius:6px}
-  .pg.sel{border-color:var(--sel)}
-  .pg.sel::after{content:"✓";position:absolute;top:4px;left:4px;background:var(--sel);color:#fff;font-size:13px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-  .hint{font-size:13px;color:var(--sub);margin-top:6px}
+:root{color-scheme:light;--bg:#f1eee6;--card:#faf8f1;--fg:#262923;--sub:#706f63;--line:#d4d1c5;--pri:#bc442b;--ok:#356b4d;--ng:#b83727;--sel:#bc442b;--soft:#e9e5da;--rail:#242821;--railfg:#f6f3e9;--button:#fff7ee}
+html[data-theme="dark"]{color-scheme:dark;--bg:#20221d;--card:#292c25;--fg:#f1eee3;--sub:#bbb9a9;--line:#4b4e42;--pri:#ff9b77;--ok:#a5d2ad;--ng:#ffab96;--sel:#ff9b77;--soft:#34382e;--rail:#141811;--button:#242821}
+@media(prefers-color-scheme:dark){html:not([data-theme]){color-scheme:dark;--bg:#20221d;--card:#292c25;--fg:#f1eee3;--sub:#bbb9a9;--line:#4b4e42;--pri:#ff9b77;--ok:#a5d2ad;--ng:#ffab96;--sel:#ff9b77;--soft:#34382e;--rail:#141811;--button:#242821}}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--fg);line-height:1.6}button,input{font:inherit}button{cursor:pointer}button,input,.drop,.pg{ -webkit-tap-highlight-color:transparent}button:focus-visible,.drop:focus-visible,.pg:focus-visible{outline:3px solid var(--pri);outline-offset:4px}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums}.shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100dvh}.sidebar{position:sticky;top:0;height:100dvh;background:var(--rail);color:var(--railfg);padding:34px 24px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:12px}.brand-mark{width:38px;height:44px;border:1px solid #999d8e;display:grid;place-items:center;font-weight:800;font-size:12px;transform:rotate(-6deg);box-shadow:4px 4px 0 #454c3c}.brand-title{font-size:18px;font-weight:800;letter-spacing:.03em}.brand small{display:block;font-size:9px;letter-spacing:.17em;color:#b2b8a7;margin-top:4px}.nav-label{margin:56px 0 13px;color:#b2b8a7;font-size:10px;letter-spacing:.2em}.tabs{display:flex;flex-direction:column;gap:7px}.tabs button{display:flex;align-items:center;gap:13px;text-align:left;background:transparent;color:#c6ccbc;border:1px solid transparent;padding:15px 12px;font-size:13px;font-weight:600;border-radius:3px;line-height:1.6}.tabs button .num{font-size:10px;font-weight:400;opacity:.65}.tabs button.on{background:#f2eee3;color:#25291f;border-color:#f2eee3}.tabs button:hover:not(.on){background:#363d2e}.nav-title{display:block}.nav-en{font-size:9px;letter-spacing:.15em;opacity:.65;display:block;font-weight:400}.sidebar-foot{margin-top:auto;padding-top:32px;font-size:11px;line-height:1.9;color:#c1c8b7}.local-badge{display:flex;align-items:center;gap:7px;color:#e4ebdc;font-size:11px;margin-bottom:8px}.local-badge i{display:block;width:6px;height:6px;background:#bbd39d;border-radius:50%}.content{min-width:0;max-width:1180px;width:100%;margin:auto;padding:28px 48px 36px;align-self:start}.topbar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:18px;gap:15px}.breadcrumb{font-size:10px;letter-spacing:.15em;color:var(--sub)}.mode-control{display:flex;align-items:center;gap:8px;color:var(--sub);font-size:10px}.mode-control select{background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:3px;padding:6px 8px;font:inherit;max-width:110px}.mode-control option{background:var(--card);color:var(--fg)}.hero{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:38px 0 32px}.eyebrow{color:var(--pri);font-size:10px;letter-spacing:.22em;margin-bottom:10px}.hero h1{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-weight:700;font-size:clamp(29px,4.2vw,48px);line-height:1.4;letter-spacing:-.045em}.hero p{font-size:13px;color:var(--sub);margin-top:12px}.hero-number{font-family:Georgia,serif;font-style:italic;font-size:94px;color:var(--line);line-height:1;flex-shrink:0}.workspace-heading{display:flex;justify-content:space-between;gap:12px;border-top:2px solid var(--fg);padding:13px 0;font-size:10px;color:var(--sub);letter-spacing:.12em}.card{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:24px;margin-bottom:18px;box-shadow:3px 3px 0 var(--soft)}.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;min-height:264px;border:1px dashed var(--sub);border-radius:2px;padding:30px 18px;text-align:center;background:var(--bg);color:var(--fg);cursor:pointer;transition:background .15s,border-color .15s}.drop.over,.drop:hover{background:var(--soft);border-color:var(--pri)}.paper-symbol{position:relative;display:grid;place-items:center;width:49px;height:60px;border:1.5px solid var(--fg);background:var(--card);color:var(--pri);font-size:10px;font-weight:800;letter-spacing:.12em;margin-bottom:13px;transform:rotate(-7deg);box-shadow:5px 5px 0 var(--line)}.drop strong{font-size:18px;font-weight:600}.drop .drop-sub{font-size:12px;color:var(--sub)}.drop .file-label{color:var(--pri);font-weight:700;font-size:12px;margin-top:6px;text-decoration:underline;text-underline-offset:4px}.drop small{font-size:9px;letter-spacing:.12em;color:var(--sub);margin-top:8px}input[type=file]{display:none}input[type=text]{width:100%;padding:13px 14px;font-size:16px;border:1px solid var(--line);border-radius:2px;margin:14px 0 8px;background:var(--bg);color:var(--fg);outline:0}input[type=text]:focus{border-color:var(--pri)}button.main{display:block;width:100%;padding:16px 18px;font-size:14px;font-weight:700;border:1px solid var(--pri);border-radius:3px;background:var(--pri);color:var(--button);margin-top:18px;letter-spacing:.02em}button.main:disabled{opacity:.4;cursor:not-allowed}button.main:hover:not(:disabled){filter:brightness(.94)}button.sub{padding:11px 14px;font-size:12px;border:1px solid var(--line);border-radius:3px;background:transparent;color:var(--fg)}button.sub:hover{background:var(--soft)}button.sub.on{background:var(--fg);border-color:var(--fg);color:var(--card)}.sub small{font-weight:400;font-size:10px;opacity:.85}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.row .sub{flex:1}.list-caption{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--sub);margin-top:22px;padding-bottom:10px;border-bottom:1px solid var(--line)}#fileCount{color:var(--pri)}#status{font-size:13px;line-height:1.8;padding:14px 18px;border-left:3px solid currentColor;background:var(--card);overflow-wrap:anywhere;margin:20px 0}#status:empty{display:none}.ok{color:var(--ok)}.ng{color:var(--ng)}ul#files{list-style:none}ul#files li{display:flex;align-items:center;gap:7px;padding:13px 0;border-bottom:1px solid var(--line);font-size:13px}ul#files li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}ul#files li button{padding:5px 9px;font-size:13px;border:1px solid var(--line);border-radius:2px;background:transparent;color:var(--fg)}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:16px;margin-top:18px}.pg{position:relative;border:3px solid transparent;border-radius:2px;overflow:hidden;background:var(--bg);cursor:pointer;box-shadow:1px 2px 6px #0001}.pg canvas{width:100%;display:block}.pg .n{position:absolute;bottom:5px;right:5px;background:#252821df;color:#fff;font-size:11px;padding:2px 7px;border-radius:2px}.pg.sel{border-color:var(--sel)}.pg.sel::after{content:"✓";position:absolute;top:5px;left:5px;background:var(--sel);color:var(--button);font-size:13px;width:22px;height:22px;display:grid;place-items:center}.hint{font-size:12px;color:var(--sub);margin-top:10px;line-height:1.9;overflow-wrap:anywhere}.hint:empty{display:none}.settings-title{font-size:15px;font-weight:700;margin-bottom:13px}.footer{display:flex;justify-content:space-between;gap:12px;padding-top:22px;margin-top:26px;border-top:1px solid var(--line);font-size:9px;letter-spacing:.14em;color:var(--sub)}
+@media(min-width:1500px){.content{padding-top:40px}.hero{padding:52px 0 38px}.drop{min-height:320px}}
+@media(max-width:1000px){.shell{grid-template-columns:190px minmax(0,1fr)}.sidebar{padding:26px 18px}.content{padding:24px}.hero-number{font-size:72px}.brand-title{font-size:15px}.tabs button{padding:12px 8px}.card{padding:20px}}
+@media(max-width:700px){.shell{display:block}.sidebar{position:relative;height:auto;padding:20px 16px 14px}.brand{gap:10px}.brand-mark{width:28px;height:32px;font-size:9px}.brand-title{font-size:16px}.brand small{font-size:8px}.nav-label,.sidebar-foot{display:none}.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:20px}.tabs button{display:block;text-align:center;padding:10px 2px;font-size:11px}.tabs .num,.nav-en{display:none}.content{padding:20px 16px 28px}.hero{padding:27px 0 26px;gap:10px}.hero h1{font-size:29px}.hero p{font-size:12px;max-width:260px}.hero-number{font-size:56px}.eyebrow{font-size:9px;letter-spacing:.13em}.card{padding:16px}.drop{min-height:240px;padding:26px 12px}.drop strong{font-size:16px}.drop .drop-sub{font-size:11px}.workspace-heading{font-size:9px}.breadcrumb{font-size:9px;letter-spacing:.07em}.footer{font-size:8px;letter-spacing:.05em}.row .sub{padding:10px 6px}button.main{font-size:13px}.grid{grid-template-columns:repeat(auto-fill,minmax(85px,1fr));gap:10px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
-<h1>PDFまとめ屋</h1>
-<div class="note">結合・分割はすべてこの端末の中で処理されます（ファイルはどこにも送信されません）</div>
-
-<div class="tabs">
-  <button id="tabM" class="on" onclick="showTab('m')">結合</button>
-  <button id="tabS" onclick="showTab('s')">分割・抜き出し</button>
-  <button id="tabR" onclick="showTab('r')">解像度</button>
-  <button id="tabL" onclick="showTab('l')">軽くする</button>
-</div>
-
-<!-- ===== 結合 ===== -->
+<div class="shell"><aside class="sidebar"><div class="brand"><span class="brand-mark mono">PDF</span><div class="brand-title">PDFまとめ屋<small class="mono">THE PAPER STUDIO</small></div></div><div class="nav-label mono">CHOOSE YOUR TOOL</div><nav class="tabs" aria-label="PDFツール"><button type="button" id="tabM" class="on" onclick="showTab('m')" aria-pressed="true"><span class="num mono">01</span><span><span class="nav-title">結合</span><span class="nav-en mono">MERGE</span></span></button><button type="button" id="tabS" class="" onclick="showTab('s')" aria-pressed="false"><span class="num mono">02</span><span><span class="nav-title">分割・抜き出し</span><span class="nav-en mono">EXTRACT</span></span></button><button type="button" id="tabR" class="" onclick="showTab('r')" aria-pressed="false"><span class="num mono">03</span><span><span class="nav-title">解像度</span><span class="nav-en mono">RESAMPLE</span></span></button><button type="button" id="tabL" class="" onclick="showTab('l')" aria-pressed="false"><span class="num mono">04</span><span><span class="nav-title">軽くする</span><span class="nav-en mono">COMPRESS</span></span></button></nav><div class="sidebar-foot"><div class="local-badge"><i></i>ファイルは、この端末の中で。</div>PDFの処理はブラウザ内で完結。<br>ファイルは送信されません。</div></aside><main class="content"><div class="topbar"><span class="breadcrumb mono">PDFまとめ屋 / WORKSPACE</span><label class="mode-control">表示<select id="themeMode" aria-label="表示モード"><option value="auto">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label></div><header class="hero"><div><div class="eyebrow mono" id="toolEyebrow">MERGE / PDF & IMAGE</div><h1 id="toolTitle">ひとつに、まとめる。</h1><p id="toolDescription">PDFも画像も、好きな順番で一冊のファイルに。</p></div><span class="hero-number" id="toolNumber" aria-hidden="true">01</span></header><div class="workspace-heading"><span class="mono">YOUR WORKSPACE</span><span>端末内で処理 · ファイル送信なし</span></div><!-- ===== 結合 ===== -->
 <div id="paneM">
   <div class="card">
-    <div class="drop" id="dropM" onclick="document.getElementById('inM').click()">
-      PDF・画像をここにドロップ<br>またはタップして選択（複数OK）
-    </div>
+    <div class="drop" id="dropM" onclick="document.getElementById('inM').click()"><span class="paper-symbol" aria-hidden="true">PDF</span><strong>PDF・画像をドロップ</strong><span class="drop-sub">複数ファイルをまとめて追加できます</span><span class="file-label">または、ファイルを選択</span><small class="mono">PDF / JPG / PNG / IMAGE</small></div>
     <input type="file" id="inM" multiple accept="application/pdf,image/*">
-    <ul id="files"></ul>
-    <div class="row"><button class="sub" onclick="sortFiles()">名前順に並べ替え</button><button class="sub" onclick="clearFiles()">全部消す</button></div>
-    <button class="main" id="btnM" onclick="doMerge()" disabled>1本にまとめてダウンロード</button>
+    <div class="list-caption"><span>ファイルの順番</span><span id="fileCount">0 FILES</span></div><ul id="files"></ul>
+    <div class="row"><button class="sub" onclick="sortFiles()">名前順に並べ替え</button><button class="sub" onclick="clearFiles()">一覧をクリア</button></div>
+    <button class="main" id="btnM" onclick="doMerge()" disabled>結合してダウンロード →</button>
   </div>
 </div>
 
 <!-- ===== 分割 ===== -->
 <div id="paneS" style="display:none">
   <div class="card">
-    <div class="drop" id="dropS" onclick="document.getElementById('inS').click()">
-      PDFを1つここにドロップ<br>またはタップして選択
-    </div>
+    <div class="drop" id="dropS" onclick="document.getElementById('inS').click()"><span class="paper-symbol" aria-hidden="true">PDF</span><strong>PDFをドロップ</strong><span class="drop-sub">PDFファイルを1つ選んでください</span><span class="file-label">または、ファイルを選択</span><small class="mono">PDF DOCUMENT</small></div>
     <input type="file" id="inS" accept="application/pdf">
     <div id="sInfo" class="hint"></div>
     <div class="grid" id="grid"></div>
   </div>
-  <div class="card" id="sCtl" style="display:none">
+  <div class="card" id="sCtl" style="display:none"><h2 class="settings-title">ページを選んで書き出す</h2>
     <div class="hint">ページをタップして選ぶ、または番号で指定（例: 1-3,5 ／ 複数ファイルに分けるなら 1-3/4-6）</div>
-    <input type="text" id="spec" placeholder="例: 1-3,5  または  1-3/4-6" oninput="specToGrid()">
+    <input type="text" id="spec" aria-label="抜き出すページ番号" placeholder="例: 1-3,5  または  1-3/4-6" oninput="specToGrid()">
     <div class="row">
       <button class="sub" onclick="selAll(true)">全選択</button>
       <button class="sub" onclick="selAll(false)">解除</button>
@@ -91,13 +51,11 @@
 <!-- ===== 解像度 ===== -->
 <div id="paneR" style="display:none">
   <div class="card">
-    <div class="drop" id="dropR" onclick="document.getElementById('inR').click()">
-      PDFを1つここにドロップ<br>またはタップして選択
-    </div>
+    <div class="drop" id="dropR" onclick="document.getElementById('inR').click()"><span class="paper-symbol" aria-hidden="true">PDF</span><strong>PDFをドロップ</strong><span class="drop-sub">PDFファイルを1つ選んでください</span><span class="file-label">または、ファイルを選択</span><small class="mono">PDF DOCUMENT</small></div>
     <input type="file" id="inR" accept="application/pdf">
     <div id="rInfo" class="hint"></div>
   </div>
-  <div class="card" id="rCtl" style="display:none">
+  <div class="card" id="rCtl" style="display:none"><h2 class="settings-title">書き出しの設定</h2>
     <div class="hint">出力する解像度（dpi）。提出要件が「200dpi以上」なら 200 か 300 を選ぶ</div>
     <div class="row">
       <button class="sub dpi" data-dpi="150" onclick="pickDpi(this)">150</button>
@@ -119,13 +77,11 @@
 <!-- ===== 軽くする ===== -->
 <div id="paneL" style="display:none">
   <div class="card">
-    <div class="drop" id="dropL" onclick="document.getElementById('inL').click()">
-      PDFを1つここにドロップ<br>またはタップして選択
-    </div>
+    <div class="drop" id="dropL" onclick="document.getElementById('inL').click()"><span class="paper-symbol" aria-hidden="true">PDF</span><strong>PDFをドロップ</strong><span class="drop-sub">PDFファイルを1つ選んでください</span><span class="file-label">または、ファイルを選択</span><small class="mono">PDF DOCUMENT</small></div>
     <input type="file" id="inL" accept="application/pdf">
     <div id="lInfo" class="hint"></div>
   </div>
-  <div class="card" id="lCtl" style="display:none">
+  <div class="card" id="lCtl" style="display:none"><h2 class="settings-title">軽量化の設定</h2>
     <div class="hint">どれくらい軽くする？</div>
     <div class="row">
       <button class="sub lv" data-dpi="150" data-q="0.8" onclick="pickLv(this)">弱<br><small>150dpi・綺麗</small></button>
@@ -137,8 +93,21 @@
   </div>
 </div>
 
-<div id="status"></div>
+<div id="status" role="status" aria-live="polite"></div><footer class="footer mono"><span>THE PAPER STUDIO</span><span>PDFまとめ屋 / LOCAL PROCESSING</span></footer></main></div>
 
+<script>
+function escapeText(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function updateToolHeading(t){
+ const data={m:['01','MERGE / PDF & IMAGE','ひとつに、まとめる。','PDFも画像も、好きな順番で一冊のファイルに。'],s:['02','EXTRACT / SELECT PAGES','必要なページだけ。','ページを見ながら選んで、抜き出し・分割。'],r:['03','RESAMPLE / RESOLUTION','解像度を、整える。','用途に合わせて、解像度と画質を設定。'],l:['04','COMPRESS / FILE SIZE','もっと、身軽に。','送付や共有に合わせて、ファイルサイズを調整。']}[t];
+ ['toolNumber','toolEyebrow','toolTitle','toolDescription'].forEach((id,i)=>document.getElementById(id).textContent=data[i]);
+ ['m','s','r','l'].forEach(k=>document.getElementById('tab'+k.toUpperCase()).setAttribute('aria-pressed',String(k===t)));
+}
+const themeControl=document.getElementById('themeMode');
+function setStudioTheme(t){if(!['auto','light','dark'].includes(t))t='auto';if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=t;themeControl.value=t;try{localStorage.setItem('pdfStudioTheme',t);}catch(e){}}
+let savedTheme='auto';try{savedTheme=localStorage.getItem('pdfStudioTheme')||'auto';}catch(e){}
+setStudioTheme(savedTheme);themeControl.addEventListener('change',()=>setStudioTheme(themeControl.value));
+document.querySelectorAll('.drop').forEach(el=>{el.setAttribute('role','button');el.tabIndex=0;el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click();}});});
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -156,6 +125,7 @@ function showTab(t){
   document.getElementById('tabS').classList.toggle('on', t==='s');
   document.getElementById('tabR').classList.toggle('on', t==='r');
   document.getElementById('tabL').classList.toggle('on', t==='l');
+  updateToolHeading(t);
   setStatus('',true);
 }
 function download(bytes, name, mime='application/pdf'){
@@ -182,10 +152,11 @@ function renderFiles(){
   const ul=document.getElementById('files'); ul.innerHTML='';
   mFiles.forEach((f,i)=>{
     const li=document.createElement('li');
-    li.innerHTML=`<span class="nm">${i+1}. ${f.name}</span>
-      <button onclick="mv(${i},-1)">↑</button><button onclick="mv(${i},1)">↓</button><button onclick="rm(${i})">×</button>`;
+    li.innerHTML=`<span class="nm">${i+1}. ${escapeText(f.name)}</span>
+      <button aria-label="上に移動" onclick="mv(${i},-1)">↑</button><button aria-label="下に移動" onclick="mv(${i},1)">↓</button><button aria-label="一覧から削除" onclick="rm(${i})">×</button>`;
     ul.appendChild(li);
   });
+  document.getElementById('fileCount').textContent = mFiles.length + ' FILES';
   document.getElementById('btnM').disabled = mFiles.length===0;
 }
 function mv(i,d){ const j=i+d; if(j<0||j>=mFiles.length)return; [mFiles[i],mFiles[j]]=[mFiles[j],mFiles[i]]; renderFiles(); }
