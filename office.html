@@ -264,6 +264,32 @@
   html[data-mode="dark"][data-theme="mono"] .card:hover { box-shadow:6px 6px 0 #333; border-color:#eee; }
   html[data-mode="dark"][data-theme="emerald"] { --accent:#34d399; --accent-soft:#153b34; --bg:#081612; --paper:#10231f; --ink:#ecfdf5; --ink-2:#92b8ad; --line:#244039; --muted:#19302a; }
   html[data-mode="dark"][data-theme="emerald"] .hero { background:linear-gradient(135deg,#022c22 0%,#115e59 68%,#155e75 120%); }
+
+/* Explicit light palettes stay light regardless of device appearance. */
+html[data-mode="light"]{color-scheme:light;--bg:#f3f6fb;--paper:#fff;--ink:#172033;--ink-2:#667085;--line:#e3e8f0;--accent:#2563eb;--accent-soft:#eaf2ff;--muted:#f1f4f8;--danger:#dc2626;--shadow:0 8px 30px #0f172a12}
+html[data-mode="light"][data-theme="orange"]{--bg:#f7f5f0;--paper:#fffefa;--ink:#29251f;--ink-2:#726b61;--line:#e7dfd2;--accent:#bd4b12;--accent-soft:#fff0e5;--muted:#f3eee5}
+html[data-mode="light"][data-theme="mono"]{--bg:#f2f2f2;--paper:#fff;--ink:#111;--ink-2:#666;--line:#d8d8d8;--accent:#111;--accent-soft:#eee;--muted:#f3f3f3}
+html[data-mode="light"][data-theme="emerald"]{--bg:#eef7f4;--paper:#fff;--ink:#17332c;--ink-2:#647d76;--line:#d8e9e3;--accent:#0f8068;--accent-soft:#def5ed;--muted:#e8f2ee}
+.theme-panel{flex-wrap:wrap;overflow:visible}.unit-panel[hidden]{display:none!important}.unit-mark{display:none}.theme-btn.active{background:var(--accent);color:var(--paper)}html[data-mode="dark"] .theme-btn.active,html[data-mode="dark"] .fab .primary,html[data-mode="dark"] .btns .ok{color:var(--bg)}
+/* UNIT 01: angular command panels */
+html[data-mode="dark"][data-look="eva"]{--bg:#080b0e;--paper:#10161b;--ink:#e2e9e6;--ink-2:#9cafae;--line:#2b3e41;--accent:#b8f33c;--accent-soft:#26371b;--muted:#1b272c;--danger:#ff946c;--violet:#a080e7;--purple:#7652b2;--warning:#f18b35;--shadow:none;--radius:0px}
+html[data-mode="dark"][data-look="eva"][data-unit="unit00"]{--bg:#070d14;--paper:#0d1a27;--line:#2b4358;--accent:#63d6ff;--accent-soft:#15354a;--muted:#142c3d;--violet:#87baff;--purple:#326999;--warning:#ffb554;--ink-2:#a3b8cd}
+html[data-mode="dark"][data-look="eva"][data-unit="unit02"]{--bg:#130909;--paper:#211113;--line:#563237;--accent:#ff7666;--accent-soft:#421e23;--muted:#301a20;--violet:#ffb157;--purple:#a83b3e;--warning:#ffb157;--ink-2:#d0a9ab}
+html[data-mode="dark"][data-look="eva"][data-unit="amber"]{--bg:#100d06;--paper:#1c180f;--line:#4d4127;--accent:#ffc75c;--accent-soft:#382b13;--muted:#292312;--violet:#ffdb87;--purple:#94702d;--warning:#f89c49;--ink-2:#c4b595}
+html[data-mode="dark"][data-look="eva"] body{background:linear-gradient(#93b19f08 1px,transparent 1px),linear-gradient(90deg,#93b19f08 1px,transparent 1px),var(--bg);background-size:32px 32px}
+html[data-mode="dark"][data-look="eva"] .hero{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-top:6px solid var(--purple);border-radius:0;box-shadow:none;padding-right:166px}
+html[data-mode="dark"][data-look="eva"] .hero::after{display:none}html[data-mode="dark"][data-look="eva"] header{display:block}html[data-mode="dark"][data-look="eva"] header h1{font-size:clamp(30px,5vw,48px);letter-spacing:.07em;font-weight:900}html[data-mode="dark"][data-look="eva"] header h1 small{font-family:monospace;color:var(--warning);font-size:10px;letter-spacing:.1em}
+html[data-mode="dark"][data-look="eva"] .clock{display:inline-block;border:0;border-left:2px solid var(--violet);border-radius:0;background:transparent;color:var(--ink-2);margin-top:15px;backdrop-filter:none;padding:0 10px;font-size:12px}
+html[data-mode="dark"][data-look="eva"] .unit-mark{display:flex;position:absolute;right:26px;top:30px;width:105px;flex-direction:column;align-items:center;color:var(--violet);border-left:1px solid var(--line)}.unit-mark small{font-size:10px;letter-spacing:.2em}.unit-mark strong{font-family:Impact,monospace;font-size:76px;line-height:1.2}
+html[data-mode="dark"][data-look="eva"] .summary-item{background:transparent;border:1px solid var(--line);border-radius:0;color:var(--ink-2);font-size:11px}html[data-mode="dark"][data-look="eva"] .summary-item strong{color:var(--accent)}
+html[data-mode="dark"][data-look="eva"] .theme-panel,html[data-mode="dark"][data-look="eva"] .theme-btn,html[data-mode="dark"][data-look="eva"] .search,html[data-mode="dark"][data-look="eva"] .card,html[data-mode="dark"][data-look="eva"] .icon,html[data-mode="dark"][data-look="eva"] .modal,html[data-mode="dark"][data-look="eva"] .modal input,html[data-mode="dark"][data-look="eva"] .fab button{border-radius:0;box-shadow:none}
+html[data-mode="dark"][data-look="eva"] .card{border-top:3px solid var(--purple);background:var(--paper)}html[data-mode="dark"][data-look="eva"] .card:hover{border-color:var(--accent);box-shadow:none}html[data-mode="dark"][data-look="eva"] .icon{background:var(--accent-soft);color:var(--accent);border:1px solid var(--line)}html[data-mode="dark"][data-look="eva"] section h2{font-size:14px;color:var(--violet);letter-spacing:.09em}html[data-mode="dark"][data-look="eva"] .section-count,html[data-mode="dark"][data-look="eva"] .tag{border-radius:2px}html[data-mode="dark"][data-look="eva"] .modal{border-top:4px solid var(--purple)}
+/* UNIT 00: instrument rings and curved frames */
+html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .hero{border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:26px 4px 26px 4px;background:radial-gradient(circle at 90% 10%,#21538555,transparent 65%),var(--paper)}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] header h1{font-weight:600;letter-spacing:.14em}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .unit-mark{border:1px solid var(--accent);border-radius:50%;height:100px;width:100px;justify-content:center;outline:1px solid var(--line);outline-offset:5px}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .unit-mark strong{font-size:46px}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .card{border:1px solid var(--line);border-left:3px solid var(--purple);border-radius:17px 3px 17px 3px}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .icon{border-radius:50%}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .search,html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .modal{border-radius:14px}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] section h2::after{height:3px;background:transparent;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+/* UNIT 02: offset red borders and slanted headings */
+html[data-mode="dark"][data-look="eva"][data-unit="unit02"] .hero{border:0;border-left:9px solid var(--accent);border-bottom:4px solid var(--violet);background:linear-gradient(125deg,#8d272733,transparent),var(--paper)}html[data-mode="dark"][data-look="eva"][data-unit="unit02"] header h1{font-style:italic;letter-spacing:.02em}html[data-mode="dark"][data-look="eva"][data-unit="unit02"] .unit-mark{border:0;border-bottom:6px solid var(--violet);background:var(--purple);color:#fff1d6;transform:skew(-5deg)}html[data-mode="dark"][data-look="eva"][data-unit="unit02"] .card{border:1px solid var(--line);border-left:5px solid var(--purple);box-shadow:3px 3px 0 var(--line)}html[data-mode="dark"][data-look="eva"][data-unit="unit02"] section h2{background:var(--accent-soft);padding:10px 12px;border-left:4px solid var(--accent)}html[data-mode="dark"][data-look="eva"][data-unit="unit02"] .icon{border:0;border-bottom:3px solid var(--violet)}
+html[data-mode="dark"][data-look="eva"][data-unit="amber"] .hero{border:1px dashed var(--violet);border-top:5px solid var(--purple)}html[data-mode="dark"][data-look="eva"][data-unit="amber"] .card{border:1px dashed var(--line);border-top:3px solid var(--purple)}html[data-mode="dark"][data-look="eva"][data-unit="amber"] header h1{font-family:monospace;font-weight:600}html[data-mode="dark"][data-look="eva"][data-unit="amber"] section h2::after{height:3px;background:transparent;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+@media(max-width:600px){.theme-panel{gap:6px}.theme-btn{padding:8px 10px;font-size:11px}.mode-divider{display:none}.theme-label{font-size:11px}html[data-mode="dark"][data-look="eva"] .hero{padding:22px 98px 22px 18px}html[data-mode="dark"][data-look="eva"] header h1{font-size:29px}html[data-mode="dark"][data-look="eva"] .unit-mark{right:15px;top:28px;width:66px}.unit-mark strong{font-size:52px}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .unit-mark{width:64px;height:64px}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .unit-mark strong{font-size:30px}html[data-mode="dark"][data-look="eva"] .summary{margin-right:-80px}html[data-mode="dark"][data-look="eva"] header h1 small{font-size:9px}html[data-mode="dark"][data-look="eva"] .search{top:8px}}
 </style>
 </head>
 <body>
@@ -271,9 +297,10 @@
 
   <div class="hero">
     <header>
-      <h1><small>GENBA OFFICE</small>事務所ツール</h1>
+      <h1><small id="heroKicker">GENBA OFFICE</small><span id="heroTitle">事務所ツール</span></h1>
       <div class="clock" id="clock"></div>
     </header>
+    <div class="unit-mark" aria-hidden="true"><small>UNIT</small><strong id="unitNumber">01</strong></div>
     <div class="summary" aria-live="polite">
       <div class="summary-item"><span>利用できるツール</span><strong id="toolCount">—</strong></div>
       <div class="summary-item"><span>カテゴリ</span><strong id="catCount">—</strong></div>
@@ -294,6 +321,7 @@
     <button class="theme-btn mode-btn" type="button" data-mode-choice="dark">☾ ダーク</button>
   </nav>
 
+<div class="theme-panel unit-panel" id="unitPanel" role="group" aria-label="ダーク用デザイン" hidden><span class="theme-label">ダーク用デザイン</span><button type="button" class="theme-btn unit-btn" data-unit-choice="standard">通常4配色</button><button type="button" class="theme-btn unit-btn" data-unit-choice="unit01">初号機</button><button type="button" class="theme-btn unit-btn" data-unit-choice="unit00">零号機</button><button type="button" class="theme-btn unit-btn" data-unit-choice="unit02">弐号機</button><button type="button" class="theme-btn unit-btn" data-unit-choice="amber">アンバー</button></div>
   <div class="search" id="searchBox">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input id="q" type="search" placeholder="ツールを検索" autocomplete="off" enterkeyhint="search">
@@ -374,43 +402,39 @@ const qEl        = document.getElementById("q");
 const clearEl    = document.getElementById("clear");
 const searchBox  = document.getElementById("searchBox");
 
-// ---------- デザイン切り替え ----------
-const savedTheme = localStorage.getItem("officeTheme") || "blue";
-function setTheme(theme){
-  document.documentElement.dataset.theme = theme;
-  document.querySelectorAll(".theme-btn[data-theme]").forEach(btn => {
-    const active = btn.dataset.theme === theme;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-pressed", String(active));
-  });
-  localStorage.setItem("officeTheme", theme);
+// ---------- 通常4配色 + ダーク限定デザイン ----------
+const paletteNames=['blue','orange','mono','emerald'];
+let palette=localStorage.getItem('officeToolsPalette')||localStorage.getItem('officeTheme')||'blue';
+if(!paletteNames.includes(palette))palette='blue';
+const systemDark=window.matchMedia('(prefers-color-scheme: dark)');
+let modeChoice=localStorage.getItem('officeMode')||'auto';
+let unitChoice=localStorage.getItem('officeToolsUnit')||'standard';
+if(!['standard','unit01','unit00','unit02','amber'].includes(unitChoice))unitChoice='standard';
+function refreshAppearance(){
+ const resolved=modeChoice==='auto'?(systemDark.matches?'dark':'light'):modeChoice;
+ const eva=resolved==='dark'&&unitChoice!=='standard';
+ document.documentElement.dataset.theme=palette;
+ document.documentElement.dataset.mode=resolved;
+ document.documentElement.dataset.look=eva?'eva':'standard';
+ document.documentElement.dataset.unit=unitChoice;
+ document.getElementById('unitPanel').hidden=resolved!=='dark';
+ document.querySelectorAll('.theme-btn[data-theme]').forEach(b=>{const on=!eva&&b.dataset.theme===palette;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});
+ document.querySelectorAll('.mode-btn').forEach(b=>{const on=b.dataset.modeChoice===modeChoice;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});
+ document.querySelectorAll('.unit-btn').forEach(b=>{const on=b.dataset.unitChoice===unitChoice;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});
+ const text={unit01:['01','UNIT 01 / COMMAND CENTER','事務所ツール'],unit00:['00','UNIT 00 / OPERATIONS DESK','業務管制室'],unit02:['02','UNIT 02 / MISSION BOARD','業務作戦室'],amber:['AM','AMBER / FIELD TERMINAL','業務記録室']}[unitChoice];
+ document.getElementById('heroKicker').textContent=eva?text[1]:'GENBA OFFICE';
+ document.getElementById('heroTitle').textContent=eva?text[2]:'事務所ツール';
+ document.getElementById('unitNumber').textContent=eva?text[0]:'01';
+ document.querySelectorAll('meta[name="theme-color"]').forEach(meta=>meta.remove());
+ const meta=document.createElement('meta');meta.name='theme-color';meta.content=resolved==='dark'?'#0b1019':'#f3f6fb';document.head.appendChild(meta);
 }
-document.querySelectorAll(".theme-btn[data-theme]").forEach(btn => btn.addEventListener("click", () => setTheme(btn.dataset.theme)));
-setTheme(savedTheme);
-
-const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
-let modeChoice = localStorage.getItem("officeMode") || "auto";
-function setMode(choice){
-  modeChoice = choice;
-  const resolved = choice === "auto" ? (systemDark.matches ? "dark" : "light") : choice;
-  document.documentElement.dataset.mode = resolved;
-  document.querySelectorAll(".mode-btn").forEach(btn => {
-    const active = btn.dataset.modeChoice === choice;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-pressed", String(active));
-  });
-  localStorage.setItem("officeMode", choice);
-  document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.remove());
-  const themeMeta = document.createElement("meta");
-  themeMeta.name = "theme-color";
-  themeMeta.content = resolved === "dark" ? "#0b1019" : "#f3f6fb";
-  document.head.appendChild(themeMeta);
-}
-document.querySelectorAll(".mode-btn").forEach(btn => btn.addEventListener("click", e => {
-  e.stopPropagation();
-  setMode(btn.dataset.modeChoice);
-}));
-systemDark.addEventListener?.("change", () => { if (modeChoice === "auto") setMode("auto"); });
+function setTheme(t){palette=paletteNames.includes(t)?t:'blue';unitChoice='standard';localStorage.setItem('officeToolsPalette',palette);localStorage.setItem('officeToolsUnit',unitChoice);refreshAppearance();}
+function setMode(v){modeChoice=['auto','light','dark'].includes(v)?v:'auto';localStorage.setItem('officeMode',modeChoice);refreshAppearance();}
+function setUnit(v){unitChoice=['standard','unit01','unit00','unit02','amber'].includes(v)?v:'standard';localStorage.setItem('officeToolsUnit',unitChoice);refreshAppearance();}
+document.querySelectorAll('.theme-btn[data-theme]').forEach(b=>b.addEventListener('click',()=>setTheme(b.dataset.theme)));
+document.querySelectorAll('.mode-btn').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.modeChoice)));
+document.querySelectorAll('.unit-btn').forEach(b=>b.addEventListener('click',()=>setUnit(b.dataset.unitChoice)));
+systemDark.addEventListener('change',()=>{if(modeChoice==='auto')refreshAppearance();});
 setMode(modeChoice);
 
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
