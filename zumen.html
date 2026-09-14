@@ -16,6 +16,13 @@ html[data-theme="dark"][data-design="site"]{--bg:#182022;--paper:#202d31;--field
 @media print{html,body{color-scheme:light;background:#fff!important;color:#000!important}.wrap{max-width:none;padding:0;margin:0}.masthead,.hero,.list-head,#status,.qr-opts,.footer{display:none!important}#list{display:block}.qr-head{display:block;font-size:18px;font-weight:700;margin-bottom:8mm;color:#000}.qr-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:6mm}.qr-card{page-break-inside:avoid;break-inside:avoid;border:1px solid #222;border-top:2mm solid #222;border-radius:0;padding:4mm 2mm;box-shadow:none;color:#000;background:#fff}.qr-card .qr{padding:2.5mm;max-width:55mm;margin-bottom:2mm}.qr-card .qr img,.qr-card .qr canvas{width:180px;max-width:100%;height:auto!important}.qr-card .title{font-size:14pt}.qr-card .hint{font-size:8pt;color:#333}.qr-card .url{font-size:6pt;color:#555}}
 
 #list>.qr-create{grid-column:1 / -1}.qr-create{display:block;padding:26px;border-top:4px solid var(--accent)}.qr-create .kicker{font-size:10px;letter-spacing:.12em;color:var(--accent);font-weight:700}.qr-create h2{font-size:21px;margin:5px 0 9px}.qr-create p{font-size:13px;color:var(--sub);line-height:1.9}.qr-create ol{display:flex;gap:20px;flex-wrap:wrap;padding:16px 0 16px 20px;font-size:12px;color:var(--sub)}.qr-create li{padding-right:12px}.qr-create .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:7px}.qr-create a{padding:12px 18px;border:1px solid var(--line);border-radius:7px;text-decoration:none;color:var(--ink);font-size:13px;font-weight:700}.qr-create a.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}@media(max-width:650px){.qr-create{padding:22px 18px}.qr-create ol{display:block}.qr-create li{margin:6px 0}.qr-create a{text-align:center;flex:1;white-space:nowrap}}@media print{.qr-create{display:none!important}}
+
+/* 現場掲示用QRサイン：画面と印刷で同じ情報の順序にする */
+.qr-card{padding:0;border:1.5px solid #263c45;border-top:0;background:#fff;color:#243840;border-radius:3px;overflow:hidden;box-shadow:none}.sign-top{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:9px 12px;border-top:6px solid #d8812e;border-bottom:1px solid #263c45;font-size:12px;font-weight:800;letter-spacing:.05em;background:#fff;color:#243840}.sign-no{font-family:ui-monospace,monospace;font-size:11px}.sign-site{font-size:11px;font-weight:500;line-height:1.5;padding:12px 12px 0;overflow-wrap:anywhere;color:#53666c}.qr-card .title{font-size:24px;font-weight:900;padding:8px 12px 0;line-height:1.45;overflow-wrap:anywhere}.sign-label{font-size:10px;color:#53666c;margin:7px 8px 0}.qr-card .qr{padding:9%;max-width:310px;width:100%;margin:0 auto;background:#fff;box-sizing:border-box}.qr-card .qr img,.qr-card .qr canvas{width:100%!important;max-width:100%;height:auto!important;aspect-ratio:1}.sign-action{font-size:14px;font-weight:800;color:#243840;padding:0 8px}.qr-card .hint{font-size:10px;color:#53666c;margin:4px 8px 14px}.sign-bottom{font-size:8px;letter-spacing:.13em;border-top:1px dashed #9aa8ab;padding:8px 6px;color:#53666c}.qr-head{padding-bottom:4mm;border-bottom:1px solid #263c45}
+html[data-qr-cols="1"] .qr-grid{max-width:560px;margin-left:auto;margin-right:auto;width:100%}html[data-qr-cols="1"] .qr-card .title{font-size:34px}html[data-qr-cols="1"] .qr-card .qr{max-width:400px}
+html[data-qr-cols="4"] .sign-top,html[data-qr-cols="5"] .sign-top{font-size:10px;padding:7px}html[data-qr-cols="4"] .qr-card .title,html[data-qr-cols="5"] .qr-card .title{font-size:16px;padding:6px}html[data-qr-cols="4"] .sign-site,html[data-qr-cols="5"] .sign-site{font-size:9px;padding:8px 6px 0}html[data-qr-cols="4"] .sign-action,html[data-qr-cols="5"] .sign-action{font-size:11px}html[data-qr-cols="4"] .sign-label,html[data-qr-cols="5"] .sign-label{font-size:9px}
+@media screen and (max-width:650px){.qr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}html[data-qr-cols="1"] .qr-grid{grid-template-columns:1fr}.qr-card .title{font-size:19px}.sign-top{font-size:10px;padding:8px}.sign-site{font-size:10px}.sign-action{font-size:12px}}
+@media print{.qr-card{padding:0;border:0.4mm solid #263c45;break-inside:avoid;page-break-inside:avoid;box-shadow:none;border-radius:0;overflow:hidden;background:#fff!important;color:#243840!important}.qr-grid{grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:5mm}.sign-top{border-top:1.8mm solid #d8812e;border-bottom:0.3mm solid #263c45;padding:2.5mm 3mm;font-size:10pt;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sign-site{padding:3mm 3mm 0;font-size:8pt}.qr-card .title{padding:2mm 3mm 0;font-size:21pt;line-height:1.4}.sign-label{font-size:8pt;margin:2mm 2mm 0}.qr-card .qr{padding:9%;max-width:78mm;width:100%;margin:0 auto}.sign-action{font-size:11pt;padding:0 2mm}.qr-card .hint{font-size:8pt;margin:1mm 2mm 3mm}.sign-bottom{font-size:6pt;padding:2mm}.sign-no{font-size:9pt}html[data-qr-cols="1"] .qr-grid{max-width:150mm}html[data-qr-cols="1"] .qr-card .title{font-size:30pt}html[data-qr-cols="1"] .qr-card .qr{max-width:100mm}html[data-qr-cols="3"] .qr-card .title{font-size:16pt}html[data-qr-cols="4"] .qr-card .title,html[data-qr-cols="5"] .qr-card .title{font-size:12pt}html[data-qr-cols="4"] .sign-top,html[data-qr-cols="5"] .sign-top{font-size:7pt;padding:2mm}html[data-qr-cols="4"] .sign-no,html[data-qr-cols="5"] .sign-no{font-size:7pt}html[data-qr-cols="4"] .sign-site,html[data-qr-cols="5"] .sign-site{font-size:7pt;padding:2mm 1.5mm 0}html[data-qr-cols="4"] .sign-label,html[data-qr-cols="5"] .sign-label{font-size:6pt}html[data-qr-cols="4"] .sign-action,html[data-qr-cols="5"] .sign-action{font-size:8pt}html[data-qr-cols="4"] .qr-card .hint,html[data-qr-cols="5"] .qr-card .hint{font-size:6pt}html[data-qr-cols="4"] .sign-bottom,html[data-qr-cols="5"] .sign-bottom{font-size:5pt;letter-spacing:0}}
 </style>
 </head>
 <body>
@@ -205,7 +212,7 @@ html[data-theme="dark"][data-design="site"]{--bg:#182022;--paper:#202d31;--field
           '<option value="A4 landscape">A4 横</option><option value="A3 landscape">A3 横</option>' +
         '</select>' +
         '<select aria-label="QRシートの列数" id="colsSel" onchange="applyQrOpts()">' +
-          '<option value="2">2列</option><option value="3">3列</option><option value="4">4列</option><option value="5">5列</option>' +
+          '<option value="1">1列・大きく掲示</option><option value="2" selected>2列</option><option value="3">3列</option><option value="4">4列</option><option value="5">5列</option>' +
         '</select>';
       $('list').appendChild(opts);
       try {
@@ -225,13 +232,17 @@ html[data-theme="dark"][data-design="site"]{--bg:#182022;--paper:#202d31;--field
           const card = document.createElement('div');
           card.className = 'qr-card';
           card.innerHTML =
-            '<div class="qr" id="qr' + i + '"></div>' +
+            '<div class="sign-top"><span>図面・書類</span><span class="sign-no">' + String(i + 1).padStart(2, '0') + '</span></div>' +
+            '<div class="sign-site">' + esc(res.rootName || '現場掲示用') + '</div>' +
             '<div class="title">' + esc(k.name) + '</div>' +
-            '<div class="hint">スマホのカメラで読むと図面が見れます</div>' +
-            '<div class="url">' + esc(url) + '</div>';
+            '<div class="sign-label">この工種の図面はこちら</div>' +
+            '<div class="qr" id="qr' + i + '"></div>' +
+            '<div class="sign-action">カメラで読み取る</div>' +
+            '<div class="hint">リンクを開く → 図面を選ぶ</div>' +
+            '<div class="sign-bottom">GENBA / DOCUMENTS</div>';
           grid.appendChild(card);
           new QRCode(card.querySelector('#qr' + i), {
-            text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M,
+            text: url, width: 600, height: 600, correctLevel: QRCode.CorrectLevel.M,
           });
         });
         $('list').appendChild(grid);
@@ -246,6 +257,7 @@ html[data-theme="dark"][data-design="site"]{--bg:#182022;--paper:#202d31;--field
       const cols  = $('colsSel')  ? $('colsSel').value  : (localStorage.getItem('zumen_cols')  || '2');
       $('pageStyle').textContent = '@media print { @page { size: ' + paper + '; margin: 12mm; } }';
       document.documentElement.style.setProperty('--cols', cols);
+      document.documentElement.dataset.qrCols = cols;
       try { localStorage.setItem('zumen_paper', paper); localStorage.setItem('zumen_cols', cols); } catch (e) {}
     }
     // 前回の選択を復元
