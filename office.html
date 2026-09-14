@@ -292,6 +292,8 @@ html[data-mode="dark"][data-look="eva"][data-unit="amber"] .hero{border:1px dash
 @media(max-width:600px){.theme-panel{gap:6px}.theme-btn{padding:8px 10px;font-size:11px}.mode-divider{display:none}.theme-label{font-size:11px}html[data-mode="dark"][data-look="eva"] .hero{padding:22px 98px 22px 18px}html[data-mode="dark"][data-look="eva"] header h1{font-size:29px}html[data-mode="dark"][data-look="eva"] .unit-mark{right:15px;top:28px;width:66px}.unit-mark strong{font-size:52px}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .unit-mark{width:64px;height:64px}html[data-mode="dark"][data-look="eva"][data-unit="unit00"] .unit-mark strong{font-size:30px}html[data-mode="dark"][data-look="eva"] .summary{margin-right:-80px}html[data-mode="dark"][data-look="eva"] header h1 small{font-size:9px}html[data-mode="dark"][data-look="eva"] .search{top:8px}}
 
 .icon svg{width:29px;height:29px}.icon-editor{margin:12px 0 18px;border:1px solid var(--line);border-radius:12px;padding:14px}.icon-editor-head{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:12px}#iconPreview{width:38px;height:38px;border-radius:10px}#iconPreview svg{width:23px;height:23px}.icon-picker{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.icon-option{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;min-width:0;border:1px solid var(--line);background:var(--bg);color:var(--ink-2);border-radius:9px;font:inherit;cursor:pointer}.icon-option svg{width:24px;height:24px}.icon-option span{font-size:10px;line-height:1.4}.icon-option[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.icon-help{font-size:11px;line-height:1.7;color:var(--ink-2);margin:12px 0 0}html[data-look="eva"] .icon-editor,html[data-look="eva"] .icon-option{border-radius:0}
+
+.icon{overflow:hidden}.custom-icon-image{display:block;width:100%;height:100%;object-fit:cover}.image-actions{display:flex;gap:8px;margin-bottom:10px}.image-actions button{flex:1;border:1px solid var(--line);border-radius:8px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:12px;padding:10px;cursor:pointer}#iconImageFile[hidden]{display:none!important}.icon-image-status{font-size:12px;color:var(--ink-2);line-height:1.6;margin:0 0 12px}.icon-image-status:empty{display:none}html[data-look="eva"] .image-actions button{border-radius:0}
 </style>
 </head>
 <body>
@@ -372,7 +374,7 @@ html[data-mode="dark"][data-look="eva"][data-unit="amber"] .hero{border:1px dash
         <input id="fIcon" type="hidden"><input id="iconText" maxlength="3" placeholder="例: 区 / 📅">
       </div>
     </div>
-    <div class="icon-editor"><div class="icon-editor-head"><span>アイコンを選ぶ</span><span class="icon" id="iconPreview" aria-hidden="true"></span></div><div class="icon-picker" id="iconPicker" role="group" aria-label="アイコンの種類"></div><p class="icon-help">絵柄を選ぶか、上の欄に文字・絵文字を入力できます。「自動」はツール名から選びます。</p></div>
+    <div class="icon-editor"><div class="icon-editor-head"><span>アイコンを選ぶ</span><span class="icon" id="iconPreview" aria-hidden="true"></span></div><div class="image-actions"><button type="button" id="pickIconImage">＋ 画像を取り込む</button><button type="button" id="resetIconImage">自動に戻す</button></div><input type="file" id="iconImageFile" accept="image/png,image/jpeg,image/webp" hidden><p class="icon-image-status" id="iconImageStatus" role="status" aria-live="polite"></p><div class="icon-picker" id="iconPicker" role="group" aria-label="アイコンの種類"></div><p class="icon-help">PNG・JPEG・WebP画像は中央を正方形に切り抜きます。下の絵柄や文字・絵文字も使えます。「自動」はツール名から選びます。</p></div>
     <label>名前</label>
     <input id="fName" placeholder="例: 原価区分振り分け">
     <label>説明</label>
@@ -490,20 +492,52 @@ const ICON_OPTIONS=[
  ['@to','工具','<path d="M14 5a6 6 0 0 0-7 8L2 18l4 4 5-5a6 6 0 0 0 8-7l-4 4-5-5z"/>']
 ];
 function autoIcon(name){name=String(name||'');if(/カレンダー|予定|日程/.test(name))return '@ca';if(/メール|定型文/.test(name))return '@ma';if(/PDF|結合|分割/i.test(name))return '@pd';if(/図面/.test(name))return '@dr';if(/マニュアル|手順|研修/.test(name))return '@bo';if(/計算|原価|精算/.test(name))return '@cl';if(/安全/.test(name))return '@sh';if(/写真|画像/.test(name))return '@im';if(/集計|分析/.test(name))return '@ch';if(/現場|施工/.test(name))return '@bu';return '@fo';}
+function isImageIcon(value){return /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(String(value||''));}
 function toolIcon(value,name){
+ if(isImageIcon(value))return '<img class="custom-icon-image" src="'+value+'" alt="" decoding="async">';
  let code=String(value||'');if(!code||code==='@au')code=autoIcon(name);
  const def=ICON_OPTIONS.find(x=>x[0]===code);
  return def?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+def[2]+'</svg>':esc(code);
 }
 function refreshIconPicker(){
  const current=document.getElementById('fIcon').value||'@au';
- document.getElementById('iconText').value=ICON_OPTIONS.some(x=>x[0]===current)?'':current;
+ document.getElementById('iconText').value=(isImageIcon(current)||ICON_OPTIONS.some(x=>x[0]===current))?'':current;
  document.getElementById('iconPicker').innerHTML=ICON_OPTIONS.map(x=>'<button type="button" class="icon-option" data-icon-code="'+x[0]+'" aria-pressed="'+String(x[0]===current)+'">'+(x[0]==='@au'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true">'+x[2]+'</svg>':toolIcon(x[0],''))+'<span>'+x[1]+'</span></button>').join('');
  document.getElementById('iconPreview').innerHTML=toolIcon(current,document.getElementById('fName').value);
 }
-document.getElementById('iconPicker').addEventListener('click',e=>{const b=e.target.closest('[data-icon-code]');if(!b)return;document.getElementById('fIcon').value=b.dataset.iconCode;refreshIconPicker();});
-document.getElementById('iconText').addEventListener('input',()=>{document.getElementById('fIcon').value=document.getElementById('iconText').value;refreshIconPicker();});
+document.getElementById('iconPicker').addEventListener('click',e=>{const b=e.target.closest('[data-icon-code]');if(!b)return;cancelIconImport();document.getElementById('fIcon').value=b.dataset.iconCode;refreshIconPicker();});
+document.getElementById('iconText').addEventListener('input',()=>{cancelIconImport();document.getElementById('fIcon').value=document.getElementById('iconText').value;refreshIconPicker();});
 document.getElementById('fName').addEventListener('input',refreshIconPicker);
+
+
+let iconImportId=0;
+function cancelIconImport(){iconImportId++;document.getElementById('formOk').disabled=false;document.getElementById('iconImageStatus').textContent='';}
+document.getElementById('pickIconImage').addEventListener('click',()=>document.getElementById('iconImageFile').click());
+document.getElementById('resetIconImage').addEventListener('click',()=>{cancelIconImport();document.getElementById('fIcon').value='@au';refreshIconPicker();});
+async function importIconImage(file){
+ if(!file)return;
+ const request=++iconImportId, msg=document.getElementById('iconImageStatus');
+ const save=document.getElementById('formOk');save.disabled=true;msg.textContent='画像を準備しています…';
+ let bitmap;
+ try{
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw Error('PNG・JPEG・WebP画像を選んでください。');
+  if(file.size>10*1024*1024)throw Error('10MB以下の画像を選んでください。');
+  bitmap=await createImageBitmap(file);
+  const crop=Math.min(bitmap.width,bitmap.height);if(!crop)throw Error('この画像は読み込めません。');
+  let result='';
+  for(const size of [256,192,128,96]){
+   const canvas=document.createElement('canvas');canvas.width=canvas.height=size;
+   const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,(bitmap.width-crop)/2,(bitmap.height-crop)/2,crop,crop,0,0,size,size);
+   for(const quality of [.86,.68,.48]){result=canvas.toDataURL('image/webp',quality);if(result.length<=30000)break;}
+   if(result.length<=30000)break;
+  }
+  if(result.length>30000||!isImageIcon(result))throw Error('画像を小さくできませんでした。別の画像をお試しください。');
+  if(request!==iconImportId)return;
+  document.getElementById('fIcon').value=result;refreshIconPicker();msg.textContent='画像を設定しました。「保存」で登録できます。';
+ }catch(e){if(request===iconImportId)msg.textContent=e.message||'画像を読み込めませんでした。';}
+ finally{if(bitmap)bitmap.close();if(request===iconImportId)save.disabled=false;}
+}
+document.getElementById('iconImageFile').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';importIconImage(file);});
 
 function render(){
   const g = grouped();
@@ -558,7 +592,7 @@ function filter(){
 
 // ---------- 編集モード ----------
 function openModal(id){ document.getElementById(id).classList.add("show"); }
-function closeModal(id){ document.getElementById(id).classList.remove("show"); }
+function closeModal(id){ if(id==="formModal")cancelIconImport();document.getElementById(id).classList.remove("show"); }
 
 document.getElementById("editBtn").addEventListener("click", () => {
   if (document.body.classList.contains("edit")) {
@@ -596,6 +630,7 @@ function enterEdit(){
 document.getElementById("addBtn").addEventListener("click", () => openForm(""));
 
 function openForm(id){
+  cancelIconImport();
   const t = TOOLS.find(x => x["ID"] === id) || {};
   document.getElementById("formTitle").textContent = id ? "ツールを編集" : "ツールを追加";
   document.getElementById("fId").value   = id;
