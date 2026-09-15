@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>看板・ラベル作成ツール</title>
+<style>
+  :root{--bg:#f3f4f6;--card:#fff;--line:#d1d5db;--text:#111827;--sub:#6b7280;--accent:#2563eb;--danger:#dc2626}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;background:var(--bg);color:var(--text)}
+  header{background:#1f2937;color:#fff;padding:10px 16px;font-weight:700;font-size:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .tabs{display:flex;gap:4px;margin-left:auto}
+  .tabs button{padding:8px 14px;border:none;border-radius:8px;background:#374151;color:#fff;font-size:14px;cursor:pointer}
+  .tabs button.on{background:var(--accent)}
+  main{max-width:1200px;margin:0 auto;padding:12px;display:grid;gap:12px;grid-template-columns:1fr}
+  @media(min-width:900px){main{grid-template-columns:380px 1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .card h2{font-size:14px;margin:14px 0 8px;color:var(--sub)}
+  .card h2:first-child{margin-top:0}
+  label{display:block;font-size:12px;color:var(--sub);margin:8px 0 4px}
+  input[type=text],select,textarea{width:100%;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  textarea{min-height:56px;resize:vertical}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:60px;padding:12px 6px;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .presets{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .presets button{padding:10px 6px;font-size:13px;font-weight:700;border-radius:8px;border:2px solid transparent;cursor:pointer;text-align:center}
+  .presets button.c-red{background:#fde2e2;color:#b91c1c;border-color:#ef4444}
+  .presets button.c-yellow{background:#fff3b0;color:#1f1f1f;border-color:#f5c400}
+  .presets button.c-blue{background:#dbe7f5;color:#1e3a8a;border-color:#3b82f6}
+  .presets button.c-green{background:#d7f2e2;color:#065f46;border-color:#10b981}
+  .presets button.c-black{background:#e5e7eb;color:#111;border-color:#6b7280}
+  .btn{display:block;width:100%;padding:14px;font-size:16px;font-weight:700;border:none;border-radius:10px;cursor:pointer;margin-top:10px}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+  .range{display:flex;align-items:center;gap:8px}
+  .range input{flex:1}
+  .hint{font-size:11px;color:var(--sub);margin-top:6px}
+  .hidden{display:none!important}
+
+  /* ラベル項目UI */
+  .lbl-item{border:1px dashed var(--line);border-radius:8px;padding:8px;margin-top:8px;display:grid;grid-template-columns:1fr 32px;gap:6px}
+  .lbl-item .del{width:32px;height:32px;border:none;background:none;color:var(--danger);font-size:20px;cursor:pointer;align-self:center}
+  .lbl-item .sub{display:flex;gap:6px;align-items:center;margin-top:6px}
+  .lbl-item .sub input[type=range]{flex:1}
+  .lbl-item .sub select{width:auto;font-size:13px;padding:6px}
+  .lbl-item .sub span{font-size:12px;color:var(--sub);min-width:38px;text-align:right}
+
+  /* ===== 用紙 ===== */
+  .preview-wrap{overflow:auto}
+  .sheet{margin:0 auto;transform-origin:top left;padding:6mm;background:#fff;border:1px solid #000;display:flex}
+  .sheet.portrait{width:210mm;height:297mm}
+  .sheet.landscape{width:297mm;height:210mm}
+  .sheet.a3.portrait{width:297mm;height:420mm}
+  .sheet.a3.landscape{width:420mm;height:297mm}
+
+  /* ===== 看板本体 ===== */
+  .board{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5mm;padding:6mm;border-style:solid;border-width:5mm;text-align:center;overflow:hidden}
+  .board.h{flex-direction:row}
+  .icon svg{display:block}
+  .texts{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3mm;min-width:0;flex:1}
+  .main-text{font-weight:900;line-height:1.15;letter-spacing:0.05em;word-break:keep-all;white-space:pre-wrap}
+  .sub-text{font-weight:700;line-height:1.3;white-space:pre-wrap}
+  .board.tate .texts{flex-direction:row-reverse}
+  .board.tate .main-text,.board.tate .sub-text{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0.15em;white-space:pre}
+  .board.tate.h{flex-direction:column}
+  .c-red{background:#fff;border-color:#e60012;color:#e60012}
+  .c-red .sub-text{color:#111}
+  .c-yellow{background:#ffd500;border-color:#111;color:#111}
+  .c-blue{background:#fff;border-color:#0068b7;color:#0068b7}
+  .c-blue .sub-text{color:#111}
+  .c-green{background:#fff;border-color:#00a960;color:#00a960}
+  .c-green .sub-text{color:#111}
+  .c-black{background:#fff;border-color:#111;color:#111}
+  .c-red.fill{background:#e60012;border-color:#e60012;color:#fff}
+  .c-red.fill .sub-text{color:#fff}
+  .c-blue.fill{background:#0068b7;border-color:#0068b7;color:#fff}
+  .c-blue.fill .sub-text{color:#fff}
+  .c-green.fill{background:#00a960;border-color:#00a960;color:#fff}
+  .c-green.fill .sub-text{color:#fff}
+  .c-black.fill{background:#111;border-color:#111;color:#ffd500}
+  .c-black.fill .sub-text{color:#fff}
+
+  /* ===== 短冊ラベル ===== */
+  .strips{flex:1;display:flex;align-items:stretch;justify-content:center;overflow:hidden}
+  .strips.tate{flex-direction:row-reverse}      /* 右から左へ並べる */
+  .strips.yoko{flex-direction:column}
+  .strip{display:flex;align-items:center;justify-content:center;padding:3mm;border:0.3mm dashed #bbb;font-weight:900;overflow:hidden}
+  .strips.tate .strip{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0.12em;line-height:1;white-space:nowrap;text-align:center}
+  .strips.yoko .strip{letter-spacing:0.1em;line-height:1;white-space:nowrap}
+  .strips.center .strip{justify-content:center}
+  .strips.start .strip{justify-content:flex-start}
+
+  @media print{
+    body{background:#fff}
+    header,.controls,.no-print{display:none!important}
+    main{display:block;padding:0;max-width:none}
+    .card{border:none;padding:0}
+    .preview-wrap{overflow:visible;height:auto!important}
+    .sheet{margin:0;border:none;transform:none!important;width:100%!important;height:100vh!important;padding:0}
+    .strip{border-color:#ddd}
+  }
+</style>
+</head>
+<body>
+<header>看板・ラベル作成ツール
+  <div class="tabs"><button data-t="kanban" class="on">注意看板</button><button data-t="label">短冊ラベル</button></div>
+</header>
+<main>
+  <!-- ============ 注意看板 コントロール ============ -->
+  <section class="card controls" id="ctlKanban">
+    <h2>定型文からえらぶ</h2>
+    <div class="presets" id="presets"></div>
+    <h2>文言</h2>
+    <label>メイン文字(改行OK)</label>
+    <textarea id="main" placeholder="例：関係者以外&#10;立入禁止"></textarea>
+    <label>サブ文字(任意・改行OK)</label>
+    <textarea id="sub" placeholder="例：〇〇建設 現場事務所 TEL 000-0000-0000"></textarea>
+    <h2>レイアウト</h2>
+    <label>用紙の向き</label>
+    <div class="seg" id="orient"><button data-v="portrait" class="on">縦</button><button data-v="landscape">横</button></div>
+    <label>文字の向き</label>
+    <div class="seg" id="writing"><button data-v="yoko" class="on">横書き</button><button data-v="tate">縦書き</button></div>
+    <label>用紙サイズ</label>
+    <div class="seg" id="paper"><button data-v="a4" class="on">A4</button><button data-v="a3">A3</button></div>
+    <label>ピクトグラム</label>
+    <div class="seg" id="icon"><button data-v="none">なし</button><button data-v="ban" class="on">禁止○</button><button data-v="warn">注意△</button><button data-v="must">指示●</button><button data-v="safe">安全■</button></div>
+    <label>配色</label>
+    <div class="seg" id="color"><button data-v="c-red" class="on" style="color:#e60012">赤</button><button data-v="c-yellow" style="color:#b48a00">黄</button><button data-v="c-blue" style="color:#0068b7">青</button><button data-v="c-green" style="color:#00a960">緑</button><button data-v="c-black">黒</button></div>
+    <div class="seg" id="fill"><button data-v="0" class="on">白地</button><button data-v="1">ベタ塗り</button></div>
+    <label>メイン文字サイズ</label>
+    <div class="range"><input type="range" id="msize" min="40" max="200" value="100"><span id="msizeLabel">100%</span></div>
+    <label>サブ文字サイズ</label>
+    <div class="range"><input type="range" id="ssize" min="40" max="200" value="100"><span id="ssizeLabel">100%</span></div>
+    <button class="btn primary" id="printBtn">🖨 印刷 / PDF保存</button>
+    <button class="btn ghost" id="clearBtn">文言をクリア</button>
+    <p class="hint">入力内容はこの端末のブラウザに自動保存。印刷ダイアログの用紙サイズ・向きは自動セットされるけど一応確認してね。</p>
+  </section>
+
+  <!-- ============ 短冊ラベル コントロール ============ -->
+  <section class="card controls hidden" id="ctlLabel">
+    <h2>ラベル(1枚の紙に複数並べて印刷→切って使う)</h2>
+    <div id="lblItems"></div>
+    <button class="btn ghost" id="lblAdd">＋ ラベルを追加</button>
+    <h2>レイアウト</h2>
+    <label>文字の向き</label>
+    <div class="seg" id="lWriting"><button data-v="tate" class="on">縦書き(横に並ぶ)</button><button data-v="yoko">横書き(縦に並ぶ)</button></div>
+    <label>用紙の向き</label>
+    <div class="seg" id="lOrient"><button data-v="portrait" class="on">縦</button><button data-v="landscape">横</button></div>
+    <label>用紙サイズ</label>
+    <div class="seg" id="lPaper"><button data-v="a4" class="on">A4</button><button data-v="a3">A3</button></div>
+    <label>文字の位置</label>
+    <div class="seg" id="lAlign"><button data-v="start" class="on">上寄せ</button><button data-v="center">中央</button></div>
+    <label>全体の文字サイズ</label>
+    <div class="range"><input type="range" id="lsize" min="30" max="150" value="100"><span id="lsizeLabel">100%</span></div>
+    <label>最大文字サイズ(短い文字が巨大になりすぎるのを抑える)</label>
+    <div class="range"><input type="range" id="lmax" min="10" max="80" value="32"><span id="lmaxLabel">32mm</span></div>
+    <button class="btn primary" id="lPrintBtn">🖨 印刷 / PDF保存</button>
+    <button class="btn ghost" id="lClearBtn">ラベルを全部消す</button>
+    <p class="hint">各ラベルは紙の長さに合わせて自動でサイズ調整。個別スライダーで微調整、色も個別に選べる。点線は切り取り線(印刷時は薄く出る)。</p>
+  </section>
+
+  <!-- ============ プレビュー ============ -->
+  <section class="card">
+    <h2 class="no-print">プレビュー</h2>
+    <div class="preview-wrap">
+      <div id="sheet" class="sheet portrait a4">
+        <div id="board" class="board c-red">
+          <div class="icon" id="pIcon"></div>
+          <div class="texts">
+            <div class="main-text" id="pMain"></div>
+            <div class="sub-text" id="pSub"></div>
+          </div>
+        </div>
+        <div id="strips" class="strips tate start hidden"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const KEY='kanban_tool_v2';
+const PRESETS=[
+  {t:'関係者以外\n立入禁止',s:'',c:'c-red',i:'ban'},{t:'立入禁止',s:'危険につき',c:'c-red',i:'ban'},
+  {t:'火気厳禁',s:'',c:'c-red',i:'ban'},{t:'駐車禁止',s:'',c:'c-red',i:'ban'},
+  {t:'頭上注意',s:'',c:'c-yellow',i:'warn'},{t:'足元注意',s:'段差あり',c:'c-yellow',i:'warn'},
+  {t:'感電注意',s:'高圧危険',c:'c-yellow',i:'warn'},{t:'工事中',s:'ご迷惑をおかけします',c:'c-yellow',i:'warn'},
+  {t:'ヘルメット\n着用',s:'',c:'c-blue',i:'must'},{t:'安全帯使用',s:'',c:'c-blue',i:'must'},
+  {t:'安全第一',s:'',c:'c-green',i:'safe'},{t:'整理整頓',s:'',c:'c-green',i:'safe'},
+  {t:'非常口',s:'',c:'c-green',i:'safe'},{t:'仮設トイレ',s:'',c:'c-black',i:'none'},
+  {t:'出入口',s:'',c:'c-black',i:'none'},{t:'現場事務所',s:'',c:'c-black',i:'none'},
+];
+const LBL_COLORS={red:'#e60012',black:'#111111',blue:'#0068b7',green:'#00a960'};
+let state={
+  tab:'kanban',
+  k:{main:'関係者以外\n立入禁止',sub:'',orient:'portrait',writing:'yoko',paper:'a4',icon:'ban',color:'c-red',fill:0,msize:100,ssize:100},
+  l:{items:[
+      {text:'TPI 23070',size:100,color:'red'},
+      {text:'本体棟GL-1180',size:100,color:'red'},
+      {text:'W=1100',size:70,color:'red'},
+      {text:'埋設配管あり',size:100,color:'red'}],
+     writing:'tate',orient:'portrait',paper:'a4',align:'start',size:100,max:32}
+};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+function load(){try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);state.tab=o.tab||state.tab;Object.assign(state.k,o.k||{});Object.assign(state.l,o.l||{});}}catch(e){}}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const setSeg=(id,v)=>document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('on',b.dataset.v==String(v)));
+const paperMM=(p,o)=>{const a=p==='a3'?[297,420]:[210,297];return o==='landscape'?{w:a[1],h:a[0]}:{w:a[0],h:a[1]};};
+
+/* ---------- タブ ---------- */
+function renderTab(){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===state.tab));
+  $('ctlKanban').classList.toggle('hidden',state.tab!=='kanban');
+  $('ctlLabel').classList.toggle('hidden',state.tab!=='label');
+  $('board').classList.toggle('hidden',state.tab!=='kanban');
+  $('strips').classList.toggle('hidden',state.tab!=='label');
+  if(state.tab==='kanban'){renderKControls();renderKPreview();}else{renderLControls();renderLPreview();}
+}
+document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.tab=b.dataset.t;renderTab();});
+
+/* ---------- 注意看板 ---------- */
+function iconSvg(type,size,stroke){
+  const s=size;
+  if(type==='ban')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="${stroke}" stroke-width="12"/><line x1="22" y1="22" x2="78" y2="78" stroke="${stroke}" stroke-width="12"/></svg>`;
+  if(type==='warn')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><polygon points="50,8 96,90 4,90" fill="none" stroke="${stroke}" stroke-width="10" stroke-linejoin="round"/><rect x="45" y="34" width="10" height="30" rx="3" fill="${stroke}"/><circle cx="50" cy="76" r="6" fill="${stroke}"/></svg>`;
+  if(type==='must')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="${stroke}"/><rect x="44" y="20" width="12" height="36" rx="4" fill="#fff"/><circle cx="50" cy="72" r="8" fill="#fff"/></svg>`;
+  if(type==='safe')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="8" fill="${stroke}"/><polyline points="26,52 44,70 76,32" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return'';
+}
+function renderKControls(){
+  const k=state.k;
+  setSeg('orient',k.orient);setSeg('writing',k.writing);setSeg('paper',k.paper);setSeg('icon',k.icon);setSeg('color',k.color);setSeg('fill',k.fill);
+  $('main').value=k.main;$('sub').value=k.sub;
+  $('msize').value=k.msize;$('msizeLabel').textContent=k.msize+'%';
+  $('ssize').value=k.ssize;$('ssizeLabel').textContent=k.ssize+'%';
+  const pb=$('presets');pb.innerHTML='';
+  PRESETS.forEach((p,i)=>{const b=document.createElement('button');b.className=p.c;b.textContent=p.t.replace('\n','');b.dataset.i=i;pb.appendChild(b);});
+}
+function renderKPreview(){
+  const k=state.k;
+  $('sheet').className=`sheet ${k.orient} ${k.paper}`;
+  const bd=$('board');const land=k.orient==='landscape';
+  bd.className=`board ${k.color} ${k.fill==1?'fill':''} ${land?'h':''} ${k.writing==='tate'?'tate':''}`;
+  const lines=(k.main||'').split('\n');const maxLen=Math.max(1,...lines.map(l=>[...l].length));
+  const pm=paperMM(k.paper,k.orient);const W=pm.w-40,H=pm.h-40;
+  let autoM;
+  if(k.writing==='tate')autoM=Math.min(W/(lines.length*1.4),H/(maxLen*1.25));
+  else autoM=Math.min(W/(maxLen*1.15),H/(lines.length*1.9));
+  if(k.icon!=='none')autoM*=0.82;if(k.sub)autoM*=0.9;autoM=Math.max(12,autoM);
+  const m=autoM*k.msize/100;
+  $('pMain').textContent=k.main||'';$('pMain').style.fontSize=m+'mm';
+  $('pSub').textContent=k.sub||'';$('pSub').style.display=k.sub?'':'none';$('pSub').style.fontSize=(m*0.32*k.ssize/100)+'mm';
+  const col=getComputedStyle(bd).color;const iconSize=(k.paper==='a3'?90:62)*(land?0.9:1)+'mm';
+  $('pIcon').innerHTML=k.icon==='none'?'':iconSvg(k.icon,iconSize,col);$('pIcon').style.display=k.icon==='none'?'none':'';
+  fitPreview();save();
+}
+['orient','writing','paper','icon','color','fill'].forEach(id=>{
+  $(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.k[id]=id==='fill'?+b.dataset.v:b.dataset.v;renderKControls();renderKPreview();});
+});
+$('main').addEventListener('input',e=>{state.k.main=e.target.value;renderKPreview();});
+$('sub').addEventListener('input',e=>{state.k.sub=e.target.value;renderKPreview();});
+$('msize').addEventListener('input',e=>{state.k.msize=+e.target.value;$('msizeLabel').textContent=state.k.msize+'%';renderKPreview();});
+$('ssize').addEventListener('input',e=>{state.k.ssize=+e.target.value;$('ssizeLabel').textContent=state.k.ssize+'%';renderKPreview();});
+$('presets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const p=PRESETS[+b.dataset.i];
+  Object.assign(state.k,{main:p.t,sub:p.s,color:p.c,icon:p.i,msize:100});renderKControls();renderKPreview();});
+$('printBtn').addEventListener('click',()=>doPrint(state.k.paper,state.k.orient));
+$('clearBtn').addEventListener('click',()=>{state.k.main='';state.k.sub='';renderKControls();renderKPreview();});
+
+/* ---------- 短冊ラベル ---------- */
+function renderLControls(){
+  const l=state.l;
+  setSeg('lWriting',l.writing);setSeg('lOrient',l.orient);setSeg('lPaper',l.paper);setSeg('lAlign',l.align);
+  $('lsize').value=l.size;$('lsizeLabel').textContent=l.size+'%';
+  $('lmax').value=l.max;$('lmaxLabel').textContent=l.max+'mm';
+  const box=$('lblItems');box.innerHTML='';
+  l.items.forEach((it,i)=>{
+    const d=document.createElement('div');d.className='lbl-item';
+    d.innerHTML=`<div>
+      <input type="text" placeholder="文字を入力" value="${esc(it.text)}" data-i="${i}" data-k="text">
+      <div class="sub">
+        <select data-i="${i}" data-k="color">
+          <option value="red" ${it.color==='red'?'selected':''}>赤</option>
+          <option value="black" ${it.color==='black'?'selected':''}>黒</option>
+          <option value="blue" ${it.color==='blue'?'selected':''}>青</option>
+          <option value="green" ${it.color==='green'?'selected':''}>緑</option>
+        </select>
+        <input type="range" min="30" max="150" value="${it.size}" data-i="${i}" data-k="size">
+        <span>${it.size}%</span>
+      </div></div>
+      <button class="del" data-i="${i}" title="削除">×</button>`;
+    box.appendChild(d);
+  });
+}
+function renderLPreview(){
+  const l=state.l;
+  $('sheet').className=`sheet ${l.orient} ${l.paper}`;
+  const st=$('strips');st.className=`strips ${l.writing} ${l.align}`;
+  const pm=paperMM(l.paper,l.orient);
+  const long=(l.writing==='tate'?pm.h:pm.w)-24;      // 文字が流れる方向の長さ
+  st.innerHTML='';
+  l.items.filter(it=>it.text).forEach(it=>{
+    const n=Math.max(1,[...it.text].length);
+    let fs=Math.min(long/(n*1.15),l.max)*l.size/100*it.size/100;
+    const d=document.createElement('div');d.className='strip';
+    d.textContent=it.text;d.style.fontSize=fs+'mm';d.style.color=LBL_COLORS[it.color]||'#e60012';
+    st.appendChild(d);
+  });
+  fitPreview();save();
+}
+['lWriting','lOrient','lPaper','lAlign'].forEach(id=>{
+  const key={lWriting:'writing',lOrient:'orient',lPaper:'paper',lAlign:'align'}[id];
+  $(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.l[key]=b.dataset.v;renderLControls();renderLPreview();});
+});
+$('lsize').addEventListener('input',e=>{state.l.size=+e.target.value;$('lsizeLabel').textContent=state.l.size+'%';renderLPreview();});
+$('lmax').addEventListener('input',e=>{state.l.max=+e.target.value;$('lmaxLabel').textContent=state.l.max+'mm';renderLPreview();});
+$('lblItems').addEventListener('input',e=>{
+  const t=e.target;if(t.dataset.i===undefined)return;const it=state.l.items[+t.dataset.i];
+  if(t.dataset.k==='size'){it.size=+t.value;t.nextElementSibling.textContent=it.size+'%';}
+  else it[t.dataset.k]=t.value;
+  renderLPreview();
+});
+$('lblItems').addEventListener('click',e=>{const b=e.target.closest('.del');if(!b)return;state.l.items.splice(+b.dataset.i,1);renderLControls();renderLPreview();});
+$('lblAdd').addEventListener('click',()=>{state.l.items.push({text:'',size:100,color:'red'});renderLControls();renderLPreview();
+  const ins=$('lblItems').querySelectorAll('input[type=text]');ins[ins.length-1].focus();});
+$('lPrintBtn').addEventListener('click',()=>doPrint(state.l.paper,state.l.orient));
+$('lClearBtn').addEventListener('click',()=>{if(!confirm('ラベルを全部消す？'))return;state.l.items=[{text:'',size:100,color:'red'}];renderLControls();renderLPreview();});
+
+/* ---------- 共通 ---------- */
+function doPrint(paper,orient){
+  let st=$('pageStyle');if(!st){st=document.createElement('style');st.id='pageStyle';document.head.appendChild(st);}
+  st.textContent=`@page{size:${paper.toUpperCase()} ${orient};margin:8mm;}`;
+  window.print();
+}
+function fitPreview(){
+  const wrap=document.querySelector('.preview-wrap');const sh=$('sheet');
+  sh.style.transform='none';
+  const w=sh.offsetWidth,avail=wrap.clientWidth-4;
+  if(w>avail){const s=avail/w;sh.style.transform=`scale(${s})`;wrap.style.height=sh.offsetHeight*s+'px';}
+  else{wrap.style.height='';}
+}
+window.addEventListener('resize',fitPreview);
+load();renderTab();
+</script>
+</body>
+</html>
