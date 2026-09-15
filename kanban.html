@@ -101,18 +101,47 @@
     .sheet{margin:0;border:none;transform:none!important;width:100%!important;height:100vh!important;padding:0}
     .strip{border-color:#ddd}
   }
+
+/* Refined editor interface — print artwork retains its own colors. */
+@media screen{
+:root{--bg:#edf1f7;--line:#e0e6ef;--text:#1c2b43;--sub:#62718a;--accent:#285de5}
+body{background:linear-gradient(125deg,#f5f7fc,#edf1f7);font-size:14px}
+button,input,select,textarea{font:inherit}button{transition:background .16s,box-shadow .16s,transform .16s}button:hover{filter:brightness(.97)}button:active{transform:translateY(1px)}
+:focus-visible{outline:3px solid #8caaff;outline-offset:3px}
+header{padding:20px 32px;background:#14233e;gap:20px;box-shadow:0 4px 22px #12213b16}
+.brand{display:flex;align-items:center;gap:12px}.brand-mark{width:42px;height:42px;display:grid;place-items:center;border:1px solid #7893c0;border-radius:12px;color:#abc4ff;font-size:24px}.brand-title{font-size:17px;letter-spacing:.04em}.brand small{display:block;color:#a7b8d3;font-size:11px;font-weight:400;margin-top:4px;letter-spacing:.05em}
+.tabs{background:#ffffff0c;padding:5px;border:1px solid #ffffff14;border-radius:12px;gap:4px}.tabs button{background:transparent;color:#bccae1;border-radius:8px;padding:10px 20px;font-weight:700}.tabs button.on{background:#fff;color:#193258;box-shadow:0 2px 6px #0002}
+.intro{max-width:1420px;margin:28px auto 18px;padding:0 28px;display:flex;justify-content:space-between;align-items:center;gap:16px}.intro h1{font-size:23px;letter-spacing:.03em;margin:0 0 7px}.intro p{margin:0;color:var(--sub);font-size:13px}.local-note{font-size:12px;color:#52667f;background:#fff;border:1px solid var(--line);padding:9px 13px;border-radius:99px;white-space:nowrap}
+main{max-width:1420px;padding:0 28px 32px;gap:24px;align-items:start;grid-template-columns:400px minmax(0,1fr)}
+.card{border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 6px 22px #23395b06;min-width:0}.controls{counter-reset:section}
+.card h2,.controls summary{font-size:14px;font-weight:750;color:var(--text);margin:0 0 16px;display:flex;align-items:center;gap:10px}.controls h2:before,.controls summary:before{counter-increment:section;content:'0' counter(section);font-size:11px;background:#edf2fe;color:#4266aa;padding:5px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
+.editor-group{padding-bottom:22px;margin-bottom:22px;border-bottom:1px solid var(--line)}.editor-group:last-of-type{margin-bottom:8px}.controls summary{cursor:pointer;list-style:none;margin:0}.controls summary::-webkit-details-marker{display:none}.controls summary:after{content:'＋';margin-left:auto;color:#6d7e97;font-size:19px;font-weight:400}.controls details[open] summary{margin-bottom:16px}.controls details[open] summary:after{content:'−'}
+label{font-size:12px;color:#53637b;font-weight:650;margin:16px 0 7px}input[type=text],select,textarea{border-color:#dce3ed;border-radius:10px;padding:12px;background:#fbfcff;color:#20314b;font-size:14px;line-height:1.6}textarea{min-height:76px}#main{font-size:18px;font-weight:700;min-height:100px}input:focus,textarea:focus,select:focus{border-color:#7399f2;background:#fff;outline:none;box-shadow:0 0 0 3px #285de514}
+.seg{background:#f0f3f8;border-radius:10px;padding:4px;gap:4px}.seg button{padding:9px 5px;font-size:12px;min-width:44px;border-color:transparent;background:transparent;color:#64728a;border-radius:7px}.seg button.on{background:#fff;color:#2455cb;border-color:#d9e3fa;box-shadow:0 2px 5px #23395b0d;font-weight:750}#fill{margin-top:8px}#color button.on{box-shadow:inset 0 0 0 1px currentColor;background:#fff}
+.presets{gap:8px}.presets button{position:relative;min-height:43px;text-align:left;padding:10px 12px;border-width:1px;font-size:12px;border-radius:9px}.presets button.c-red{background:#fff5f5;border-color:#f2d6da;color:#b62e40}.presets button.c-yellow{background:#fffae9;border-color:#ece0b1;color:#70560d}.presets button.c-blue{background:#f0f5ff;border-color:#d7e3fa;color:#315cab}.presets button.c-green{background:#eff9f4;border-color:#cde9da;color:#23734e}.presets button.c-black{background:#f5f6f9;border-color:#e0e4eb;color:#4b586c}.presets button.selected{outline:2px solid currentColor;outline-offset:1px}
+.range{background:#f7f9fc;padding:10px 12px;border-radius:10px;gap:14px}.range input{min-width:0;accent-color:var(--accent)}.range span{font-size:12px;font-weight:700;color:#315bad;min-width:43px;text-align:right;font-variant-numeric:tabular-nums}.btn{font-size:14px;border-radius:10px;padding:13px}.btn.primary{box-shadow:0 5px 12px #285de524}.btn.ghost{background:#fff;color:#62718a}.hint{font-size:11px;line-height:1.9;color:#78859a;margin:12px 0 0}
+.lbl-item{border:1px solid #e0e6ef;background:#f8faff;border-radius:12px;padding:12px;gap:8px;margin-top:10px}.lbl-item .del{border-radius:8px;background:#fff0f1;color:#c44455}.lbl-item .sub input{min-width:0;accent-color:var(--accent)}
+.preview-card{position:sticky;top:20px;padding:0;overflow:hidden}.preview-top{display:flex;justify-content:space-between;align-items:center;padding:20px 22px;border-bottom:1px solid var(--line);gap:12px}.preview-top h2{margin:0;font-size:15px}.preview-top p{margin:5px 0 0;color:var(--sub);font-size:11px}.paper-tag{background:#eef3ff;color:#42629a;border-radius:6px;font-size:11px;font-weight:700;padding:7px 10px;white-space:nowrap}.preview-stage{padding:28px;background-color:#e8edf5;background-image:radial-gradient(#c6d0df .8px,transparent .8px);background-size:14px 14px;overflow:hidden}.preview-wrap{position:relative;overflow:hidden;margin:auto}.sheet{position:absolute;top:0;left:0;margin:0;border:0;box-shadow:0 7px 28px #21375424}.preview-footer{display:flex;justify-content:space-between;gap:12px;padding:14px 22px;font-size:11px;color:#718097}.preview-footer b{font-weight:600;color:#496385}
+@media(min-width:1100px){.preview-stage{padding:32px 40px}}
+@media(max-width:950px){main{grid-template-columns:340px minmax(0,1fr);gap:16px;padding:0 18px 24px}.card.controls{padding:18px}.preview-stage{padding:18px}.intro{padding:0 18px}.preview-top{padding:16px}.preview-top p{display:none}}
+@media(max-width:740px){header{padding:16px;gap:16px}.brand{flex:1}.tabs{margin:0;width:100%}.tabs button{flex:1}.intro{margin-top:22px}.intro h1{font-size:20px}.local-note{display:none}main{grid-template-columns:minmax(0,1fr)}.preview-card{position:static;grid-row:1}.preview-top{padding:14px 18px}.preview-stage{padding:20px}.preview-footer{padding:12px 18px}.intro p{line-height:1.7}.controls{padding:20px!important}}
+@media(prefers-reduced-motion:reduce){button{transition:none}}
+}
+@media print{.intro,.preview-top,.preview-footer{display:none!important}.preview-card{position:static;box-shadow:none}.preview-stage{padding:0;background:none}.preview-wrap{width:auto!important}.sheet{position:static;box-shadow:none;height:var(--print-height)!important;width:var(--print-width)!important}.card{border-radius:0}}
+
 </style>
 </head>
 <body>
-<header>看板・ラベル作成ツール
+<header><div class="brand"><span class="brand-mark" aria-hidden="true">▤</span><div class="brand-title">看板・ラベル作成ツール<small>現場の表示を、かんたん・きれいに。</small></div></div>
   <div class="tabs"><button data-t="kanban" class="on">注意看板</button><button data-t="label">短冊ラベル</button></div>
 </header>
+<div class="intro no-print"><div><h1>伝わる表示を、すぐに。</h1><p>文言とデザインを選んで、印刷できる看板・ラベルを作成。</p></div><span class="local-note">入力内容を自動保存</span></div>
 <main>
   <!-- ============ 注意看板 コントロール ============ -->
   <section class="card controls" id="ctlKanban">
-    <h2>定型文からえらぶ</h2>
+    <h2>定型文から選ぶ</h2>
     <div class="presets" id="presets"></div>
-    <h2>文言</h2>
+    <h2>文言を編集</h2>
     <label>メイン文字(改行OK)</label>
     <textarea id="main" placeholder="例：関係者以外&#10;立入禁止"></textarea>
     <label>サブ文字(任意・改行OK)</label>
@@ -140,7 +169,7 @@
 
   <!-- ============ 短冊ラベル コントロール ============ -->
   <section class="card controls hidden" id="ctlLabel">
-    <h2>ラベル(1枚の紙に複数並べて印刷→切って使う)</h2>
+    <h2>ラベルの内容</h2>
     <div id="lblItems"></div>
     <button class="btn ghost" id="lblAdd">＋ ラベルを追加</button>
     <h2>レイアウト</h2>
@@ -162,9 +191,9 @@
   </section>
 
   <!-- ============ プレビュー ============ -->
-  <section class="card">
-    <h2 class="no-print">プレビュー</h2>
-    <div class="preview-wrap">
+  <section class="card preview-card">
+<div class="preview-top"><div><h2>仕上がりプレビュー</h2><p>編集内容をリアルタイムに反映</p></div><span class="paper-tag" id="paperMeta"></span></div>
+<div class="preview-stage"><div class="preview-wrap">
       <div id="sheet" class="sheet portrait a4">
         <div id="board" class="board c-red">
           <div class="icon" id="pIcon"></div>
@@ -176,6 +205,7 @@
         <div id="strips" class="strips tate start hidden"></div>
       </div>
     </div>
+</div><div class="preview-footer"><span>印刷するのは用紙部分のみ</span><b id="previewScale"></b></div>
   </section>
 </main>
 
@@ -278,15 +308,15 @@ function renderLControls(){
   l.items.forEach((it,i)=>{
     const d=document.createElement('div');d.className='lbl-item';
     d.innerHTML=`<div>
-      <input type="text" placeholder="文字を入力" value="${esc(it.text)}" data-i="${i}" data-k="text">
+      <input type="text" placeholder="文字を入力" value="${esc(it.text)}" data-i="${i}" data-k="text" aria-label="ラベル${i+1}の文字">
       <div class="sub">
-        <select data-i="${i}" data-k="color">
+        <select data-i="${i}" data-k="color" aria-label="ラベル${i+1}の色">
           <option value="red" ${it.color==='red'?'selected':''}>赤</option>
           <option value="black" ${it.color==='black'?'selected':''}>黒</option>
           <option value="blue" ${it.color==='blue'?'selected':''}>青</option>
           <option value="green" ${it.color==='green'?'selected':''}>緑</option>
         </select>
-        <input type="range" min="30" max="150" value="${it.size}" data-i="${i}" data-k="size">
+        <input type="range" min="30" max="150" value="${it.size}" data-i="${i}" data-k="size" aria-label="ラベル${i+1}の文字サイズ">
         <span>${it.size}%</span>
       </div></div>
       <button class="del" data-i="${i}" title="削除">×</button>`;
@@ -330,17 +360,40 @@ $('lClearBtn').addEventListener('click',()=>{if(!confirm('ラベルを全部消�
 /* ---------- 共通 ---------- */
 function doPrint(paper,orient){
   let st=$('pageStyle');if(!st){st=document.createElement('style');st.id='pageStyle';document.head.appendChild(st);}
-  st.textContent=`@page{size:${paper.toUpperCase()} ${orient};margin:8mm;}`;
+  const mm=paperMM(paper,orient);
+  st.textContent=`@page{size:${paper.toUpperCase()} ${orient};margin:8mm;} :root{--print-width:${mm.w-16}mm;--print-height:${mm.h-16}mm;}`;
   window.print();
 }
 function fitPreview(){
-  const wrap=document.querySelector('.preview-wrap');const sh=$('sheet');
-  sh.style.transform='none';
-  const w=sh.offsetWidth,avail=wrap.clientWidth-4;
-  if(w>avail){const s=avail/w;sh.style.transform=`scale(${s})`;wrap.style.height=sh.offsetHeight*s+'px';}
-  else{wrap.style.height='';}
+  const wrap=document.querySelector('.preview-wrap'), sh=$('sheet');
+  const stage=document.querySelector('.preview-stage'), cs=getComputedStyle(stage);
+  const avail=stage.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+  const maxHeight=window.innerWidth<=740?360:Math.max(430,window.innerHeight-300);
+  const scale=Math.min(1,avail/sh.offsetWidth,maxHeight/sh.offsetHeight);
+  sh.style.transform=`scale(${scale})`;
+  wrap.style.width=sh.offsetWidth*scale+'px';wrap.style.height=sh.offsetHeight*scale+'px';
+  const opt=state.tab==='kanban'?state.k:state.l;
+  $('paperMeta').textContent=opt.paper.toUpperCase()+' · '+(opt.orient==='portrait'?'縦向き':'横向き');
+  $('previewScale').textContent=Math.round(scale*100)+'% 表示';
+  document.querySelectorAll('#presets button').forEach(b=>{const p=PRESETS[+b.dataset.i];const active=p.t===state.k.main&&p.c===state.k.color&&p.i===state.k.icon&&p.s===state.k.sub;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',active);});
+  document.querySelectorAll('.seg button,.tabs button').forEach(b=>b.setAttribute('aria-pressed',b.classList.contains('on')));
 }
 window.addEventListener('resize',fitPreview);
+function organizeEditor(id){
+ const panel=$(id);const nodes=[...panel.children];let group;
+ for(const node of nodes){
+  if(node.tagName==='H2'){
+   const title=node.textContent;
+   group=document.createElement(title==='レイアウト'?'details':'div');group.className='editor-group';
+   panel.insertBefore(group,node);
+   if(group.tagName==='DETAILS'){const summary=document.createElement('summary');summary.textContent='デザイン・用紙設定';group.appendChild(summary);node.remove();}
+   else{group.appendChild(node);}
+  }else if(node.classList.contains('btn')&&node.id!=='lblAdd'||node.classList.contains('hint')){group=null;}
+  else if(group){group.appendChild(node);}
+ }
+ panel.querySelectorAll('label').forEach(label=>{const field=label.nextElementSibling;if(field?.matches('textarea,input,select'))label.htmlFor=field.id;else if(field?.classList.contains('range'))label.htmlFor=field.querySelector('input').id;else if(field?.classList.contains('seg')){field.setAttribute('role','group');field.setAttribute('aria-label',label.textContent);}});
+}
+organizeEditor('ctlKanban');organizeEditor('ctlLabel');
 load();renderTab();
 </script>
 </body>
