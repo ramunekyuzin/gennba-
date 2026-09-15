@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>出来高・進捗管理</title>
+  <title>出来高計算表</title>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; background: #f5f6f8; }
     @media (prefers-color-scheme: dark) { html, body { background: #121417; } }
@@ -15,7 +15,7 @@
   <iframe id="app" allow="clipboard-write"></iframe>
   <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbwgvxNO1XkCvcSkZfcaeXU9-LDjsVh9wXVBtfS2igwyv48a45MioPn3K7QJo5kIPKZsHg/exec';
-    // ?genba=現場名 などのクエリはそのままGAS側へ渡す
+    // ?genba=現場名 のクエリはそのままGAS側へ渡す
     document.getElementById('app').src = GAS_URL + location.search;
   </script>
 </body>
