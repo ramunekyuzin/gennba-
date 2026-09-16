@@ -111,53 +111,68 @@
     .sheet{margin:0;border:none;transform:none!important;width:100%!important;height:100vh!important;padding:0}
     .strip{border-color:#ddd}
   }
+
+/* Editor */
+:root{--bg:#eef2f7;--card:#fff;--line:#dce3ec;--text:#23334b;--sub:#617189;--accent:#315fe6;--soft:#edf2ff;--danger:#bf3547}
+body[data-theme="sage"]{--bg:#eef3f0;--card:#fff;--line:#d4e1d8;--text:#283e35;--sub:#5f7669;--accent:#28775a;--soft:#e8f4ed}
+body[data-theme="night"]{--bg:#121b29;--card:#1b283b;--line:#35465d;--text:#e6edf7;--sub:#adbdd1;--accent:#96b8ff;--soft:#283e5e}
+body{line-height:1.6}button,input,textarea,select{font-family:inherit}button{transition:background .15s,box-shadow .15s;touch-action:manipulation}button:hover{filter:brightness(.96)}button:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}input:focus,textarea:focus,select:focus{outline:3px solid color-mix(in srgb,var(--accent) 20%,transparent);border-color:var(--accent)}
+header{background:var(--card);color:var(--text);padding:20px max(24px,calc((100vw - 1400px)/2));border-bottom:1px solid var(--line);gap:20px}.brand{display:flex;gap:12px;align-items:center}.brand-mark{width:42px;height:42px;border-radius:12px;background:var(--accent);color:var(--card);display:grid;place-items:center;font-size:22px}.brand strong{display:block;font-size:19px;letter-spacing:.02em}.brand small{display:block;font-size:11px;color:var(--sub);font-weight:500}.tabs{padding:4px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}.tabs button{background:transparent;color:var(--sub);font-weight:700;padding:9px 18px}.tabs button.on{background:var(--accent);color:var(--card)}
+main{max-width:1400px;padding:24px;gap:24px;align-items:start;grid-template-columns:minmax(360px,430px) minmax(0,1fr)}.card{padding:22px;border-radius:18px;border:1px solid var(--line);box-shadow:0 6px 25px #24334a08;min-width:0}.card h2{font-size:15px;color:var(--text);margin:26px 0 12px;letter-spacing:.02em}.section-label{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.12em;margin-bottom:5px}.card h2:first-child{margin-top:0}label{font-size:13px;font-weight:600;color:var(--text);margin:14px 0 6px}input[type=text],select,textarea{border-color:var(--line);background:var(--card);color:var(--text);line-height:1.5;padding:11px 12px;border-radius:10px}textarea{min-height:84px}#main{font-weight:700;font-size:18px}.seg{gap:6px}.seg button{background:var(--card);color:var(--sub);font-weight:600;font-size:12px;min-width:48px;padding:10px 7px;border-color:var(--line);min-height:42px}.seg button.on{background:var(--soft);color:var(--accent)!important;border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}#fill{margin-top:8px}#color button::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;margin-right:5px}.presets{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.presets button{border-width:1px;padding:10px 8px;font-size:12px}.presets button[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:2px}.btn{font-size:14px;min-height:46px;border-radius:11px}.btn.primary{color:var(--card)}.btn.ghost{background:var(--card);color:var(--text);border-color:var(--line)}.hint{font-size:12px;line-height:1.8;color:var(--sub)}.range{padding:10px 12px;background:var(--bg);border-radius:10px}.range input{min-width:0;accent-color:var(--accent)}.range span{min-width:48px;font-size:12px;font-weight:700;text-align:right}.fold{border:1px solid var(--line);border-radius:12px;margin-top:18px;padding:13px 14px}.fold summary{font-size:14px;cursor:pointer;font-weight:700}.fold summary::marker{color:var(--accent)}.fold[open] summary{margin-bottom:14px}.fold h2{margin-top:15px}.fold .hint{margin:6px 0 12px}.preset-fold{margin-top:0}.editor-intro{margin:0 0 18px;font-size:13px;color:var(--sub)}
+.design-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.design-option{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card);color:var(--text);cursor:pointer;text-align:left;min-width:0}.design-option.on{border-color:var(--accent);background:var(--soft);box-shadow:inset 0 0 0 1px var(--accent)}.design-option span{display:block;font-size:11px;margin-top:6px}.sample{height:49px;display:flex;align-items:center;justify-content:center;background:white;color:#31506f;border:3px solid currentColor;font-style:normal;font-size:13px;font-weight:800;position:relative;overflow:hidden}.sample.double{border:5px double}.sample.band{border-width:12px 2px 2px}.sample.side{border-width:2px 2px 2px 12px}.sample.round{border-radius:12px}.sample.dash{border-style:dashed}.sample.corner{border-width:0;background:linear-gradient(currentColor,currentColor) left top/18px 3px no-repeat,linear-gradient(currentColor,currentColor) left top/3px 18px no-repeat,linear-gradient(currentColor,currentColor) right bottom/18px 3px no-repeat,linear-gradient(currentColor,currentColor) right bottom/3px 18px no-repeat,#fff}.sample.line{border-width:1px;border-bottom-width:7px}
+.preview-card{position:sticky;top:20px}.preview-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}.preview-heading h2{margin:0}.preview-heading p{margin:3px 0 0;font-size:12px;color:var(--sub)}.paper-badge{font-size:11px;color:var(--accent);background:var(--soft);padding:6px 10px;border-radius:20px;white-space:nowrap}.preview-canvas{background:var(--bg);background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:14px 14px;padding:22px;border:1px solid var(--line);border-radius:12px}.preview-wrap{overflow:hidden;position:relative;width:100%}.sheet{margin:0;border:0;box-shadow:0 6px 22px #0f172a20;flex-shrink:0;color:#111}.sheet,.frame,.board,.texts{min-width:0;min-height:0}.preview-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px}.preview-actions .btn{margin:0;width:auto;padding:11px 20px}.preview-note{font-size:12px;color:var(--sub)}.preview-warning{color:#b43141;background:#fff0f0;border:1px solid #eac0c7;padding:10px 12px;border-radius:8px;font-size:12px;margin-top:12px}.theme-row{flex-wrap:wrap;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:16px;margin-top:18px}.theme-row span{color:var(--sub);font-size:12px}.theme-row button{width:27px;height:27px;border-radius:50%;border:3px solid var(--card);outline:1px solid var(--line);cursor:pointer}.theme-row button.on{outline:2px solid var(--accent)}.theme-row button:nth-of-type(1){background:#315fe6}.theme-row button:nth-of-type(2){background:#28775a}.theme-row button:nth-of-type(3){background:#17243a}.lbl-item{background:var(--bg);border-style:solid;padding:12px;border-radius:12px;grid-template-columns:minmax(0,1fr) 30px}.lbl-item .sub{min-width:0;flex-wrap:wrap}.lbl-item .sub input{min-width:70px}.lbl-item .del{width:30px}.lbl-item input[type=text]{background:var(--card)}
+/* Printable designs: colors remain independent of the editor theme. */
+.frame .board.d-double{border-style:double;border-width:6mm}.frame .board.d-band{border-width:16mm 2mm 2mm}.frame .board.d-side{border-width:2mm 2mm 2mm 16mm}.frame .board.d-round{border-radius:12mm;border-width:3mm}.frame .board.d-dash{border-style:dashed;border-width:3mm}.frame .board.d-line{border-width:1mm 1mm 9mm}.frame .board.d-corner{border-width:0;position:relative}.frame .board.d-corner:before,.frame .board.d-corner:after{content:'';position:absolute;width:24mm;height:24mm;border:3mm solid currentColor;pointer-events:none}.frame .board.d-corner:before{left:0;top:0;border-right:0;border-bottom:0}.frame .board.d-corner:after{right:0;bottom:0;border-left:0;border-top:0}.board .icon{flex-shrink:0}.board.fill.c-yellow{background:#ffd500;color:#111}.frame.f-check{background:conic-gradient(#111 25%,#ffd500 0 50%,#111 0 75%,#ffd500 0) 0 0/18mm 18mm}.frame.f-bluewhite{background:repeating-linear-gradient(45deg,#0068b7 0 12mm,#fff 12mm 24mm)}.frame.f-greenwhite{background:repeating-linear-gradient(45deg,#00a960 0 12mm,#fff 12mm 24mm)}.strip{flex:1;min-width:0;min-height:0}.strips.l-bordered .strip{box-shadow:inset 0 0 0 1mm currentColor;border:2mm solid white}.strips.l-soft .strip{background:color-mix(in srgb,currentColor 8%,white);border:1mm solid white;box-shadow:inset 0 0 0 .3mm currentColor}.strips.l-endline .strip{border-bottom:3mm solid currentColor}.strips.tate.l-endline .strip{border-bottom:.3mm dashed #bbb;border-top:3mm solid currentColor}
+@media(max-width:950px){main{grid-template-columns:minmax(300px,380px) minmax(0,1fr);padding:16px;gap:16px}.card{padding:16px}.preview-canvas{padding:12px}.preview-heading{flex-wrap:wrap}.preview-actions{flex-direction:column;align-items:stretch}.preview-actions .btn{width:100%}}
+@media(max-width:720px){header{padding:16px;gap:14px}.brand strong{font-size:17px}.tabs{margin:0;width:100%;display:flex}.tabs button{flex:1}main{display:flex;flex-direction:column;padding:14px;gap:16px}.card{width:100%;border-radius:14px}.preview-card{position:static;order:-1}.preview-canvas{padding:12px}.preview-actions{flex-direction:row;align-items:center}.preview-actions .btn{width:auto}.preview-note{font-size:11px}.theme-row{margin-top:12px;padding-top:12px}.design-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{html,body{margin:0!important;padding:0!important;background:white!important}main{display:block!important;padding:0!important;margin:0!important;max-width:none!important}.preview-card{position:static!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:0!important}.preview-canvas{padding:0!important;background:none!important;border:0!important;border-radius:0!important}.preview-wrap{overflow:visible!important;width:auto!important;height:auto!important}.sheet{box-shadow:none!important;transform:none!important;margin:0!important;padding:6mm!important;width:var(--print-w)!important;height:var(--print-h)!important;break-inside:avoid}.no-print,.preview-heading,.preview-actions,.theme-row{display:none!important}}
+
 </style>
 </head>
 <body>
-<header>看板・ラベル作成ツール
+<header><div class="brand"><div class="brand-mark" aria-hidden="true">▤</div><div><strong>看板・ラベル作成</strong><small>文言とデザインを選んで、そのまま印刷。</small></div></div>
   <div class="tabs"><button data-t="kanban" class="on">注意看板</button><button data-t="label">短冊ラベル</button></div>
 </header>
 <main>
   <!-- ============ 注意看板 コントロール ============ -->
   <section class="card controls" id="ctlKanban">
-    <h2>定型文からえらぶ</h2>
-    <div class="presets" id="presets"></div>
-    <h2>文言</h2>
+    <p class="editor-intro">文言・色・枠を組み合わせて、現場に合う一枚に。</p><details class="fold preset-fold"><summary>定型文から選ぶ <small>16種類</small></summary><div class="presets" id="presets"></div></details>
+    <h2>01　表示する文言</h2>
     <label>メイン文字(改行OK)</label>
     <textarea id="main" placeholder="例：関係者以外&#10;立入禁止"></textarea>
     <label>サブ文字(任意・改行OK)</label>
     <textarea id="sub" placeholder="例：〇〇建設 現場事務所 TEL 000-0000-0000"></textarea>
-    <h2>レイアウト</h2>
+    <h2>用紙とレイアウト</h2>
     <label>用紙の向き</label>
     <div class="seg" id="orient"><button data-v="portrait" class="on">縦</button><button data-v="landscape">横</button></div>
     <label>文字の向き</label>
     <div class="seg" id="writing"><button data-v="yoko" class="on">横書き</button><button data-v="tate">縦書き</button></div>
     <label>用紙サイズ</label>
     <div class="seg" id="paper"><button data-v="a4" class="on">A4</button><button data-v="a3">A3</button></div>
-    <label>ピクトグラム</label>
+    <details class="fold" open><summary>02　看板のデザイン</summary><p class="hint">文言を変えずに、枠や形だけ切り替えられます。</p><div id="designs" class="design-grid"></div><label>ピクトグラム</label>
     <div class="seg" id="icon"><button data-v="none">なし</button><button data-v="ban" class="on">禁止○</button><button data-v="warn">注意△</button><button data-v="must">指示●</button><button data-v="safe">安全■</button></div>
     <label>配色</label>
     <div class="seg" id="color"><button data-v="c-red" class="on" style="color:#e60012">赤</button><button data-v="c-yellow" style="color:#b48a00">黄</button><button data-v="c-blue" style="color:#0068b7">青</button><button data-v="c-green" style="color:#00a960">緑</button><button data-v="c-black">黒</button></div>
     <div class="seg" id="fill"><button data-v="0" class="on">白地</button><button data-v="1">ベタ塗り</button></div>
     <label>周りの枠デザイン</label>
-    <div class="seg" id="frameSel"><button data-v="none" class="on">なし</button><button data-v="f-tora">黄黒トラ</button><button data-v="f-kuroki">黒黄トラ</button><button data-v="f-akashiro">赤白</button></div>
-    <label>トラ柄の幅</label>
+    <div class="seg" id="frameSel"><button data-v="none" class="on">なし</button><button data-v="f-tora">黄黒トラ</button><button data-v="f-kuroki">黒黄トラ</button><button data-v="f-akashiro">赤白</button><button data-v="f-check">市松・黄黒</button><button data-v="f-bluewhite">青白</button><button data-v="f-greenwhite">緑白</button></div>
+    <label>外枠の幅</label>
     <div class="range"><input type="range" id="fwidth" min="6" max="25" value="12"><span id="fwidthLabel">12mm</span></div>
-    <label>メイン文字サイズ</label>
+    </details><details class="fold"><summary>03　文字サイズの調整</summary><label>メイン文字サイズ</label>
     <div class="range"><input type="range" id="msize" min="40" max="200" value="100"><span id="msizeLabel">100%</span></div>
     <label>サブ文字サイズ</label>
     <div class="range"><input type="range" id="ssize" min="40" max="200" value="100"><span id="ssizeLabel">100%</span></div>
-    <button class="btn primary" id="printBtn">🖨 印刷 / PDF保存</button>
+    </details><button class="btn primary" id="printBtn">印刷 / PDF保存</button>
     <button class="btn ghost" id="clearBtn">文言をクリア</button>
-    <p class="hint">入力内容はこの端末のブラウザに自動保存。印刷ダイアログの用紙サイズ・向きは自動セットされるけど一応確認してね。</p>
+    <p class="hint">入力内容とデザインはこのブラウザに自動保存。印刷時は用紙サイズ・向き・倍率100%を確認してください。</p>
   </section>
 
   <!-- ============ 短冊ラベル コントロール ============ -->
   <section class="card controls hidden" id="ctlLabel">
-    <h2>ラベル(1枚の紙に複数並べて印刷→切って使う)</h2>
+    <h2>短冊ラベル</h2><p class="editor-intro">一枚の用紙に並べて印刷し、切り取って使えます。</p><details class="fold" open><summary>ラベルのデザイン</summary><div id="labelDesigns" class="design-grid"></div></details>
     <div id="lblItems"></div>
     <button class="btn ghost" id="lblAdd">＋ ラベルを追加</button>
-    <h2>レイアウト</h2>
+    <h2>用紙とレイアウト</h2>
     <label>文字の向き</label>
     <div class="seg" id="lWriting"><button data-v="tate" class="on">縦書き(横に並ぶ)</button><button data-v="yoko">横書き(縦に並ぶ)</button></div>
     <label>用紙の向き</label>
@@ -170,14 +185,13 @@
     <div class="range"><input type="range" id="lsize" min="30" max="150" value="100"><span id="lsizeLabel">100%</span></div>
     <label>最大文字サイズ(短い文字が巨大になりすぎるのを抑える)</label>
     <div class="range"><input type="range" id="lmax" min="10" max="80" value="32"><span id="lmaxLabel">32mm</span></div>
-    <button class="btn primary" id="lPrintBtn">🖨 印刷 / PDF保存</button>
+    <button class="btn primary" id="lPrintBtn">印刷 / PDF保存</button>
     <button class="btn ghost" id="lClearBtn">ラベルを全部消す</button>
     <p class="hint">各ラベルは紙の長さに合わせて自動でサイズ調整。個別スライダーで微調整、色も個別に選べる。点線は切り取り線(印刷時は薄く出る)。</p>
   </section>
 
   <!-- ============ プレビュー ============ -->
-  <section class="card">
-    <h2 class="no-print">プレビュー</h2>
+  <section class="card preview-card"><div class="preview-heading no-print"><div><h2>仕上がりプレビュー</h2><p>編集内容をリアルタイムで反映</p></div><span id="paperInfo" class="paper-badge"></span></div><div class="preview-canvas">
     <div class="preview-wrap">
       <div id="sheet" class="sheet portrait a4">
         <div id="frame" class="frame">
@@ -191,7 +205,7 @@
         </div>
         <div id="strips" class="strips tate start hidden"></div>
       </div>
-    </div>
+    </div></div><div id="overflowNote" class="preview-warning no-print hidden" role="status">文字が枠内に収まっていません。文字サイズを下げるか、改行・用紙の向きを調整してください。</div><div class="preview-actions no-print"><span class="preview-note">A4・A3対応 / PDF保存も可能</span><button class="btn primary" id="previewPrint">印刷 / PDF保存</button></div><div class="theme-row no-print"><span>操作画面の色</span><button data-theme="blue" title="ブルー" aria-label="ブルー"></button><button data-theme="sage" title="セージ" aria-label="セージ"></button><button data-theme="night" title="ナイト" aria-label="ナイト"></button><span>※印刷には影響しません</span></div>
   </section>
 </main>
 
@@ -209,9 +223,9 @@ const PRESETS=[
 ];
 const LBL_COLORS={red:'#e60012',black:'#111111',blue:'#0068b7',green:'#00a960'};
 let state={
-  tab:'kanban',
-  k:{main:'関係者以外\n立入禁止',sub:'',orient:'portrait',writing:'yoko',paper:'a4',icon:'ban',color:'c-red',fill:0,frame:'none',fwidth:12,msize:100,ssize:100},
-  l:{items:[
+  tab:'kanban',theme:'blue',
+  k:{design:'standard',main:'関係者以外\n立入禁止',sub:'',orient:'portrait',writing:'yoko',paper:'a4',icon:'ban',color:'c-red',fill:0,frame:'none',fwidth:12,msize:100,ssize:100},
+  l:{design:'plain',items:[
       {text:'TPI 23070',size:100,color:'red'},
       {text:'本体棟GL-1180',size:100,color:'red'},
       {text:'W=1100',size:70,color:'red'},
@@ -219,15 +233,16 @@ let state={
      writing:'tate',orient:'portrait',paper:'a4',align:'start',size:100,max:32}
 };
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
-function load(){try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);state.tab=o.tab||state.tab;Object.assign(state.k,o.k||{});Object.assign(state.l,o.l||{});}}catch(e){}}
+function load(){try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);state.tab=o.tab||state.tab;state.theme=o.theme||'blue';Object.assign(state.k,o.k||{});Object.assign(state.l,o.l||{});}}catch(e){}}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const setSeg=(id,v)=>document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('on',b.dataset.v==String(v)));
+const setSeg=(id,v)=>document.querySelectorAll('#'+id+' button').forEach(b=>{const on=b.dataset.v==String(v);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);});
 const paperMM=(p,o)=>{const a=p==='a3'?[297,420]:[210,297];return o==='landscape'?{w:a[1],h:a[0]}:{w:a[0],h:a[1]};};
 
 /* ---------- タブ ---------- */
 function renderTab(){
-  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===state.tab));
+  applyTheme();
+  document.querySelectorAll('.tabs button').forEach(b=>(b.classList.toggle('on',b.dataset.t===state.tab),b.setAttribute('aria-pressed',b.dataset.t===state.tab)));
   $('ctlKanban').classList.toggle('hidden',state.tab!=='kanban');
   $('ctlLabel').classList.toggle('hidden',state.tab!=='label');
   $('frame').classList.toggle('hidden',state.tab!=='kanban');
@@ -237,23 +252,24 @@ function renderTab(){
 document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.tab=b.dataset.t;renderTab();});
 
 /* ---------- 注意看板 ---------- */
-function iconSvg(type,size,stroke){
+function iconSvg(type,size,stroke,inside='#fff'){
   const s=size;
   if(type==='ban')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="${stroke}" stroke-width="12"/><line x1="22" y1="22" x2="78" y2="78" stroke="${stroke}" stroke-width="12"/></svg>`;
   if(type==='warn')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><polygon points="50,8 96,90 4,90" fill="none" stroke="${stroke}" stroke-width="10" stroke-linejoin="round"/><rect x="45" y="34" width="10" height="30" rx="3" fill="${stroke}"/><circle cx="50" cy="76" r="6" fill="${stroke}"/></svg>`;
-  if(type==='must')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="${stroke}"/><rect x="44" y="20" width="12" height="36" rx="4" fill="#fff"/><circle cx="50" cy="72" r="8" fill="#fff"/></svg>`;
-  if(type==='safe')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="8" fill="${stroke}"/><polyline points="26,52 44,70 76,32" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if(type==='must')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="${stroke}"/><rect x="44" y="20" width="12" height="36" rx="4" fill="${inside}"/><circle cx="50" cy="72" r="8" fill="${inside}"/></svg>`;
+  if(type==='safe')return`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="8" fill="${stroke}"/><polyline points="26,52 44,70 76,32" fill="none" stroke="${inside}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   return'';
 }
 function renderKControls(){
   const k=state.k;
+  renderDesigns('designs',DESIGNS,k.design);
   setSeg('orient',k.orient);setSeg('writing',k.writing);setSeg('paper',k.paper);setSeg('icon',k.icon);setSeg('color',k.color);setSeg('fill',k.fill);setSeg('frameSel',k.frame);
   $('fwidth').value=k.fwidth;$('fwidthLabel').textContent=k.fwidth+'mm';
   $('main').value=k.main;$('sub').value=k.sub;
   $('msize').value=k.msize;$('msizeLabel').textContent=k.msize+'%';
   $('ssize').value=k.ssize;$('ssizeLabel').textContent=k.ssize+'%';
   const pb=$('presets');pb.innerHTML='';
-  PRESETS.forEach((p,i)=>{const b=document.createElement('button');b.className=p.c;b.textContent=p.t.replace('\n','');b.dataset.i=i;pb.appendChild(b);});
+  PRESETS.forEach((p,i)=>{const b=document.createElement('button');b.className=p.c;b.textContent=p.t.replace('\n','');b.dataset.i=i;b.setAttribute('aria-pressed',p.t===k.main&&p.c===k.color);pb.appendChild(b);});
 }
 function renderKPreview(){
   const k=state.k;
@@ -261,7 +277,7 @@ function renderKPreview(){
   const fr=$('frame');fr.className=`frame ${k.frame}`;
   fr.style.padding=k.frame==='none'?'0':k.fwidth+'mm';
   const bd=$('board');const land=k.orient==='landscape';
-  bd.className=`board ${k.color} ${k.fill==1?'fill':''} ${land?'h':''} ${k.writing==='tate'?'tate':''}`;
+  bd.className=`board d-${k.design} ${k.color} ${k.fill==1?'fill':''} ${land?'h':''} ${k.writing==='tate'?'tate':''}`;
   const lines=(k.main||'').split('\n');const maxLen=Math.max(1,...lines.map(l=>[...l].length));
   const pad=k.frame==='none'?0:k.fwidth*2;
   const pm=paperMM(k.paper,k.orient);const W=pm.w-40-pad,H=pm.h-40-pad;
@@ -269,12 +285,18 @@ function renderKPreview(){
   if(k.writing==='tate')autoM=Math.min(W/(lines.length*1.4),H/(maxLen*1.25));
   else autoM=Math.min(W/(maxLen*1.15),H/(lines.length*1.9));
   if(k.icon!=='none')autoM*=0.82;if(k.sub)autoM*=0.9;autoM=Math.max(12,autoM);
-  const m=autoM*k.msize/100;
+  const m=autoM;
   $('pMain').textContent=k.main||'';$('pMain').style.fontSize=m+'mm';
-  $('pSub').textContent=k.sub||'';$('pSub').style.display=k.sub?'':'none';$('pSub').style.fontSize=(m*0.32*k.ssize/100)+'mm';
-  const col=getComputedStyle(bd).color;const iconSize=(k.paper==='a3'?90:62)*(land?0.9:1)+'mm';
-  $('pIcon').innerHTML=k.icon==='none'?'':iconSvg(k.icon,iconSize,col);$('pIcon').style.display=k.icon==='none'?'none':'';
-  fitPreview();save();
+  $('pSub').textContent=k.sub||'';$('pSub').style.display=k.sub?'':'none';$('pSub').style.fontSize=(m*0.32)+'mm';
+  const col=getComputedStyle(bd).color;const contrasting=k.fill==1&&k.color!=='c-yellow';const iconSize=(k.paper==='a3'?90:62)*(land?0.9:1)+'mm';
+  $('pIcon').innerHTML=k.icon==='none'?'':iconSvg(k.icon,iconSize,col,contrasting?getComputedStyle(bd).backgroundColor:'#fff');$('pIcon').style.display=k.icon==='none'?'none':'';
+  // Measure the rendered glyphs before applying the user's size adjustment.
+  const mainText=$('pMain'),subText=$('pSub');
+  let baseMain=m,baseSub=m*0.32;
+  const overflowing=()=>[bd,...bd.querySelectorAll('.texts')].some(el=>el.clientWidth>0&&(el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1));
+  for(let n=0;n<45&&overflowing();n++){baseMain*=.95;baseSub*=.95;mainText.style.fontSize=baseMain+'mm';subText.style.fontSize=baseSub+'mm';}
+  mainText.style.fontSize=baseMain*k.msize/100+'mm';subText.style.fontSize=baseSub*k.ssize/100+'mm';
+  fitPreview();requestAnimationFrame(checkOverflow);save();
 }
 ['orient','writing','paper','icon','color','fill'].forEach(id=>{
   $(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.k[id]=id==='fill'?+b.dataset.v:b.dataset.v;renderKControls();renderKPreview();});
@@ -293,6 +315,7 @@ $('clearBtn').addEventListener('click',()=>{state.k.main='';state.k.sub='';rende
 /* ---------- 短冊ラベル ---------- */
 function renderLControls(){
   const l=state.l;
+  renderDesigns('labelDesigns',LABEL_DESIGNS,l.design);
   setSeg('lWriting',l.writing);setSeg('lOrient',l.orient);setSeg('lPaper',l.paper);setSeg('lAlign',l.align);
   $('lsize').value=l.size;$('lsizeLabel').textContent=l.size+'%';
   $('lmax').value=l.max;$('lmaxLabel').textContent=l.max+'mm';
@@ -300,36 +323,40 @@ function renderLControls(){
   l.items.forEach((it,i)=>{
     const d=document.createElement('div');d.className='lbl-item';
     d.innerHTML=`<div>
-      <input type="text" placeholder="文字を入力" value="${esc(it.text)}" data-i="${i}" data-k="text">
+      <input aria-label="ラベル${i+1}の文字" type="text" placeholder="文字を入力" value="${esc(it.text)}" data-i="${i}" data-k="text">
       <div class="sub">
-        <select data-i="${i}" data-k="color">
+        <select aria-label="ラベル${i+1}の色" data-i="${i}" data-k="color">
           <option value="red" ${it.color==='red'?'selected':''}>赤</option>
           <option value="black" ${it.color==='black'?'selected':''}>黒</option>
           <option value="blue" ${it.color==='blue'?'selected':''}>青</option>
           <option value="green" ${it.color==='green'?'selected':''}>緑</option>
         </select>
-        <input type="range" min="30" max="150" value="${it.size}" data-i="${i}" data-k="size">
+        <input aria-label="ラベル${i+1}の文字サイズ" type="range" min="30" max="150" value="${it.size}" data-i="${i}" data-k="size">
         <span>${it.size}%</span>
       </div></div>
-      <button class="del" data-i="${i}" title="削除">×</button>`;
+      <button class="del" data-i="${i}" title="削除" aria-label="ラベル${i+1}を削除">×</button>`;
     box.appendChild(d);
   });
 }
 function renderLPreview(){
   const l=state.l;
   $('sheet').className=`sheet ${l.orient} ${l.paper}`;
-  const st=$('strips');st.className=`strips ${l.writing} ${l.align}`;
+  const st=$('strips');st.className=`strips l-${l.design} ${l.writing} ${l.align}`;
   const pm=paperMM(l.paper,l.orient);
+  const count=Math.max(1,l.items.filter(it=>it.text).length);
+  const cross=((l.writing==='tate'?pm.w:pm.h)-12)/count-10;
   const long=(l.writing==='tate'?pm.h:pm.w)-24;      // 文字が流れる方向の長さ
   st.innerHTML='';
   l.items.filter(it=>it.text).forEach(it=>{
     const n=Math.max(1,[...it.text].length);
-    let fs=Math.min(long/(n*1.15),l.max)*l.size/100*it.size/100;
+    let fs=Math.min(long/(n*1.15),l.max,Math.max(1,cross/1.15))*l.size/100*it.size/100;
     const d=document.createElement('div');d.className='strip';
     d.textContent=it.text;d.style.fontSize=fs+'mm';d.style.color=LBL_COLORS[it.color]||'#e60012';
     st.appendChild(d);
   });
-  fitPreview();save();
+  // Fit each strip against its real dimensions, including Japanese/Latin glyph metrics.
+  [...st.children].forEach(el=>{let size=parseFloat(el.style.fontSize);for(let n=0;n<30 && (el.scrollWidth>el.clientWidth+1 || el.scrollHeight>el.clientHeight+1);n++){size*=0.95;el.style.fontSize=size+'mm';}});
+  fitPreview();requestAnimationFrame(checkOverflow);save();
 }
 ['lWriting','lOrient','lPaper','lAlign'].forEach(id=>{
   const key={lWriting:'writing',lOrient:'orient',lPaper:'paper',lAlign:'align'}[id];
@@ -350,18 +377,41 @@ $('lPrintBtn').addEventListener('click',()=>doPrint(state.l.paper,state.l.orient
 $('lClearBtn').addEventListener('click',()=>{if(!confirm('ラベルを全部消す？'))return;state.l.items=[{text:'',size:100,color:'red'}];renderLControls();renderLPreview();});
 
 /* ---------- 共通 ---------- */
-function doPrint(paper,orient){
+function configurePrint(paper,orient){
   let st=$('pageStyle');if(!st){st=document.createElement('style');st.id='pageStyle';document.head.appendChild(st);}
-  st.textContent=`@page{size:${paper.toUpperCase()} ${orient};margin:8mm;}`;
-  window.print();
+  st.textContent=`@page{size:${paper.toUpperCase()} ${orient};margin:0;}`;
+  const pm=paperMM(paper,orient);$('sheet').style.setProperty('--print-w',pm.w+'mm');$('sheet').style.setProperty('--print-h',pm.h+'mm');
 }
+function doPrint(paper,orient){configurePrint(paper,orient);window.print();}
 function fitPreview(){
-  const wrap=document.querySelector('.preview-wrap');const sh=$('sheet');
+  const wrap=document.querySelector('.preview-wrap'), sh=$('sheet');
   sh.style.transform='none';
-  const w=sh.offsetWidth,avail=wrap.clientWidth-4;
-  if(w>avail){const s=avail/w;sh.style.transform=`scale(${s})`;wrap.style.height=sh.offsetHeight*s+'px';}
-  else{wrap.style.height='';}
+  const w=sh.offsetWidth, h=sh.offsetHeight;
+  const limit=window.innerWidth<=720?360:Math.max(350,window.innerHeight-280);
+  const scale=Math.min(1,Math.max(1,wrap.clientWidth-2)/w,limit/h);
+  sh.style.transform=`translateX(${Math.max(0,(wrap.clientWidth-w*scale)/2)}px) scale(${scale})`;
+  wrap.style.height=Math.ceil(h*scale)+'px';
+  const cfg=state.tab==='kanban'?state.k:state.l;
+  configurePrint(cfg.paper,cfg.orient);
+  $('paperInfo').textContent=cfg.paper.toUpperCase()+' ・ '+(cfg.orient==='portrait'?'縦':'横')+' ・ '+(cfg.writing==='tate'?'縦書き':'横書き');
 }
+function checkOverflow(){
+  const elements=state.tab==='kanban'?[$('board'),...document.querySelectorAll('#board .texts')]:[...$('strips').children];
+  const overflow=elements.some(el=>el.clientWidth>0&&(el.scrollWidth>el.clientWidth+3||el.scrollHeight>el.clientHeight+3));
+  $('overflowNote').classList.toggle('hidden',!overflow);
+}
+const DESIGNS=[['standard','標準',''],['double','二重枠','double'],['band','上帯','band'],['side','サイド帯','side'],['round','角丸','round'],['dash','破線','dash'],['corner','角飾り','corner'],['line','下線アクセント','line']];
+const LABEL_DESIGNS=[['plain','シンプル',''],['bordered','囲み枠','double'],['soft','淡色背景','round'],['endline','端ライン','line']];
+function renderDesigns(id,list,current){
+  $(id).innerHTML=list.map(([key,name,sample])=>`<button type="button" class="design-option ${key===current?'on':''}" data-design="${key}" aria-pressed="${key===current}"><i class="sample ${sample}" aria-hidden="true">${id==='designs'?'安全第一':'配管あり'}</i><span>${name}</span></button>`).join('');
+}
+$('designs').addEventListener('click',e=>{const b=e.target.closest('[data-design]');if(!b)return;state.k.design=b.dataset.design;renderKControls();renderKPreview();});
+$('labelDesigns').addEventListener('click',e=>{const b=e.target.closest('[data-design]');if(!b)return;state.l.design=b.dataset.design;renderLControls();renderLPreview();});
+function applyTheme(){document.body.dataset.theme=state.theme;document.querySelectorAll('.theme-row button').forEach(b=>{b.classList.toggle('on',b.dataset.theme===state.theme);b.setAttribute('aria-pressed',b.dataset.theme===state.theme);});}
+document.querySelector('.theme-row').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.theme=b.dataset.theme;applyTheme();save();});
+$('previewPrint').addEventListener('click',()=>{const cfg=state.tab==='kanban'?state.k:state.l;doPrint(cfg.paper,cfg.orient);});
+// Connect field labels for keyboard and assistive technology.
+document.querySelectorAll('.controls label').forEach((label,i)=>{const next=label.nextElementSibling;if(!next)return;const input=next.matches('input,textarea,select')?next:next.querySelector('input');if(input?.id)label.htmlFor=input.id;else if(next.classList.contains('seg')){label.id='fieldLabel'+i;next.setAttribute('role','group');next.setAttribute('aria-labelledby',label.id);}});
 window.addEventListener('resize',fitPreview);
 load();renderTab();
 </script>
