@@ -107,67 +107,98 @@
       .psheet .pqr { background: #fff; }
       .psheet .pfile { font-size: 11px; color: #333; }
     }
+
+    /* 作業依頼表 / refreshed interface */
+    :root {--bg:#f1f4f9;--card:#fff;--text:#20304b;--sub:#65748b;--line:#dfe6ef;--primary:#315fce;--danger:#bb384b;--ok:#237958;--late:#fff8f8;--chip:#eff3fb;--soft:#f7f9fd;--shadow:0 5px 22px #21385606;--ring:#90b2ff;--header:#142742;}
+    @media(prefers-color-scheme:dark){:root{--bg:#101925;--card:#192536;--text:#e4ecf8;--sub:#a4b3c9;--line:#34445a;--primary:#89afff;--danger:#ff9fac;--ok:#83d6b0;--late:#32252e;--chip:#26364e;--soft:#1f2d40;--shadow:none;--ring:#89afff;--header:#142139;}}
+    body{max-width:1280px;padding:28px 32px 40px;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif;line-height:1.6}
+    button,input,select,textarea{font:inherit}button{cursor:pointer;transition:box-shadow .15s,background .15s}button:hover:not(:disabled){box-shadow:0 3px 10px #23395b20}button:disabled{cursor:wait}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--ring);outline-offset:3px}
+    .app-header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px;padding:24px 28px;border-radius:20px;background:var(--header);color:#fff}
+    .brand{display:flex;gap:15px;align-items:center;min-width:0}.brand-icon{flex:0 0 46px;height:46px;border-radius:12px;background:#ffffff0e;border:1px solid #ffffff22;display:grid;place-items:center;color:#adc8ff}.brand-icon svg{width:25px;height:25px}.eyebrow{font-size:10px;color:#acc0e0;letter-spacing:.17em;font-weight:700;margin-bottom:2px}h1{font-size:24px;line-height:1.4;margin:0;overflow-wrap:anywhere}.header-caption{font-size:12px;color:#b5c5dc;margin-top:5px}.header-side{text-align:right;flex-shrink:0}#mode{font-size:11px;display:inline-block;border:1px solid #ffffff27;border-radius:99px;padding:4px 12px;color:#d5e3ff}#todayLabel{display:block;color:#bccce3;font-size:12px;margin-top:8px}
+    .overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:24px}.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:17px 20px;box-shadow:var(--shadow)}.stat-name{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:7px}.dot{width:7px;height:7px;border-radius:50%;background:var(--primary)}.stat.overdue .dot{background:var(--danger)}.stat.today .dot{background:#c18a2c}.stat.complete .dot{background:var(--ok)}.stat strong{font-size:30px;letter-spacing:-.04em;line-height:1.5;font-variant-numeric:tabular-nums}.stat small{font-size:11px;color:var(--sub);margin-left:7px}.stat.overdue strong{color:var(--danger)}
+    .workspace{display:grid;grid-template-columns:350px minmax(0,1fr);gap:24px;align-items:start}.workspace.viewer{grid-template-columns:minmax(0,1fr)}.editor-column,.list-column{min-width:0}.card{padding:22px;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);margin-bottom:18px}.section-title{display:flex;align-items:center;gap:9px;font-size:16px;margin:0 0 4px}.section-title .index{display:inline-grid;place-items:center;width:24px;height:24px;background:var(--chip);color:var(--primary);font-size:12px;border-radius:7px}.section-help{font-size:11px;color:var(--sub);margin-bottom:20px}
+    label{font-size:12px;font-weight:650;color:var(--sub);margin-bottom:6px}input,select,textarea{border-color:var(--line);background:var(--soft);border-radius:9px;padding:11px 12px;margin-bottom:16px;min-width:0;font-size:14px;line-height:1.6}input:focus,select:focus,textarea:focus{outline:2px solid var(--ring);outline-offset:1px;background:var(--card)}textarea{resize:vertical;min-height:86px}.row2{gap:12px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.inline{font-size:12px;font-weight:400}input[type=checkbox]{accent-color:var(--primary);transform:none;width:16px;height:16px;margin-right:5px}input:disabled{opacity:.55}input[type=file]{border:1px dashed var(--line);padding:12px;font-size:11px}input::file-selector-button{border:0;border-radius:5px;padding:7px 9px;background:var(--chip);color:var(--primary);margin-right:8px;cursor:pointer}.required{font-size:10px;color:var(--primary);margin-left:6px;background:var(--chip);padding:2px 5px;border-radius:4px}
+    button{font-size:13px;padding:12px;border-radius:9px;background:#315fce;color:#fff}button.sub{border-color:var(--line);color:var(--sub);background:var(--card)}button.danger{background:transparent;color:var(--danger);border:1px solid var(--line)}#submitBtn{box-shadow:0 3px 9px #315fce20}.form-actions{grid-template-columns:2fr 1fr}#qrCard{padding:18px}#qrCard .row2{margin-bottom:0!important}#qrCard button{font-size:12px}#qrCard .section-help{margin-bottom:14px}
+    .list-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px}.list-heading h2{font-size:18px}.list-heading p{font-size:11px;color:var(--sub)}#resultCount{font-size:12px;color:var(--primary);background:var(--chip);border-radius:99px;padding:5px 11px;white-space:nowrap}.filter-panel{background:var(--card);padding:18px;border:1px solid var(--line);border-radius:14px;margin-bottom:16px}.search-box{position:relative}.search-box svg{position:absolute;width:18px;height:18px;top:14px;left:13px;color:var(--sub)}#searchInput{padding-left:40px;margin-bottom:12px}.toolbar{gap:8px;margin-bottom:14px;align-items:end}.toolbar>div{flex:1;min-width:0}.toolbar label{font-size:10px}.toolbar select{font-size:12px;padding:10px;width:100%}.toolbar .small{padding:11px 14px;white-space:nowrap;font-size:12px;background:var(--chip);color:var(--primary);border:1px solid var(--line)}.chips{gap:7px;margin:0}.chip{font-size:11px;padding:6px 11px;background:var(--soft);color:var(--sub);border-color:var(--line);max-width:100%;overflow-wrap:anywhere}.chip.on{background:var(--chip);border-color:var(--primary);color:var(--primary)}
+    .item{border:1px solid var(--line);border-left:4px solid var(--primary);border-radius:13px;padding:18px 20px;margin-bottom:12px;box-shadow:var(--shadow)}.item.done{opacity:1;border-left-color:var(--ok);background:var(--soft)}.item.done .work{color:var(--sub)}.item .top{align-items:center;flex-wrap:wrap;gap:8px}.item .date{font-size:12px;color:var(--sub);display:flex;gap:8px;align-items:center;flex-wrap:wrap}.item.late .date{color:var(--danger)}.item .gyosha{font-size:11px;background:var(--chip);padding:4px 9px;max-width:100%;white-space:normal;overflow-wrap:anywhere;border-radius:6px}.item .work{font-size:17px;font-weight:700;line-height:1.7;margin:12px 0 5px;overflow-wrap:anywhere;white-space:pre-wrap}.item .memo{font-size:12px;line-height:1.8;overflow-wrap:anywhere}.item .acts{margin-top:15px;padding-top:12px;border-top:1px solid var(--line);gap:8px}.item .acts button{font-size:11px;padding:7px 13px;min-height:36px}.item .acts button:last-child{margin-left:auto}.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;background:var(--chip);color:var(--primary)}.badge.late{background:var(--late);color:var(--danger);border:1px solid currentColor}.badge.done{color:var(--ok)}.badge.tbd{color:var(--sub)}.files{margin-top:12px}.files a{font-size:11px;border:1px solid var(--line);background:var(--soft);padding:5px 9px}.empty{padding:48px 20px;border:1px dashed var(--line);border-radius:14px;background:var(--card);font-size:13px}.empty b{display:block;font-size:16px;color:var(--text);margin-bottom:6px}.empty small{font-size:12px}
+    #status{position:sticky;top:12px;z-index:5;padding:12px 18px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);margin:0 0 16px;text-align:left;font-size:13px;overflow-wrap:anywhere}#status:empty{display:none}.qrbox{flex-wrap:wrap}.qrbox .info{min-width:110px}.qrbox .info b{font-size:14px}.qrbox .info small{font-size:10px}.filelist .frow a{color:var(--primary)}.footer-note{text-align:center;color:var(--sub);font-size:11px;margin-top:28px}
+    @media(max-width:950px){body{padding:20px}.workspace{grid-template-columns:310px minmax(0,1fr);gap:18px}.card{padding:18px}.stat{padding:14px}.item{padding:16px}.app-header{padding:22px}}
+    @media(max-width:720px){body{padding:14px}.app-header{padding:20px 17px;gap:12px;border-radius:15px;margin-bottom:16px}.brand-icon{display:none}h1{font-size:21px}.header-caption{font-size:10px}.header-side{align-self:flex-start}#todayLabel{font-size:10px}.eyebrow{font-size:9px}.overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px}.stat{padding:12px 16px}.stat strong{font-size:27px}.stat-name{font-size:11px}.workspace{grid-template-columns:minmax(0,1fr);gap:8px}.card{padding:20px}.filter-panel{padding:15px}.item .acts button{min-height:42px}input,select,textarea,.toolbar select{font-size:16px}.toolbar select{padding:9px 6px}.toolbar .small{min-height:45px}.footer-note{margin-top:16px}}
+    @media(prefers-reduced-motion:reduce){button{transition:none}}
+    @media print{body{padding:0;max-width:none}.psheet{color:#000;background:#fff}.psheet table{overflow-wrap:anywhere}}
+
   </style>
 </head>
 <body>
-  <h1><span id="title">作業依頼表</span><small id="mode"></small></h1>
+  <header class="app-header"><div class="brand"><div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="m8 11 1.5 1.5L12 10m1 2h3m-8 5h8"/></svg></div><div><div class="eyebrow">WORK REQUEST</div><h1 id="title">作業依頼表</h1><p class="header-caption">期限・作業内容・資料を、ひとつの画面で。</p></div></div><div class="header-side"><span id="mode">管理モード</span><span id="todayLabel"></span></div></header>
+  <section class="overview" aria-label="業者の絞り込みに応じた作業件数">
+    <div class="stat"><div class="stat-name"><i class="dot"></i>未完了</div><strong id="statOpen">—</strong><small>件</small></div>
+    <div class="stat overdue"><div class="stat-name"><i class="dot"></i>期限超過</div><strong id="statLate">—</strong><small>件</small></div>
+    <div class="stat today"><div class="stat-name"><i class="dot"></i>本日期限</div><strong id="statToday">—</strong><small>件</small></div>
+    <div class="stat complete"><div class="stat-name"><i class="dot"></i>完了</div><strong id="statDone">—</strong><small>件</small></div>
+  </section>
+  <div id="status" role="status" aria-live="polite"></div>
+  <main class="workspace" id="workspace"><aside class="editor-column" id="editorColumn">
 
   <!-- ===== 登録フォーム(管理側のみ) ===== -->
-  <div class="card" id="formCard">
+  <div class="card" id="formCard"><h2 class="section-title"><span class="index" aria-hidden="true">＋</span><span id="formTitle">作業を登録</span></h2><p class="section-help">業者と作業内容を入力して、依頼を追加。</p>
     <div class="row2">
       <div>
-        <label>いつまで</label>
+        <label for="f_date">作業期限</label>
         <input type="date" id="f_date">
         <label class="inline"><input type="checkbox" id="f_tbd" onchange="toggleTbd()">未定</label>
       </div>
       <div>
-        <label>業者</label>
+        <label for="f_gyosha">業者<span class="required">必須</span></label>
         <input id="f_gyosha" list="gyoshaList" placeholder="例: ○○電気">
         <datalist id="gyoshaList"></datalist>
       </div>
     </div>
-    <label>作業内容</label>
+    <label for="f_work">作業内容<span class="required">必須</span></label>
     <input id="f_work" placeholder="例: 3F 配線立上げ">
-    <label>備考(任意)</label>
+    <label for="f_memo">備考 <span style="font-weight:400">任意</span></label>
     <textarea id="f_memo" rows="2" placeholder="場所・注意点など"></textarea>
 
-    <label>添付(PDF・Excel・画像など / 複数可)</label>
+    <label for="f_files">添付資料 <span style="font-weight:400">複数選択可・各20MBまで</span></label>
     <div class="filelist" id="fileList"></div>
     <input type="file" id="f_files" multiple
       accept=".pdf,.xlsx,.xls,.xlsm,.csv,.docx,.doc,.pptx,.jpg,.jpeg,.png,.heic,application/pdf,image/*">
 
     <input type="hidden" id="f_id">
-    <div class="row2">
+    <div class="row2 form-actions">
       <button id="submitBtn" onclick="submitData()">登録する</button>
       <button class="sub" id="cancelBtn" onclick="resetForm()">クリア</button>
     </div>
   </div>
 
-  <!-- ===== 一覧操作 ===== -->
-  <div class="toolbar">
-    <select id="sortKey" onchange="render()">
-      <option value="date">期限順</option>
-      <option value="work">作業内容順</option>
-      <option value="gyosha">業者順</option>
-    </select>
-    <select id="showDone" onchange="render()">
-      <option value="open">未完了のみ</option>
-      <option value="all">完了も表示</option>
-    </select>
-    <button class="small" id="reloadBtn" onclick="load()">更新</button>
-  </div>
-  <div class="chips" id="chips"></div>
-  <div id="status"></div>
-  <div id="list"></div>
-
   <!-- ===== 業者別QR / 印刷(管理側のみ) ===== -->
-  <div class="card" id="qrCard">
+  <div class="card" id="qrCard"><h2 class="section-title">共有・印刷</h2><p class="section-help">業者ごとの閲覧用QRと依頼表を作成。</p>
     <div class="row2" style="margin-bottom:10px;">
       <button class="sub" onclick="toggleQR()">業者別QRを表示</button>
       <button class="sub" onclick="printAll()">業者別に印刷</button>
     </div>
     <div id="qrArea" class="hidden"></div>
   </div>
+
+  </aside><section class="list-column" aria-label="作業一覧"><div class="list-heading"><div><h2>作業一覧</h2><p>業者・キーワードで絞り込み</p></div><span id="resultCount">— 件</span></div>
+  <div class="filter-panel"><div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input type="search" id="searchInput" placeholder="作業内容・業者・備考を検索" aria-label="作業を検索" oninput="render()"></div>
+  <!-- ===== 一覧操作 ===== -->
+  <div class="toolbar">
+    <div><label for="sortKey">並び順</label><select id="sortKey" onchange="render()">
+      <option value="date">期限順</option>
+      <option value="work">作業内容順</option>
+      <option value="gyosha">業者順</option>
+    </select>
+    </div><div><label for="showDone">表示する作業</label><select id="showDone" onchange="render()">
+      <option value="open">未完了のみ</option>
+      <option value="all">完了も表示</option>
+    </select>
+    </div><button class="small" id="reloadBtn" onclick="load()">更新</button>
+  </div>
+  <div class="chips" id="chips" aria-label="業者の絞り込み"></div></div>
+  <div id="list"></div>
+
+  </section></main><p class="footer-note">業者ごとの進捗を確認して、スムーズな作業へ。</p>
 
   <div id="printArea"></div>
 
@@ -217,7 +248,7 @@
       if (VIEW_GYOSHA) return;
       const chips = document.getElementById('chips');
       chips.innerHTML = `<button class="chip ${filterGyosha===''?'on':''}" onclick="setFilter('')">全業者</button>` +
-        names.map(n => `<button class="chip ${filterGyosha===n?'on':''}" onclick="setFilter('${esc(n)}')">${esc(n)}</button>`).join('');
+        names.map(n => `<button class="chip ${filterGyosha===n?'on':''}" onclick="setFilter(${esc(JSON.stringify(n))})">${esc(n)}</button>`).join('');
     }
     function setFilter(n) { filterGyosha = n; buildGyosha(); render(); }
 
@@ -230,6 +261,8 @@
       const showDone = document.getElementById('showDone').value;
       const g = VIEW_GYOSHA || filterGyosha;
       let list = rows.filter(r => !g || r['業者'] === g);
+      const query = document.getElementById('searchInput').value.trim().toLocaleLowerCase();
+      if(query) list = list.filter(r => ['作業内容','業者','備考'].some(k => String(r[k] || '').toLocaleLowerCase().includes(query)));
       if (showDone === 'open') list = list.filter(r => !r['完了']);
       list.sort((a, b) => {
         if (sortKey === 'date')   return dateKey(a['期限']).localeCompare(dateKey(b['期限']));
@@ -248,8 +281,10 @@
     function render() {
       const list = getFiltered();
       const today = todayStr();
+      updateOverview(today);
+      document.getElementById('resultCount').textContent = list.length + ' 件';
       const el = document.getElementById('list');
-      if (!list.length) { el.innerHTML = '<div class="empty">データなし</div>'; return; }
+      if (!list.length) { el.innerHTML = '<div class="empty"><b>表示する作業はありません</b><small>絞り込み条件を変更するか、作業を登録してください。</small></div>'; return; }
       el.innerHTML = list.map(r => {
         const tbd = r['期限'] === '未定';
         const late = !r['完了'] && isDate(r['期限']) && r['期限'] < today;
@@ -261,7 +296,7 @@
           </div>`;
         return `<div class="item ${r['完了']?'done':''} ${late?'late':''} ${tbd?'tbd':''}">
           <div class="top">
-            <span class="date">${labelDate(r['期限'])}${late ? ' ⚠遅れ' : ''}</span>
+            <span class="date">${esc(labelDate(r['期限']))}<span class="badge ${r['完了']?'done':late?'late':tbd?'tbd':''}">${r['完了']?'完了':late?'期限超過':tbd?'期限未定':r['期限']===today?'本日期限':'未完了'}</span></span>
             <span class="gyosha">${esc(r['業者'])}</span>
           </div>
           <div class="work">${esc(r['作業内容'])}</div>
@@ -335,6 +370,7 @@
       document.getElementById('f_date').disabled = false;
       document.getElementById('fileList').innerHTML = '';
       document.getElementById('submitBtn').textContent = '登録する';
+      document.getElementById('formTitle').textContent = '作業を登録';
     }
 
     function renderFileList(id, files) {
@@ -360,6 +396,7 @@
       document.getElementById('f_files').value = '';
       renderFileList(id, r['添付']);
       document.getElementById('submitBtn').textContent = '更新する';
+      document.getElementById('formTitle').textContent = '作業を編集';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -401,7 +438,7 @@
         const info = document.createElement('div'); info.className = 'info';
         const url = gyoshaUrl(n);
         info.innerHTML = `<b>${esc(n)}</b><small>${esc(url)}</small>
-          <div style="margin-top:6px;"><button class="small sub" onclick="printOne('${esc(n)}')">この業者だけ印刷</button></div>`;
+          <div style="margin-top:6px;"><button class="small sub" onclick="printOne(${esc(JSON.stringify(n))})">この業者だけ印刷</button></div>`;
         box.appendChild(qr); box.appendChild(info); area.appendChild(box);
         new QRCode(qr, { text: url, width: 110, height: 110 });
       });
@@ -459,9 +496,22 @@
       return fmtJp(s);
     }
 
+    function updateOverview(today) {
+      const g = VIEW_GYOSHA || filterGyosha;
+      const scoped = rows.filter(r => !g || r['業者'] === g);
+      const open = scoped.filter(r => !r['完了']);
+      document.getElementById('statOpen').textContent = open.length;
+      document.getElementById('statLate').textContent = open.filter(r => isDate(r['期限']) && r['期限'] < today).length;
+      document.getElementById('statToday').textContent = open.filter(r => r['期限'] === today).length;
+      document.getElementById('statDone').textContent = scoped.length - open.length;
+      document.querySelectorAll('#chips button').forEach(b => b.setAttribute('aria-pressed', b.classList.contains('on')));
+    }
+    document.getElementById('todayLabel').textContent = '今日 ' + fmtJp(todayStr());
     // ---------- 初期化 ----------
     (function init() {
       if (VIEW_GYOSHA) {
+        document.getElementById('workspace').classList.add('viewer');
+        document.getElementById('editorColumn').classList.add('hidden');
         document.getElementById('formCard').classList.add('hidden');
         document.getElementById('qrCard').classList.add('hidden');
         document.getElementById('chips').classList.add('hidden');
