@@ -2,57 +2,330 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>経費仕分け</title>
 <style>
-:root{color-scheme:light dark;--bg:#edf2f8;--paper:#fff;--ink:#20334d;--muted:#596c83;--line:#d8e2ee;--accent:#2457b8;--soft:#eef4ff;--shadow:0 6px 28px #20334d09}
-*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Yu Gothic",Meiryo,sans-serif;display:flex;flex-direction:column;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);height:100vh;height:100dvh}.header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:15px 24px;background:var(--paper);border-bottom:1px solid var(--line);flex-shrink:0}.brand{display:flex;align-items:center;gap:12px;min-width:0}.mark{width:40px;height:40px;border-radius:12px;background:#203b61;color:#fff;display:grid;place-items:center;flex-shrink:0}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}h1{font-size:18px;line-height:1.4;margin:0;letter-spacing:.04em}.subtitle{font-size:11px;color:var(--muted);margin:3px 0 0}.actions{display:flex;align-items:center;gap:8px}.button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font-family:inherit;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}.button:hover{background:var(--soft)}.button svg{width:16px;height:16px}.button.primary{background:var(--soft);color:var(--accent);border-color:transparent}.button:focus-visible{outline:3px solid #80aaf0;outline-offset:3px}.workspace{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;margin:16px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--paper);box-shadow:var(--shadow)}iframe{display:block;border:0;width:100%;flex:1;min-height:0;background:var(--paper)}.loading{position:absolute;left:50%;top:16px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--paper);box-shadow:var(--shadow);border-radius:10px;padding:10px 16px;max-width:calc(100% - 24px);font-size:12px;color:var(--muted);pointer-events:none;z-index:1}.loading[hidden]{display:none}.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}.help{padding:8px 18px 10px;font-size:11px;color:var(--muted);text-align:right;flex-shrink:0;margin:0}.restore{display:none;position:fixed;top:8px;right:12px;z-index:5;box-shadow:var(--shadow);min-height:36px}.focused .header,.focused .help{display:none}.focused .workspace{margin:0;border:0;border-radius:0}.focused .restore{display:inline-flex}.focused .workspace{padding-top:50px}#notice{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 16px;font-size:12px;max-width:calc(100vw - 24px);z-index:8}#notice:empty{display:none}
-@media(prefers-color-scheme:dark){:root{--bg:#101927;--paper:#192638;--ink:#e4edf8;--muted:#a7b7ce;--line:#34465e;--accent:#aac9ff;--soft:#263c5d;--shadow:0 6px 28px #0002}.mark{background:#304c74}}
-@media(max-width:640px){.header{padding:12px;gap:12px;flex-wrap:wrap}.brand{flex:1}.subtitle{font-size:10px}.actions{width:100%;display:grid;grid-template-columns:1fr 1.2fr 1.2fr;gap:6px}.button{padding:8px;font-size:11px;min-height:42px}.workspace{margin:8px;border-radius:10px}.help{font-size:10px;padding:3px 12px 8px;text-align:left}h1{font-size:17px}}
+  :root {
+    color-scheme: light dark;
+    --bg: #f1f4f9; --paper: #fff; --ink: #17283f; --muted: #596b82; --line: #dce4ee;
+    --btn: #245dcc; --btn-ink: #fff; --sub: #eaf1ff; --head: #f4f7fb; --ok: #08784d; --ng: #c13747; --grp: #dfeafb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101722; --paper: #182332; --ink: #e4ecf7; --muted: #a6b6ca; --line: #324156;
+      --btn: #82b0ff; --btn-ink: #10213c; --sub: #233959; --head: #1f2c3e; --ok: #76ddae; --ng: #ff9aa8; --grp: #2a4060;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: var(--bg); color: var(--ink); padding: 16px; max-width: 900px; margin: 0 auto; line-height: 1.5; }
+  h1 { font-size: 21px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .topbar a { font-size: 14px; font-weight: bold; text-decoration: none; color: var(--btn); border: 1px solid var(--btn); border-radius: 8px; padding: 8px 12px; white-space: nowrap; }
+  .lead { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  textarea, input, select { width: 100%; font-size: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); font-family: inherit; }
+  textarea { min-height: 140px; resize: vertical; }
+  button { padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; background: var(--btn); color: var(--btn-ink); width: 100%; margin-top: 10px; cursor: pointer; }
+  button.sub { background: var(--sub); color: var(--ink); font-weight: normal; }
+  button.mini { width: auto; padding: 6px 10px; font-size: 13px; margin: 0; }
+  button:active { opacity: .8; }
+  .row { display: flex; gap: 8px; } .row > * { flex: 1; }
+  #status { font-size: 13px; color: var(--muted); min-height: 18px; margin-top: 6px; text-align: center; }
+  .ok { color: var(--ok); } .ng { color: var(--ng); }
+  .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--sub); color: var(--muted); margin-left: 6px; }
+  .sums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  @media (max-width: 480px) { .sums { grid-template-columns: repeat(2, 1fr); } }
+  .sum { border-left: 4px solid var(--c); padding: 6px 10px; background: var(--head); border-radius: 6px; }
+  .sum .n { font-size: 12px; color: var(--muted); } .sum .v { font-size: 17px; font-weight: bold; font-variant-numeric: tabular-nums; } .sum .cnt { font-size: 11px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+  th { font-size: 12px; color: var(--muted); font-weight: normal; }
+  td.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td select { padding: 8px; font-size: 14px; min-width: 160px; max-width: 100%; }
+  td select.none { border-color: var(--ng); }
+  .hit { font-size: 11px; color: var(--muted); display: block; }
+  .wrap { overflow-x: auto; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 12px; }
+  tr.grp td { background: var(--grp); font-weight: bold; }
+  tr.item td { background: var(--head); font-weight: bold; }
+  td.name { color: var(--muted); font-size: 13px; padding-left: 18px; }
+  details summary { cursor: pointer; font-size: 15px; font-weight: bold; padding: 4px 0; }
+  details.kind { margin-top: 8px; } details.kind summary { font-size: 14px; }
+  .dict-item { margin: 6px 0 6px 10px; } .dict-item label { color: var(--ink); font-size: 13px; margin-bottom: 3px; }
+  .dict-item input { font-size: 14px; padding: 8px; }
+  .learned, .small { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+  .seg button { margin: 0; border-radius: 0; background: transparent; color: var(--muted); font-weight: normal; padding: 10px; font-size: 14px; }
+  .seg button.on { background: var(--btn); color: var(--btn-ink); font-weight: bold; }
+  kbd { font-size: 12px; padding: 0 4px; border: 1px solid var(--line); border-radius: 3px; }
 </style>
 </head>
 <body>
-<header class="header">
-  <div class="brand"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 7h8M8 11h3m3 0h2M8 15h3m3 0h2"/></svg></div><div><h1>経費仕分け</h1><p class="subtitle">経費の整理・出来高入力をスムーズに</p></div></div>
-  <nav class="actions" aria-label="表示の操作">
-    <button class="button" id="reload" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M19 12a7 7 0 1 0-2 5M20 7l-3-3"/></svg>再読み込み</button>
-    <button class="button" id="expand" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5"/></svg>画面を広く使う</button>
-    <a class="button primary" href="https://script.google.com/macros/s/AKfycbwgvxNO1XkCvcSkZfcaeXU9-LDjsVh9wXVBtfS2igwyv48a45MioPn3K7QJo5kIPKZsHg/exec?page=keihi" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3 11 13M10 5H4v15h15v-6"/></svg>別タブで開く</a>
-  </nav>
-</header>
-<button class="button restore" id="restore" type="button">通常表示に戻す</button>
-<main class="workspace" aria-label="経費仕分け画面">
-  <div class="loading" id="loading" role="status"><span class="dot" aria-hidden="true"></span><span id="loadingText">経費仕分け画面を読み込んでいます…</span></div>
-  <iframe id="app" src="https://script.google.com/macros/s/AKfycbwgvxNO1XkCvcSkZfcaeXU9-LDjsVh9wXVBtfS2igwyv48a45MioPn3K7QJo5kIPKZsHg/exec?page=keihi" allow="clipboard-write" title="経費仕分け"></iframe>
-</main>
-<p class="help">画面が表示されない場合やログインが必要な場合は「別タブで開く」をお試しください。</p>
-<div id="notice" role="status" aria-live="polite"></div>
+  <div class="topbar">
+    <h1>経費仕分け</h1>
+    <a href="dekidaka.html" target="_top">出来高表へ</a>
+  </div>
+  <p class="lead">品名を貼る → 出来高の細目に自動で振り分け → 違うところだけ直す → 細目ごとの合計をコピーして出来高表に入れる。</p>
+
+  <div class="card">
+    <details id="dkDetails">
+      <summary>出来高の細目を読み込む <span class="badge" id="dkBadge">未読み込み</span></summary>
+      <label style="margin-top:10px">出来高スプシの「項目」シートを A1から最終行まで選択してコピー → ここに貼る(列: 現場 / No / 工種 / 細目 / 金額 / 区分 / メモ)。1回やればこの端末に残る。</label>
+      <textarea id="dkSrc" placeholder="現場	No	工種	細目	金額	区分	メモ
+○○現場	1	共通	仮設事務所	1443000	本体	
+○○現場	2	直接仮設工事	足場	5200000	本体	○○足場"></textarea>
+      <div class="row">
+        <button onclick="loadDk()">細目を読み込む</button>
+        <button class="sub" onclick="clearDk()">消す</button>
+      </div>
+      <div class="small" id="dkInfo"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <label>品名リスト(1行1件。「品名 <kbd>Tab</kbd> 金額」「品名,金額」「品名 金額」どれでも。Excelから貼れる)</label>
+    <textarea id="src" placeholder="足場材 リース 9月	86000
+仮設事務所 電気代	45000
+掘削 残土処分	560000"></textarea>
+    <div class="row">
+      <button onclick="run()">細目に振り分ける</button>
+      <button class="sub" onclick="clearAll()">クリア</button>
+    </div>
+  </div>
+
+  <div class="card"><div class="sums" id="sums"></div></div>
+
+  <div class="card">
+    <div class="seg">
+      <button id="vList" class="on" onclick="setView('list')">1件ずつ直す</button>
+      <button id="vGroup" onclick="setView('group')">細目ごとに見る</button>
+    </div>
+    <div class="wrap" id="result"><div class="empty">まだ何もない。上に貼って「細目に振り分ける」を押して。</div></div>
+    <div class="row">
+      <button onclick="copyGroup()">細目ごとの合計をコピー</button>
+      <button class="sub" onclick="copyTSV()">1件ずつコピー(TSV)</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>細目のキーワード辞書</summary>
+      <p class="small" style="margin-top:6px">品名にこの語が含まれてたら、その細目に振り分ける。細目名・工種名・項目シートのメモ(業者名など)は最初から効く。ここは追加分。「、」区切り。</p>
+      <div id="dict"></div>
+      <div class="row">
+        <button onclick="saveDict()">辞書を保存</button>
+        <button class="sub" onclick="clearDict()">辞書を消す</button>
+      </div>
+      <div class="learned" id="learned"></div>
+    </details>
+  </div>
+
 <script>
-const frame=document.getElementById('app');
-const loading=document.getElementById('loading');
-const expand=document.getElementById('expand');
-const restore=document.getElementById('restore');
-let timer;
-function startLoading(){
-  loading.hidden=false;
-  document.getElementById('loadingText').textContent='経費仕分け画面を読み込んでいます…';
-  clearTimeout(timer);
-  timer=setTimeout(()=>{document.getElementById('loadingText').textContent='表示されない場合は「別タブで開く」をお試しください。';},15000);
+const DK_NONE = '(細目なし)';
+const LS_ITEMS = 'keihi_items_v3';   // 読み込んだ細目
+const LS_DICT  = 'keihi_dict_v3';    // { no: [kw,...] }
+const LS_LEARN = 'keihi_learn_v3';   // { 品名: no }
+const COLORS = ['#1e5aa8','#e67e22','#27ae60','#8e44ad','#c0392b','#16a085','#d4a017','#7f8c8d','#d35400','#2980b9','#9b59b6','#2ecc71','#e74c3c','#34495e','#f39c12','#1abc9c'];
+
+let items = loadJSON(LS_ITEMS, []);   // [{no, kind, name, group, memo}]
+let dict = loadJSON(LS_DICT, {});
+let learned = loadJSON(LS_LEARN, {});
+let rows = [];
+let view = 'list';
+
+const $ = id => document.getElementById(id);
+const fmt = v => (v === null || v === undefined) ? '' : Math.round(v).toLocaleString('ja-JP');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uniq = a => [...new Set(a)];
+const itemOf = no => items.find(i => i.no === no);
+const kindColor = k => COLORS[Math.max(0, uniq(items.map(i => i.kind)).indexOf(k)) % COLORS.length];
+function setStatus(m, ok) { $('status').textContent = m; $('status').className = ok === false ? 'ng' : (ok ? 'ok' : ''); }
+function loadJSON(k, fb) { try { const s = localStorage.getItem(k); if (s) return JSON.parse(s); } catch (e) {} return fb; }
+function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+// ---- 細目の読み込み(項目シートのコピペ) ----
+function loadDk() {
+  const lines = $('dkSrc').value.split(/\r?\n/).filter(s => s.trim());
+  if (!lines.length) { setStatus('項目シートを貼ってから押して', false); return; }
+  let cells = lines.map(l => l.split('\t').map(s => s.trim()));
+  let iNo = 1, iK = 2, iS = 3, iG = 5, iM = 6;
+  const head = cells[0];
+  const hk = head.findIndex(h => /工種/.test(h)), hs = head.findIndex(h => /細目/.test(h));
+  if (hk >= 0 && hs >= 0) {
+    iK = hk; iS = hs;
+    iNo = head.findIndex(h => /^No$/i.test(h));
+    iG = head.findIndex(h => /^区分$/.test(h));
+    iM = head.findIndex(h => /メモ|備考/.test(h));
+    cells = cells.slice(1);
+  }
+  const out = []; let lastKind = ''; const used = new Set();
+  cells.forEach((c, idx) => {
+    const name = c[iS] || ''; if (!name) return;
+    const kind = c[iK] || lastKind || '未分類'; if (c[iK]) lastKind = c[iK];
+    let no = (iNo >= 0 && c[iNo]) ? c[iNo] : '#' + (idx + 1); if (used.has(no)) no = no + '_' + idx; used.add(no);
+    out.push({ no, kind, name, group: iG >= 0 ? (c[iG] || '') : '', memo: iM >= 0 ? (c[iM] || '') : '' });
+  });
+  if (!out.length) { setStatus('細目が読み取れなかった。列の並びを確認して', false); return; }
+  items = out; saveJSON(LS_ITEMS, items);
+  rows.forEach(r => { if (!r.no || !itemOf(r.no)) { const g = guess(r.name); r.no = g.no; r.hit = g.hit; } });
+  renderDkInfo(); render(); renderDict();
+  setStatus(out.length + '件の細目を読み込んだ', true);
 }
-frame.addEventListener('load',()=>{clearTimeout(timer);loading.hidden=true;});
-document.getElementById('reload').addEventListener('click',()=>{
-  if(!confirm('画面を再読み込みしますか？ 保存していない入力内容は失われる場合があります。'))return;
-  startLoading();frame.src=frame.getAttribute('src');
-});
-function setExpanded(enabled){
-  document.body.classList.toggle('focused',enabled);
-  expand.setAttribute('aria-pressed',String(enabled));
-  (enabled?restore:expand).focus();
+function clearDk() {
+  if (!confirm('読み込んだ細目を消す?')) return;
+  items = []; saveJSON(LS_ITEMS, items); rows.forEach(r => { r.no = ''; r.hit = ''; });
+  renderDkInfo(); render(); renderDict();
 }
-expand.addEventListener('click',()=>setExpanded(true));
-restore.addEventListener('click',()=>setExpanded(false));
-startLoading();
+function renderDkInfo() {
+  const b = $('dkBadge'), info = $('dkInfo');
+  if (!items.length) { b.textContent = '未読み込み'; info.textContent = ''; $('dkDetails').open = true; return; }
+  const kinds = uniq(items.map(i => i.kind));
+  b.textContent = items.length + '細目';
+  info.textContent = `読み込み済み: ${kinds.length}工種 / ${items.length}細目(${kinds.join('、')})`;
+}
+
+// ---- 判定: 学習 → 辞書 → 細目名/メモ/工種名(長い語が優先) ----
+function norm(s) { return String(s).replace(/[\s　]+/g, '').replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).toLowerCase(); }
+function guess(name) {
+  if (!items.length) return { no: '', hit: '' };
+  const n = norm(name);
+  const lk = learned[n];
+  if (lk && itemOf(lk)) return { no: lk, hit: '学習済み' };
+  let best = null;
+  items.forEach(i => {
+    const keys = [...(dict[i.no] || []), i.name, ...(i.memo ? i.memo.split(/[、,，\s　\/]/) : []), i.kind].filter(Boolean);
+    keys.forEach(k => { const nk = norm(k); if (nk.length >= 2 && n.includes(nk) && (!best || nk.length > best.len)) best = { no: i.no, hit: k, len: nk.length }; });
+  });
+  return best ? { no: best.no, hit: best.hit } : { no: '', hit: '' };
+}
+function parseAmount(s) { const t = String(s || '').replace(/[,，¥￥円\s]/g, '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); const v = parseFloat(t); return isNaN(v) ? null : v; }
+
+function run() {
+  if (!items.length) { setStatus('先に「出来高の細目を読み込む」から項目シートを貼って', false); $('dkDetails').open = true; return; }
+  const lines = $('src').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  rows = lines.map(line => {
+    let name = line, amount = null;
+    const parts = line.split(/\t|,|，/).map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2) { const last = parseAmount(parts[parts.length - 1]); if (last !== null) { amount = last; name = parts.slice(0, -1).join(' '); } }
+    else { const m = line.match(/^(.*\S)\s+([\d,，０-９¥￥円]+)$/); if (m) { const a = parseAmount(m[2]); if (a !== null) { name = m[1]; amount = a; } } }
+    const g = guess(name);
+    return { name, amount, no: g.no, hit: g.hit };
+  });
+  render();
+  const none = rows.filter(r => !r.no).length;
+  setStatus(`${rows.length}件を振り分けた` + (none ? `。当たらなかったの ${none}件 → 赤枠を直して` : ''), true);
+}
+function setNo(i, no) {
+  rows[i].no = no; rows[i].hit = '手動';
+  const k = norm(rows[i].name);
+  if (!no) delete learned[k]; else learned[k] = no;
+  saveJSON(LS_LEARN, learned); render();
+}
+function removeRow(i) { rows.splice(i, 1); render(); }
+function setView(v) { view = v; $('vList').className = v === 'list' ? 'on' : ''; $('vGroup').className = v === 'group' ? 'on' : ''; render(); }
+
+// ---- 描画 ----
+function options(sel) {
+  let html = `<option value="" ${!sel ? 'selected' : ''}>${DK_NONE}</option>`;
+  const groups = {}; items.forEach(i => (groups[i.kind] = groups[i.kind] || []).push(i));
+  Object.keys(groups).forEach(k => {
+    const multi = new Set(groups[k].map(i => i.group)).size > 1;
+    html += `<optgroup label="${esc(k)}">` + groups[k].map(i => `<option value="${esc(i.no)}" ${i.no === sel ? 'selected' : ''}>${esc((multi && i.group ? '【' + i.group + '】' : '') + i.no + '. ' + i.name)}</option>`).join('') + '</optgroup>';
+  });
+  return html;
+}
+const hitText = h => !h ? '<span class="hit">該当なし</span>' : `<span class="hit">${(h === '手動' || h === '学習済み') ? h : '「' + esc(h) + '」で判定'}</span>`;
+
+function render() {
+  const kinds = uniq(items.map(i => i.kind));
+  const sumBy = f => rows.filter(f).reduce((s, r) => s + (r.amount || 0), 0);
+  const cards = kinds.map(k => ({ k, v: sumBy(r => (itemOf(r.no) || {}).kind === k), n: rows.filter(r => (itemOf(r.no) || {}).kind === k).length, c: kindColor(k) })).filter(x => x.n);
+  const noneN = rows.filter(r => !r.no).length;
+  if (noneN) cards.push({ k: DK_NONE, v: sumBy(r => !r.no), n: noneN, c: '#c13747' });
+  $('sums').innerHTML = cards.length
+    ? cards.map(x => `<div class="sum" style="--c:${x.c}"><div class="n">${esc(x.k)}</div><div class="v">${fmt(x.v)}</div><div class="cnt">${x.n}件</div></div>`).join('')
+    : '<div class="empty">振り分けると工種ごとの合計がここに出る</div>';
+
+  const res = $('result');
+  if (!rows.length) { res.innerHTML = '<div class="empty">まだ何もない。上に貼って「細目に振り分ける」を押して。</div>'; return; }
+
+  if (view === 'list') {
+    res.innerHTML = `<table><thead><tr><th>品名</th><th style="text-align:right">金額</th><th>出来高の細目</th><th></th></tr></thead><tbody>` +
+      rows.map((r, i) => `<tr>
+        <td>${esc(r.name)}${hitText(r.hit)}</td>
+        <td class="amt">${fmt(r.amount)}</td>
+        <td><select class="${r.no ? '' : 'none'}" onchange="setNo(${i}, this.value)">${options(r.no)}</select></td>
+        <td><button class="mini sub" onclick="removeRow(${i})">✕</button></td>
+      </tr>`).join('') + '</tbody></table>';
+    return;
+  }
+
+  let html = `<table><thead><tr><th>工種 / 細目 / 品名</th><th style="text-align:right">金額</th><th></th></tr></thead><tbody>`;
+  kinds.forEach(k => {
+    const ki = items.filter(i => i.kind === k);
+    const kr = rows.filter(r => ki.some(i => i.no === r.no));
+    if (!kr.length) return;
+    html += `<tr class="grp"><td>${esc(k)}</td><td class="amt">${fmt(kr.reduce((s, r) => s + (r.amount || 0), 0))}</td><td>${kr.length}件</td></tr>`;
+    ki.forEach(i => {
+      const ir = rows.map((r, idx) => ({ r, idx })).filter(x => x.r.no === i.no);
+      if (!ir.length) return;
+      html += `<tr class="item"><td>　${esc(i.no)}. ${esc(i.name)}</td><td class="amt">${fmt(ir.reduce((s, x) => s + (x.r.amount || 0), 0))}</td><td>${ir.length}件</td></tr>`;
+      ir.forEach(x => html += `<tr><td class="name">${esc(x.r.name)}</td><td class="amt">${fmt(x.r.amount)}</td><td><button class="mini sub" onclick="setNo(${x.idx}, '')">外す</button></td></tr>`);
+    });
+  });
+  const nr = rows.map((r, idx) => ({ r, idx })).filter(x => !x.r.no);
+  if (nr.length) {
+    html += `<tr class="grp"><td class="ng">${DK_NONE}</td><td class="amt">${fmt(nr.reduce((s, x) => s + (x.r.amount || 0), 0))}</td><td>${nr.length}件</td></tr>`;
+    nr.forEach(x => html += `<tr><td class="name">${esc(x.r.name)}</td><td class="amt">${fmt(x.r.amount)}</td><td><select class="none" onchange="setNo(${x.idx}, this.value)">${options('')}</select></td></tr>`);
+  }
+  res.innerHTML = html + '</tbody></table>';
+}
+
+function renderDict() {
+  if (!items.length) { $('dict').innerHTML = '<div class="empty">先に細目を読み込んで</div>'; $('learned').innerHTML = ''; return; }
+  $('dict').innerHTML = uniq(items.map(i => i.kind)).map(k => `<details class="kind"><summary>${esc(k)} <span class="badge">${items.filter(i => i.kind === k).length}細目</span></summary>` +
+    items.filter(i => i.kind === k).map(i => `<div class="dict-item"><label>${esc(i.no)}. ${esc(i.name)}${i.memo ? ` <span class="badge">メモ: ${esc(i.memo)}</span>` : ''}</label><input data-no="${esc(i.no)}" value="${esc((dict[i.no] || []).join('、'))}" placeholder="例: 足場材、単管、クランプ"></div>`).join('') +
+    '</details>').join('');
+  const n = Object.keys(learned).length;
+  $('learned').innerHTML = n ? `手動で直して覚えた品名: ${n}件 <button class="mini sub" onclick="clearLearn()">学習をリセット</button>` : '手動で細目を直すと、その品名を覚えて次から自動で当たる。';
+}
+function saveDict() {
+  const d = {};
+  $('dict').querySelectorAll('input[data-no]').forEach(el => { const arr = el.value.split(/[、,，\n]/).map(s => s.trim()).filter(Boolean); if (arr.length) d[el.dataset.no] = arr; });
+  dict = d; saveJSON(LS_DICT, dict);
+  setStatus('辞書を保存した。もう一度「細目に振り分ける」で反映', true);
+}
+function clearDict() { if (!confirm('キーワード辞書を消す?')) return; dict = {}; saveJSON(LS_DICT, dict); renderDict(); }
+function clearLearn() { if (!confirm('覚えた品名を全部消す?')) return; learned = {}; saveJSON(LS_LEARN, learned); renderDict(); }
+
+// ---- コピー ----
+function copy(text, msg) {
+  navigator.clipboard.writeText(text).then(() => setStatus(msg, true)).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); setStatus(msg, true);
+  });
+}
+function copyGroup() {
+  if (!rows.length) { setStatus('先に振り分けて', false); return; }
+  const lines = ['工種\tNo\t細目\t経費合計\t件数'];
+  uniq(items.map(i => i.kind)).forEach(k => items.filter(i => i.kind === k).forEach(i => {
+    const ir = rows.filter(r => r.no === i.no); if (!ir.length) return;
+    lines.push([k, i.no, i.name, Math.round(ir.reduce((s, r) => s + (r.amount || 0), 0)), ir.length].join('\t'));
+  }));
+  const nr = rows.filter(r => !r.no);
+  if (nr.length) lines.push(['', '', DK_NONE, Math.round(nr.reduce((s, r) => s + (r.amount || 0), 0)), nr.length].join('\t'));
+  copy(lines.join('\n'), '細目ごとの合計をコピーした');
+}
+function copyTSV() {
+  if (!rows.length) { setStatus('先に振り分けて', false); return; }
+  const text = ['品名\t金額\t工種\tNo\t細目', ...rows.map(r => { const it = itemOf(r.no); return [r.name, r.amount === null ? '' : r.amount, it ? it.kind : '', it ? it.no : '', it ? it.name : ''].join('\t'); })].join('\n');
+  copy(text, 'コピーした');
+}
+function clearAll() { $('src').value = ''; rows = []; render(); setStatus(''); }
+
+renderDkInfo(); render(); renderDict();
 </script>
 </body>
 </html>
