@@ -156,7 +156,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     <div class="stat complete"><div class="stat-name"><i class="dot"></i>完了</div><strong id="statDone">—</strong><small>件</small></div>
   </section>
   <div id="status" role="status" aria-live="polite"></div>
-  <nav class="jump-nav" aria-label="画面内の移動"><a href="#listSection">作業一覧へ</a><a href="#formCard" id="newRequestLink">＋ 新規登録へ</a></nav><main class="workspace" id="workspace"><aside class="editor-column" id="editorColumn">
+  <main class="workspace" id="workspace"><aside class="editor-column" id="editorColumn">
 
   <!-- ===== 登録フォーム(管理側のみ) ===== -->
   <div class="card" id="formCard"><h2 class="section-title"><span class="index" aria-hidden="true">＋</span><span id="formTitle">作業を登録</span></h2><p class="section-help">業者と作業内容を入力して、依頼を追加。</p>
@@ -565,7 +565,6 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     // ---------- 初期化 ----------
     (function init() {
       if (VIEW_GYOSHA) {
-        document.getElementById('newRequestLink').classList.add('hidden');
         document.getElementById('contractorCaption').classList.add('hidden');
         document.getElementById('workspace').classList.add('viewer');
         document.getElementById('editorColumn').classList.add('hidden');
