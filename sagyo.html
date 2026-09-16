@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>作業依頼表</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f6f8; --card: #fff; --text: #222; --sub: #666; --line: #ddd;
+      --primary: #1e5aa8; --danger: #c0392b; --ok: #1a8a3c; --late: #fdecea; --chip: #eef3fb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121417; --card: #1e2227; --text: #eaeaea; --sub: #aaa; --line: #3a3f46;
+        --primary: #4a8be0; --danger: #e5695c; --ok: #4fc26f; --late: #4a2622; --chip: #2a3442;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg); color: var(--text);
+      padding: 14px; max-width: 640px; margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    h1 small { font-size: 13px; color: var(--sub); font-weight: normal; }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    label { display: block; font-size: 13px; margin-bottom: 4px; color: var(--sub); }
+    input, select, textarea {
+      width: 100%; padding: 12px; font-size: 16px;
+      border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px;
+      background: var(--card); color: var(--text);
+    }
+    input[type=checkbox] { width: auto; padding: 0; margin: 0 6px 0 0; transform: scale(1.3); vertical-align: middle; }
+    input[type=file] { padding: 8px; font-size: 14px; }
+    .inline { display: flex; align-items: center; gap: 4px; font-size: 15px; margin-bottom: 10px; color: var(--text); }
+    button {
+      padding: 14px; font-size: 16px; font-weight: bold; width: 100%;
+      border: none; border-radius: 10px; background: var(--primary); color: #fff;
+    }
+    button:active { opacity: .8; }
+    button:disabled { background: #888; }
+    button.sub { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+    button.danger { background: var(--danger); }
+    button.small { width: auto; padding: 8px 12px; font-size: 14px; font-weight: normal; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
+    .toolbar select { margin-bottom: 0; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .chip {
+      padding: 8px 12px; border-radius: 20px; background: var(--chip); color: var(--text);
+      font-size: 14px; border: 1px solid transparent; width: auto; font-weight: normal;
+    }
+    .chip.on { border-color: var(--primary); color: var(--primary); font-weight: bold; }
+    .item {
+      background: var(--card); border-radius: 10px; padding: 12px; margin-bottom: 8px;
+      border-left: 5px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    }
+    .item.done { opacity: .5; border-left-color: var(--ok); }
+    .item.late { border-left-color: var(--danger); background: var(--late); }
+    .item.tbd { border-left-color: var(--sub); }
+    .item .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .item .date { font-weight: bold; font-size: 15px; }
+    .item .gyosha { font-size: 13px; color: var(--sub); background: var(--chip); padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+    .item .work { font-size: 17px; margin: 6px 0 2px; }
+    .item .memo { font-size: 13px; color: var(--sub); white-space: pre-wrap; }
+    .item .acts { display: flex; gap: 6px; margin-top: 8px; }
+    .item .acts button { width: auto; padding: 8px 12px; font-size: 14px; font-weight: normal; }
+    .files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .files a {
+      display: inline-block; padding: 6px 10px; border-radius: 8px; background: var(--chip);
+      color: var(--primary); font-size: 14px; text-decoration: none; max-width: 100%;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .filelist { margin-bottom: 10px; }
+    .filelist .frow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+    .filelist .frow span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .filelist .frow button { width: auto; padding: 6px 10px; font-size: 13px; font-weight: normal; }
+    #status { text-align: center; font-size: 14px; margin: 8px 0; min-height: 20px; color: var(--sub); }
+    .ok { color: var(--ok) !important; } .ng { color: var(--danger) !important; }
+    .qrbox { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .qrbox:last-child { border-bottom: none; }
+    .qrbox .qr { background: #fff; padding: 6px; border-radius: 6px; }
+    .qrbox .info { flex: 1; }
+    .qrbox .info b { font-size: 17px; display: block; margin-bottom: 4px; }
+    .qrbox .info small { color: var(--sub); font-size: 12px; word-break: break-all; }
+    .empty { text-align: center; color: var(--sub); padding: 30px 0; }
+    .hidden { display: none !important; }
+
+    /* 印刷用 */
+    #printArea { display: none; }
+    @media print {
+      body { background: #fff; color: #000; padding: 0; max-width: none; }
+      body > *:not(#printArea) { display: none !important; }
+      #printArea { display: block; }
+      .psheet { page-break-after: always; padding: 10mm; }
+      .psheet:last-child { page-break-after: auto; }
+      .psheet h2 { font-size: 20px; margin-bottom: 4px; }
+      .psheet .pmeta { font-size: 12px; color: #444; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+      .psheet table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .psheet th, .psheet td { border: 1px solid #333; padding: 6px 8px; text-align: left; vertical-align: top; }
+      .psheet th { background: #eee; }
+      .psheet .pqr { background: #fff; }
+      .psheet .pfile { font-size: 11px; color: #333; }
+    }
+  </style>
+</head>
+<body>
+  <h1><span id="title">作業依頼表</span><small id="mode"></small></h1>
+
+  <!-- ===== 登録フォーム(管理側のみ) ===== -->
+  <div class="card" id="formCard">
+    <div class="row2">
+      <div>
+        <label>いつまで</label>
+        <input type="date" id="f_date">
+        <label class="inline"><input type="checkbox" id="f_tbd" onchange="toggleTbd()">未定</label>
+      </div>
+      <div>
+        <label>業者</label>
+        <input id="f_gyosha" list="gyoshaList" placeholder="例: ○○電気">
+        <datalist id="gyoshaList"></datalist>
+      </div>
+    </div>
+    <label>作業内容</label>
+    <input id="f_work" placeholder="例: 3F 配線立上げ">
+    <label>備考(任意)</label>
+    <textarea id="f_memo" rows="2" placeholder="場所・注意点など"></textarea>
+
+    <label>添付(PDF・Excel・画像など / 複数可)</label>
+    <div class="filelist" id="fileList"></div>
+    <input type="file" id="f_files" multiple
+      accept=".pdf,.xlsx,.xls,.xlsm,.csv,.docx,.doc,.pptx,.jpg,.jpeg,.png,.heic,application/pdf,image/*">
+
+    <input type="hidden" id="f_id">
+    <div class="row2">
+      <button id="submitBtn" onclick="submitData()">登録する</button>
+      <button class="sub" id="cancelBtn" onclick="resetForm()">クリア</button>
+    </div>
+  </div>
+
+  <!-- ===== 一覧操作 ===== -->
+  <div class="toolbar">
+    <select id="sortKey" onchange="render()">
+      <option value="date">期限順</option>
+      <option value="work">作業内容順</option>
+      <option value="gyosha">業者順</option>
+    </select>
+    <select id="showDone" onchange="render()">
+      <option value="open">未完了のみ</option>
+      <option value="all">完了も表示</option>
+    </select>
+    <button class="small" id="reloadBtn" onclick="load()">更新</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div id="status"></div>
+  <div id="list"></div>
+
+  <!-- ===== 業者別QR / 印刷(管理側のみ) ===== -->
+  <div class="card" id="qrCard">
+    <div class="row2" style="margin-bottom:10px;">
+      <button class="sub" onclick="toggleQR()">業者別QRを表示</button>
+      <button class="sub" onclick="printAll()">業者別に印刷</button>
+    </div>
+    <div id="qrArea" class="hidden"></div>
+  </div>
+
+  <div id="printArea"></div>
+
+  <script>
+    // ============================================
+    // 設定: GASのWebアプリURL
+    // ============================================
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyrg6I7W1EwnK3DdtGcjoVlIYBXOqBdAVBtLpvRORFp6NrW-C0CEaeiGGAeuZXEqev7XQ/exec';
+    const MAX_FILE_MB = 20;   // 1ファイルの上限(GASのPOST制限を見て控えめに)
+
+    const params = new URLSearchParams(location.search);
+    const VIEW_GYOSHA = params.get('gyosha') || '';   // ?gyosha=○○ なら業者閲覧モード
+    let rows = [];
+    let filterGyosha = '';
+
+    // ---------- 通信 ----------
+    function api(payload) {
+      if (!GAS_URL) return Promise.reject('GAS_URLが未設定');
+      return fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload) })
+        .then(r => r.json())
+        .then(res => { if (!res.ok) throw res.error; return res.result; });
+    }
+    function setStatus(msg, cls) {
+      const el = document.getElementById('status');
+      el.textContent = msg; el.className = cls || '';
+    }
+
+    // ---------- 読み込み ----------
+    function load() {
+      setStatus('読み込み中...');
+      return api({ action: 'list' }).then(r => {
+        rows = r;
+        buildGyosha();
+        render();
+        setStatus('');
+      }).catch(e => setStatus('エラー: ' + e, 'ng'));
+    }
+
+    function gyoshaNames() {
+      return [...new Set(rows.map(r => r['業者']).filter(Boolean))].sort();
+    }
+
+    function buildGyosha() {
+      const names = gyoshaNames();
+      document.getElementById('gyoshaList').innerHTML = names.map(n => `<option value="${esc(n)}">`).join('');
+      if (VIEW_GYOSHA) return;
+      const chips = document.getElementById('chips');
+      chips.innerHTML = `<button class="chip ${filterGyosha===''?'on':''}" onclick="setFilter('')">全業者</button>` +
+        names.map(n => `<button class="chip ${filterGyosha===n?'on':''}" onclick="setFilter('${esc(n)}')">${esc(n)}</button>`).join('');
+    }
+    function setFilter(n) { filterGyosha = n; buildGyosha(); render(); }
+
+    // ---------- 一覧描画 ----------
+    function isDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s || ''); }
+    function dateKey(s) { return isDate(s) ? s : (s === '未定' ? '9998' : '9999'); } // 未定は末尾
+
+    function getFiltered() {
+      const sortKey = document.getElementById('sortKey').value;
+      const showDone = document.getElementById('showDone').value;
+      const g = VIEW_GYOSHA || filterGyosha;
+      let list = rows.filter(r => !g || r['業者'] === g);
+      if (showDone === 'open') list = list.filter(r => !r['完了']);
+      list.sort((a, b) => {
+        if (sortKey === 'date')   return dateKey(a['期限']).localeCompare(dateKey(b['期限']));
+        if (sortKey === 'work')   return String(a['作業内容']).localeCompare(String(b['作業内容']), 'ja');
+        if (sortKey === 'gyosha') return String(a['業者']).localeCompare(String(b['業者']), 'ja') || dateKey(a['期限']).localeCompare(dateKey(b['期限']));
+        return 0;
+      });
+      return list;
+    }
+
+    function filesHtml(files) {
+      if (!files || !files.length) return '';
+      return `<div class="files">${files.map(f => `<a href="${esc(f.url)}" target="_blank" rel="noopener">📎 ${esc(f.name)}</a>`).join('')}</div>`;
+    }
+
+    function render() {
+      const list = getFiltered();
+      const today = todayStr();
+      const el = document.getElementById('list');
+      if (!list.length) { el.innerHTML = '<div class="empty">データなし</div>'; return; }
+      el.innerHTML = list.map(r => {
+        const tbd = r['期限'] === '未定';
+        const late = !r['完了'] && isDate(r['期限']) && r['期限'] < today;
+        const acts = VIEW_GYOSHA ? '' : `
+          <div class="acts">
+            <button class="${r['完了'] ? 'sub' : ''}" onclick="toggle('${r['ID']}')">${r['完了'] ? '未完了に戻す' : '完了'}</button>
+            <button class="sub" onclick="edit('${r['ID']}')">編集</button>
+            <button class="danger" onclick="del('${r['ID']}')">削除</button>
+          </div>`;
+        return `<div class="item ${r['完了']?'done':''} ${late?'late':''} ${tbd?'tbd':''}">
+          <div class="top">
+            <span class="date">${labelDate(r['期限'])}${late ? ' ⚠遅れ' : ''}</span>
+            <span class="gyosha">${esc(r['業者'])}</span>
+          </div>
+          <div class="work">${esc(r['作業内容'])}</div>
+          ${r['備考'] ? `<div class="memo">${esc(r['備考'])}</div>` : ''}
+          ${filesHtml(r['添付'])}
+          ${acts}
+        </div>`;
+      }).join('');
+    }
+
+    // ---------- 登録/編集 ----------
+    function toggleTbd() {
+      const on = document.getElementById('f_tbd').checked;
+      const d = document.getElementById('f_date');
+      d.disabled = on; if (on) d.value = '';
+    }
+
+    function readFileB64(file) {
+      return new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result.split(',')[1]);
+        fr.onerror = () => rej('読込失敗: ' + file.name);
+        fr.readAsDataURL(file);
+      });
+    }
+
+    async function uploadFiles(id, files) {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        if (f.size > MAX_FILE_MB * 1024 * 1024) { setStatus(`${f.name} は${MAX_FILE_MB}MB超えなのでスキップ`, 'ng'); continue; }
+        setStatus(`添付アップ中 (${i+1}/${files.length}) ${f.name}`);
+        const data = await readFileB64(f);
+        await api({ action: 'attach', id: id, file: { name: f.name, mime: f.type || 'application/octet-stream', data: data } });
+      }
+    }
+
+    async function submitData() {
+      const tbd = document.getElementById('f_tbd').checked;
+      const data = {
+        '期限': tbd ? '未定' : document.getElementById('f_date').value,
+        '作業内容': document.getElementById('f_work').value.trim(),
+        '業者': document.getElementById('f_gyosha').value.trim(),
+        '備考': document.getElementById('f_memo').value.trim(),
+      };
+      if (!data['作業内容']) { setStatus('作業内容を入れてね', 'ng'); return; }
+      if (!data['業者']) { setStatus('業者を入れてね', 'ng'); return; }
+      let id = document.getElementById('f_id').value;
+      const files = document.getElementById('f_files').files;
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true; setStatus('送信中...');
+      try {
+        if (id) {
+          await api({ action: 'update', id: id, data: data });
+        } else {
+          const r = await api({ action: 'add', data: data });
+          id = r.id;
+        }
+        if (files.length) await uploadFiles(id, files);
+        setStatus(document.getElementById('f_id').value ? '更新したよ' : '登録したよ', 'ok');
+        resetForm();
+        await load();
+      } catch (e) {
+        setStatus('エラー: ' + e, 'ng');
+      }
+      btn.disabled = false;
+    }
+
+    function resetForm() {
+      ['f_date','f_work','f_gyosha','f_memo','f_id','f_files'].forEach(i => document.getElementById(i).value = '');
+      document.getElementById('f_tbd').checked = false;
+      document.getElementById('f_date').disabled = false;
+      document.getElementById('fileList').innerHTML = '';
+      document.getElementById('submitBtn').textContent = '登録する';
+    }
+
+    function renderFileList(id, files) {
+      const el = document.getElementById('fileList');
+      if (!files || !files.length) { el.innerHTML = ''; return; }
+      el.innerHTML = files.map((f, i) => `
+        <div class="frow">
+          <span>📎 <a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)}</a></span>
+          <button class="danger" onclick="detach('${id}', ${i})">削除</button>
+        </div>`).join('');
+    }
+
+    function edit(id) {
+      const r = rows.find(x => x['ID'] === id); if (!r) return;
+      document.getElementById('f_id').value = id;
+      const tbd = r['期限'] === '未定';
+      document.getElementById('f_tbd').checked = tbd;
+      document.getElementById('f_date').disabled = tbd;
+      document.getElementById('f_date').value = isDate(r['期限']) ? r['期限'] : '';
+      document.getElementById('f_work').value = r['作業内容'];
+      document.getElementById('f_gyosha').value = r['業者'];
+      document.getElementById('f_memo').value = r['備考'];
+      document.getElementById('f_files').value = '';
+      renderFileList(id, r['添付']);
+      document.getElementById('submitBtn').textContent = '更新する';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function detach(id, index) {
+      if (!confirm('この添付を削除する?')) return;
+      setStatus('削除中...');
+      api({ action: 'detach', id: id, index: index }).then(res => {
+        renderFileList(id, res.files);
+        const r = rows.find(x => x['ID'] === id); if (r) r['添付'] = res.files;
+        render(); setStatus('削除したよ', 'ok');
+      }).catch(e => setStatus('エラー: ' + e, 'ng'));
+    }
+
+    function toggle(id) {
+      setStatus('更新中...');
+      api({ action: 'toggle', id: id }).then(load).catch(e => setStatus('エラー: ' + e, 'ng'));
+    }
+    function del(id) {
+      if (!confirm('削除する?(添付も消えます)')) return;
+      api({ action: 'delete', id: id }).then(load).catch(e => setStatus('エラー: ' + e, 'ng'));
+    }
+
+    // ---------- 業者別QR ----------
+    function gyoshaUrl(name) {
+      const u = new URL(location.href);
+      u.search = '?gyosha=' + encodeURIComponent(name);
+      return u.toString();
+    }
+    function toggleQR() {
+      const area = document.getElementById('qrArea');
+      if (!area.classList.contains('hidden')) { area.classList.add('hidden'); return; }
+      area.classList.remove('hidden');
+      area.innerHTML = '';
+      const names = gyoshaNames();
+      if (!names.length) { area.innerHTML = '<div class="empty">業者がまだないよ</div>'; return; }
+      names.forEach(n => {
+        const box = document.createElement('div'); box.className = 'qrbox';
+        const qr = document.createElement('div'); qr.className = 'qr';
+        const info = document.createElement('div'); info.className = 'info';
+        const url = gyoshaUrl(n);
+        info.innerHTML = `<b>${esc(n)}</b><small>${esc(url)}</small>
+          <div style="margin-top:6px;"><button class="small sub" onclick="printOne('${esc(n)}')">この業者だけ印刷</button></div>`;
+        box.appendChild(qr); box.appendChild(info); area.appendChild(box);
+        new QRCode(qr, { text: url, width: 110, height: 110 });
+      });
+    }
+
+    // ---------- 印刷 ----------
+    function buildSheet(name) {
+      const today = todayStr();
+      const list = rows.filter(r => r['業者'] === name && !r['完了'])
+        .sort((a, b) => dateKey(a['期限']).localeCompare(dateKey(b['期限'])));
+      const sheet = document.createElement('div'); sheet.className = 'psheet';
+      sheet.innerHTML = `
+        <h2>作業依頼表 — ${esc(name)} 様</h2>
+        <div class="pmeta">
+          <div>発行日: ${fmtJp(today)}<br>下記の作業を期限までにお願いします。<br>最新の内容・添付資料(PDF等)はQRから確認できます。</div>
+          <div class="pqr"></div>
+        </div>
+        <table>
+          <thead><tr><th style="width:20%">期限</th><th>作業内容</th><th style="width:30%">備考</th></tr></thead>
+          <tbody>${list.length ? list.map(r => `<tr>
+              <td>${labelDate(r['期限'])}</td>
+              <td>${esc(r['作業内容'])}${r['添付'] && r['添付'].length ? `<div class="pfile">添付: ${r['添付'].map(f => esc(f.name)).join(' / ')}</div>` : ''}</td>
+              <td>${esc(r['備考'])}</td></tr>`).join('')
+            : '<tr><td colspan="3">未完了の作業はありません</td></tr>'}</tbody>
+        </table>`;
+      new QRCode(sheet.querySelector('.pqr'), { text: gyoshaUrl(name), width: 90, height: 90 });
+      return sheet;
+    }
+    function printOne(name) {
+      const area = document.getElementById('printArea');
+      area.innerHTML = ''; area.appendChild(buildSheet(name));
+      setTimeout(() => window.print(), 300);
+    }
+    function printAll() {
+      const names = gyoshaNames();
+      if (!names.length) { setStatus('業者がまだないよ', 'ng'); return; }
+      const area = document.getElementById('printArea');
+      area.innerHTML = '';
+      names.forEach(n => area.appendChild(buildSheet(n)));
+      setTimeout(() => window.print(), 300);
+    }
+
+    // ---------- 共通 ----------
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+    function fmtJp(s) {
+      if (!isDate(s)) return s || '';
+      const [y, m, d] = s.split('-');
+      const w = ['日','月','火','水','木','金','土'][new Date(+y, +m-1, +d).getDay()];
+      return `${+m}/${+d}(${w})`;
+    }
+    function labelDate(s) {
+      if (s === '未定') return '未定';
+      if (!s) return '期限なし';
+      return fmtJp(s);
+    }
+
+    // ---------- 初期化 ----------
+    (function init() {
+      if (VIEW_GYOSHA) {
+        document.getElementById('formCard').classList.add('hidden');
+        document.getElementById('qrCard').classList.add('hidden');
+        document.getElementById('chips').classList.add('hidden');
+        document.getElementById('title').textContent = VIEW_GYOSHA + ' 様 作業依頼';
+        document.getElementById('mode').textContent = '閲覧専用';
+        document.querySelector('#sortKey option[value="gyosha"]').remove();
+      }
+      load();
+    })();
+  </script>
+</body>
+</html>
