@@ -127,18 +127,36 @@
     @media(prefers-reduced-motion:reduce){button{transition:none}}
     @media print{body{padding:0;max-width:none}.psheet{color:#000;background:#fff}.psheet table{overflow-wrap:anywhere}}
 
+
+/* Readability first: large type, clear hierarchy, complete text. */
+@media screen{
+:root{--bg:#f3f5f8;--text:#172638;--sub:#495b70;--line:#cbd5e1;--primary:#2359a8;--chip:#edf3fb;--soft:#f8fafc}
+@media(prefers-color-scheme:dark){:root{--bg:#101925;--text:#edf3fc;--sub:#b9c8db;--line:#465971;--primary:#a3c2ff;--chip:#273b55;--soft:#202f42}}
+body{max-width:1400px;font-size:16px;line-height:1.75}
+.app-header{background:var(--card);color:var(--text);border:1px solid var(--line);padding:22px 26px;border-radius:12px;box-shadow:none}
+.brand-icon,.eyebrow,.footer-note{display:none}h1{font-size:28px;letter-spacing:.02em}.header-caption{font-size:15px;color:var(--sub);margin-top:5px}#mode{font-size:14px;color:var(--primary);border:1px solid var(--line);background:var(--chip)}#todayLabel{font-size:14px;color:var(--sub)}
+.overview{gap:12px;margin-bottom:20px}.stat{border-radius:10px;box-shadow:none;padding:14px 20px}.stat-name{font-size:15px}.stat strong{font-size:30px}.stat small{font-size:14px}.dot{width:8px;height:8px}
+.workspace{grid-template-columns:380px minmax(0,1fr);gap:24px}.card,.filter-panel{border-radius:12px;box-shadow:none}.section-title{font-size:20px;margin-bottom:6px}.section-help{font-size:14px;line-height:1.7;margin-bottom:20px}.section-title .index{font-size:17px;width:28px;height:28px}label{font-size:15px;color:var(--text);margin-bottom:7px}input,select,textarea{font-size:16px;line-height:1.65;padding:12px;margin-bottom:18px}.inline{font-size:15px;min-height:32px}.required{font-size:12px}.row2{gap:12px}#formCard>.row2:first-of-type{grid-template-columns:1fr}#formCard .inline{margin-top:-9px}.form-actions{grid-template-columns:2fr 1fr}button{font-size:16px;min-height:46px;font-weight:650}button.sub{color:var(--text)}button.danger{color:var(--danger)}input[type=file]{font-size:14px;padding:12px;line-height:1.8}input::file-selector-button{font-size:14px;padding:9px}
+.list-heading h2{font-size:23px}.list-heading p{font-size:14px}#resultCount{font-size:15px}.toolbar label{font-size:14px}.toolbar select{font-size:16px;padding:10px}.toolbar .small{font-size:15px;min-height:48px}.chip{font-size:15px;min-height:44px;padding:8px 14px;border-radius:8px}.chip.on{border-width:2px;padding:7px 13px}.search-box svg{top:17px}#searchInput{font-size:16px}.filter-panel{padding:20px}.chips{gap:8px}.filter-caption{font-size:14px;color:var(--sub);margin-bottom:8px}
+.item{padding:22px 24px;margin-bottom:16px;border-radius:12px;box-shadow:none;border-left-width:5px}.item .date{font-size:17px;color:var(--text);gap:12px;line-height:1.8}.item .gyosha{font-size:16px;font-weight:650;color:var(--text);border-radius:5px;padding:5px 10px}.item .work{font-size:22px;line-height:1.7;margin:16px 0 12px;letter-spacing:.01em}.item .memo{font-size:16px;color:var(--text);line-height:1.9;background:var(--soft);padding:12px 14px;border-radius:6px;border:1px solid var(--line)}.memo-caption{display:block;font-size:13px;font-weight:700;color:var(--sub);margin-bottom:3px}.badge{font-size:14px;padding:3px 9px;line-height:1.7}.item.done .work{color:var(--text)}.item.done .badge{border:1px solid var(--ok)}.item .acts{padding-top:16px;margin-top:18px;gap:10px;flex-wrap:wrap}.item .acts button{font-size:15px;min-height:46px;padding:10px 16px}.files{gap:8px;margin-top:14px}.files a{font-size:15px;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.7;min-height:44px;padding:9px 12px}.filelist .frow{padding:10px 0;align-items:flex-start}.filelist .frow span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;font-size:15px;min-width:0}.filelist .frow button{font-size:14px;min-height:44px;flex-shrink:0}.filelist small{font-size:13px}#status{font-size:16px;border-width:2px;padding:14px 18px}.empty{font-size:16px}.empty b{font-size:19px}.empty small{font-size:15px}#qrCard button{font-size:15px}#qrCard .row2{grid-template-columns:1fr}#qrCard .section-help{margin-bottom:14px}.qrbox .info b{font-size:18px}.qrbox .info small{font-size:14px}.qrbox .info button{font-size:14px}.workspace.viewer{grid-template-columns:minmax(0,1fr)}
+.jump-nav{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}.jump-nav a{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;min-height:46px;text-decoration:none;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;font-size:16px;font-weight:700}.jump-nav a:first-child{background:#2359a8;color:#fff;border-color:#2359a8}#formCard,#listSection{scroll-margin-top:20px}.attachment-help{font-size:14px;color:var(--sub);margin:-2px 0 12px;line-height:1.8}
+@media(max-width:1050px){.workspace{grid-template-columns:340px minmax(0,1fr);gap:18px}.item{padding:20px}.toolbar{flex-wrap:wrap}.toolbar>div{flex:1 1 130px}.toolbar .small{flex:0 0 auto}.item .top{align-items:flex-start;flex-direction:column;gap:10px}}
+@media(max-width:760px){body{padding:12px}.app-header{padding:18px;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:14px}h1{font-size:25px}.header-caption{font-size:14px}.header-side{text-align:left;display:flex;gap:12px;align-items:center;flex-wrap:wrap}#todayLabel{margin:0}.overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{padding:12px 14px}.stat-name{font-size:14px}.stat strong{font-size:28px}.workspace{grid-template-columns:minmax(0,1fr);gap:18px}.list-column{grid-row:1}.editor-column{grid-row:2}.list-heading h2{font-size:22px}.card,.filter-panel{padding:18px}.item{padding:18px 16px}.item .work{font-size:21px}.item .date{font-size:16px}.item .gyosha{font-size:16px}.toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.toolbar .small{grid-column:1/-1;width:100%}.toolbar select{font-size:16px;width:100%}.chip{font-size:14px}.jump-nav{position:static;gap:8px}.jump-nav a{flex:1;white-space:nowrap;padding:10px 12px}.item .acts button{font-size:14px;padding:10px 12px}.item .acts button:last-child{margin-left:auto}.header-side #mode{font-size:13px}.list-heading{align-items:flex-start}#status{top:6px}#formCard>.row2:first-of-type{grid-template-columns:1fr}}
+}
+
   </style>
 </head>
 <body>
   <header class="app-header"><div class="brand"><div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="m8 11 1.5 1.5L12 10m1 2h3m-8 5h8"/></svg></div><div><div class="eyebrow">WORK REQUEST</div><h1 id="title">作業依頼表</h1><p class="header-caption">期限・作業内容・資料を、ひとつの画面で。</p></div></div><div class="header-side"><span id="mode">管理モード</span><span id="todayLabel"></span></div></header>
-  <section class="overview" aria-label="業者の絞り込みに応じた作業件数">
+  <p style="font-size:14px;color:var(--sub);margin:0 0 10px">選択中の業者の全件数（検索・完了表示の条件は含みません）</p>
+  <section class="overview" aria-label="選択中の業者の全作業件数。検索条件と完了表示の切り替えには連動しません。">
     <div class="stat"><div class="stat-name"><i class="dot"></i>未完了</div><strong id="statOpen">—</strong><small>件</small></div>
     <div class="stat overdue"><div class="stat-name"><i class="dot"></i>期限超過</div><strong id="statLate">—</strong><small>件</small></div>
     <div class="stat today"><div class="stat-name"><i class="dot"></i>本日期限</div><strong id="statToday">—</strong><small>件</small></div>
     <div class="stat complete"><div class="stat-name"><i class="dot"></i>完了</div><strong id="statDone">—</strong><small>件</small></div>
   </section>
   <div id="status" role="status" aria-live="polite"></div>
-  <main class="workspace" id="workspace"><aside class="editor-column" id="editorColumn">
+  <nav class="jump-nav" aria-label="画面内の移動"><a href="#listSection">作業一覧へ</a><a href="#formCard" id="newRequestLink">＋ 新規登録へ</a></nav><main class="workspace" id="workspace"><aside class="editor-column" id="editorColumn">
 
   <!-- ===== 登録フォーム(管理側のみ) ===== -->
   <div class="card" id="formCard"><h2 class="section-title"><span class="index" aria-hidden="true">＋</span><span id="formTitle">作業を登録</span></h2><p class="section-help">業者と作業内容を入力して、依頼を追加。</p>
@@ -159,10 +177,12 @@
     <label for="f_memo">備考 <span style="font-weight:400">任意</span></label>
     <textarea id="f_memo" rows="2" placeholder="場所・注意点など"></textarea>
 
-    <label for="f_files">添付資料 <span style="font-weight:400">複数選択可・各20MBまで</span></label>
+    <label for="f_files">添付資料 <span style="font-weight:400">任意</span></label><p class="attachment-help">PDF・Excel・画像など、1ファイル40MBまで。何回でも追加できます。</p>
     <div class="filelist" id="fileList"></div>
+    <div class="filelist" id="pendingList"></div>
     <input type="file" id="f_files" multiple
-      accept=".pdf,.xlsx,.xls,.xlsm,.csv,.docx,.doc,.pptx,.jpg,.jpeg,.png,.heic,application/pdf,image/*">
+      accept=".pdf,.xlsx,.xls,.xlsm,.csv,.docx,.doc,.pptx,.jpg,.jpeg,.png,.heic,application/pdf,image/*"
+      onchange="addPending()">
 
     <input type="hidden" id="f_id">
     <div class="row2 form-actions">
@@ -180,7 +200,7 @@
     <div id="qrArea" class="hidden"></div>
   </div>
 
-  </aside><section class="list-column" aria-label="作業一覧"><div class="list-heading"><div><h2>作業一覧</h2><p>業者・キーワードで絞り込み</p></div><span id="resultCount">— 件</span></div>
+  </aside><section class="list-column" id="listSection" aria-label="作業一覧"><div class="list-heading"><div><h2>作業一覧</h2><p>期限・作業内容・業者を確認</p></div><span id="resultCount" aria-live="polite">— 件</span></div>
   <div class="filter-panel"><div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input type="search" id="searchInput" placeholder="作業内容・業者・備考を検索" aria-label="作業を検索" oninput="render()"></div>
   <!-- ===== 一覧操作 ===== -->
   <div class="toolbar">
@@ -195,7 +215,7 @@
     </select>
     </div><button class="small" id="reloadBtn" onclick="load()">更新</button>
   </div>
-  <div class="chips" id="chips" aria-label="業者の絞り込み"></div></div>
+  <p class="filter-caption" id="contractorCaption">業者で絞り込み</p><div class="chips" id="chips" aria-label="業者の絞り込み"></div></div>
   <div id="list"></div>
 
   </section></main><p class="footer-note">業者ごとの進捗を確認して、スムーズな作業へ。</p>
@@ -207,7 +227,9 @@
     // 設定: GASのWebアプリURL
     // ============================================
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyrg6I7W1EwnK3DdtGcjoVlIYBXOqBdAVBtLpvRORFp6NrW-C0CEaeiGGAeuZXEqev7XQ/exec';
-    const MAX_FILE_MB = 20;   // 1ファイルの上限(GASのPOST制限を見て控えめに)
+    const MAX_FILE_MB = 40;          // 1ファイルの上限
+    const CHUNK_SIZE = 1.5 * 1024 * 1024; // 分割アップロードの1回分(binary bytes)
+    let pendingFiles = [];           // 送信待ちファイル(何回でも追加できる)
 
     const params = new URLSearchParams(location.search);
     const VIEW_GYOSHA = params.get('gyosha') || '';   // ?gyosha=○○ なら業者閲覧モード
@@ -290,17 +312,17 @@
         const late = !r['完了'] && isDate(r['期限']) && r['期限'] < today;
         const acts = VIEW_GYOSHA ? '' : `
           <div class="acts">
-            <button class="${r['完了'] ? 'sub' : ''}" onclick="toggle('${r['ID']}')">${r['完了'] ? '未完了に戻す' : '完了'}</button>
+            <button class="${r['完了'] ? 'sub' : ''}" onclick="toggle('${r['ID']}')">${r['完了'] ? '未完了に戻す' : '完了にする'}</button>
             <button class="sub" onclick="edit('${r['ID']}')">編集</button>
             <button class="danger" onclick="del('${r['ID']}')">削除</button>
           </div>`;
         return `<div class="item ${r['完了']?'done':''} ${late?'late':''} ${tbd?'tbd':''}">
           <div class="top">
-            <span class="date">${esc(labelDate(r['期限']))}<span class="badge ${r['完了']?'done':late?'late':tbd?'tbd':''}">${r['完了']?'完了':late?'期限超過':tbd?'期限未定':r['期限']===today?'本日期限':'未完了'}</span></span>
+            <span class="date">期限：${esc(isDate(r['期限']) ? r['期限'].slice(0,4)+'年 '+labelDate(r['期限']) : labelDate(r['期限']))}<span class="badge ${r['完了']?'done':late?'late':tbd?'tbd':''}">${r['完了']?'完了':late?'期限超過':tbd?'期限未定':r['期限']===today?'本日期限':'未完了'}</span></span>
             <span class="gyosha">${esc(r['業者'])}</span>
           </div>
           <div class="work">${esc(r['作業内容'])}</div>
-          ${r['備考'] ? `<div class="memo">${esc(r['備考'])}</div>` : ''}
+          ${r['備考'] ? `<div class="memo"><span class="memo-caption">備考</span>${esc(r['備考'])}</div>` : ''}
           ${filesHtml(r['添付'])}
           ${acts}
         </div>`;
@@ -314,6 +336,26 @@
       d.disabled = on; if (on) d.value = '';
     }
 
+    // ---------- 添付キュー ----------
+    function addPending() {
+      const inp = document.getElementById('f_files');
+      Array.from(inp.files).forEach(f => {
+        if (f.size > MAX_FILE_MB * 1024 * 1024) { setStatus(`${f.name} は${MAX_FILE_MB}MB超えなので追加できない`, 'ng'); return; }
+        if (!pendingFiles.some(p => p.name === f.name && p.size === f.size)) pendingFiles.push(f);
+      });
+      inp.value = '';   // 同じファイルをまた選べるようにリセット
+      renderPending();
+    }
+    function removePending(i) { pendingFiles.splice(i, 1); renderPending(); }
+    function renderPending() {
+      const el = document.getElementById('pendingList');
+      el.innerHTML = pendingFiles.map((f, i) => `
+        <div class="frow">
+          <span>🆕 ${esc(f.name)} <small style="color:var(--sub)">(${(f.size/1024/1024).toFixed(1)}MB)</small></span>
+          <button class="sub" onclick="removePending(${i})">外す</button>
+        </div>`).join('');
+    }
+
     function readFileB64(file) {
       return new Promise((res, rej) => {
         const fr = new FileReader();
@@ -323,13 +365,23 @@
       });
     }
 
+    // 分割アップロード: base64を4の倍数で切って送る
+    async function uploadOne(id, f, label) {
+      const b64 = await readFileB64(f);
+      const chunkChars = Math.floor(CHUNK_SIZE * 4 / 3 / 4) * 4;
+      const count = Math.ceil(b64.length / chunkChars);
+      const { tmpId } = await api({ action: 'attachStart', name: f.name });
+      for (let i = 0; i < count; i++) {
+        setStatus(`${label} ${f.name} 送信中 ${Math.round((i / count) * 100)}%`);
+        await api({ action: 'attachChunk', tmpId: tmpId, index: i, data: b64.slice(i * chunkChars, (i + 1) * chunkChars) });
+      }
+      setStatus(`${label} ${f.name} 保存中...`);
+      await api({ action: 'attachFinish', id: id, tmpId: tmpId, count: count, name: f.name, mime: f.type || 'application/octet-stream' });
+    }
+
     async function uploadFiles(id, files) {
       for (let i = 0; i < files.length; i++) {
-        const f = files[i];
-        if (f.size > MAX_FILE_MB * 1024 * 1024) { setStatus(`${f.name} は${MAX_FILE_MB}MB超えなのでスキップ`, 'ng'); continue; }
-        setStatus(`添付アップ中 (${i+1}/${files.length}) ${f.name}`);
-        const data = await readFileB64(f);
-        await api({ action: 'attach', id: id, file: { name: f.name, mime: f.type || 'application/octet-stream', data: data } });
+        await uploadOne(id, files[i], `(${i+1}/${files.length})`);
       }
     }
 
@@ -343,21 +395,21 @@
       };
       if (!data['作業内容']) { setStatus('作業内容を入れてね', 'ng'); return; }
       if (!data['業者']) { setStatus('業者を入れてね', 'ng'); return; }
+      const isEdit = !!document.getElementById('f_id').value;
       let id = document.getElementById('f_id').value;
-      const files = document.getElementById('f_files').files;
       const btn = document.getElementById('submitBtn');
       btn.disabled = true; setStatus('送信中...');
       try {
-        if (id) {
+        if (isEdit) {
           await api({ action: 'update', id: id, data: data });
         } else {
           const r = await api({ action: 'add', data: data });
           id = r.id;
         }
-        if (files.length) await uploadFiles(id, files);
-        setStatus(document.getElementById('f_id').value ? '更新したよ' : '登録したよ', 'ok');
+        if (pendingFiles.length) await uploadFiles(id, pendingFiles);
         resetForm();
         await load();
+        setStatus(isEdit ? '更新したよ' : '登録したよ', 'ok');
       } catch (e) {
         setStatus('エラー: ' + e, 'ng');
       }
@@ -369,6 +421,7 @@
       document.getElementById('f_tbd').checked = false;
       document.getElementById('f_date').disabled = false;
       document.getElementById('fileList').innerHTML = '';
+      pendingFiles = []; renderPending();
       document.getElementById('submitBtn').textContent = '登録する';
       document.getElementById('formTitle').textContent = '作業を登録';
     }
@@ -394,10 +447,12 @@
       document.getElementById('f_gyosha').value = r['業者'];
       document.getElementById('f_memo').value = r['備考'];
       document.getElementById('f_files').value = '';
+      pendingFiles = []; renderPending();
       renderFileList(id, r['添付']);
       document.getElementById('submitBtn').textContent = '更新する';
       document.getElementById('formTitle').textContent = '作業を編集';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.getElementById('formCard').scrollIntoView({behavior:'auto',block:'start'});
+      document.getElementById('f_work').focus({preventScroll:true});
     }
 
     function detach(id, index) {
@@ -510,6 +565,8 @@
     // ---------- 初期化 ----------
     (function init() {
       if (VIEW_GYOSHA) {
+        document.getElementById('newRequestLink').classList.add('hidden');
+        document.getElementById('contractorCaption').classList.add('hidden');
         document.getElementById('workspace').classList.add('viewer');
         document.getElementById('editorColumn').classList.add('hidden');
         document.getElementById('formCard').classList.add('hidden');
