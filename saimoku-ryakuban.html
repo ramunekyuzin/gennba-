@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>細目⇄略番 — 出来高と査定基準のリンク</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+:root{--bg:#f3f5fa;--paper:#fff;--ink:#26334b;--ink2:#66758c;--line:#e0e6ef;--accent:#4956a7;--accent-soft:#eef0fc;--mark:#ffe6a0;--chip:#f0f3f8;--chip-on:#4956a7;--chip-on-ink:#fff;--red:#bb4254;--ry:#087d7c;--ry-soft:#e3f3ef;--auto:#936415;--auto-soft:#fff4d9;--soft:#fafbfe;--shadow:0 4px 20px #23314c05}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141b29;--paper:#1c2637;--ink:#e5ebf5;--ink2:#abb8cb;--line:#334158;--accent:#adb7ff;--accent-soft:#2b3559;--chip:#263247;--chip-on:#abb6ff;--chip-on-ink:#172137;--red:#ff9eac;--ry:#81d7c7;--ry-soft:#1e403f;--auto:#ebc477;--auto-soft:#403722;--soft:#202c3e;--mark:#665019}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 "Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer;transition:background .15s,border-color .15s}button:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}button:hover{filter:brightness(.97)}
+header{background:#202c49;color:white;padding:28px max(24px,calc((100vw - 1250px)/2));border-bottom:3px solid #7584ce}.hrow{display:flex;align-items:center;gap:16px}.brand-icon{height:48px;width:48px;display:grid;place-items:center;background:#ffffff0e;border:1px solid #ffffff24;border-radius:14px}.brand-icon svg{width:26px;height:26px}.brand{flex:1}.eyebrow{font-size:10px;letter-spacing:.17em;color:#b2bfe0}h1{font-size:26px;letter-spacing:.04em;margin:2px 0 0;line-height:1.5}.subtitle{font-size:12px;color:#bdc9e1;margin:8px 0 0 64px}.icon{background:#ffffff13;border:1px solid #ffffff40;border-radius:10px;color:white;min-height:44px;padding:10px 17px;font-size:12px;font-weight:700}
+.workspace{max-width:1298px;margin:auto;padding:26px 24px 60px;display:grid;grid-template-columns:234px minmax(0,1fr);gap:26px;align-items:start}.sidebar{position:sticky;top:22px;overflow:hidden;border:1px solid var(--line);border-radius:15px;background:var(--paper);box-shadow:var(--shadow)}.sidebar summary{font-size:13px;font-weight:700;padding:17px 17px 12px;cursor:pointer}.sidebar summary small{font-size:10px;color:var(--ink2);margin-left:6px;font-weight:400}.chips{max-height:calc(100vh - 115px);overflow:auto;padding:0 9px 12px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}.chip{display:block;width:100%;background:transparent;text-align:left;border:0;border-radius:7px;margin:2px 0;padding:9px 11px;font-size:11px;color:var(--ink2)}.chip:hover{background:var(--chip)}.chip.on{background:var(--accent-soft);color:var(--accent);font-weight:700;box-shadow:inset 3px 0 var(--accent)}.content{min-width:0}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}.tabs button{padding:14px 17px;border:1px solid var(--line);border-radius:12px;text-align:left;background:var(--paper);color:var(--ink2);display:flex;align-items:center;gap:12px;min-width:0}.tab-symbol{font-size:21px;font-weight:500;color:var(--accent);background:var(--accent-soft);width:38px;height:38px;display:grid;place-items:center;border-radius:9px;flex-shrink:0}.tabs b{display:block;font-size:14px}.tabs small{display:block;font-size:10px;margin-top:1px;font-weight:400}.tabs button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);color:var(--accent);background:var(--accent-soft)}.tabs button.on .tab-symbol{background:var(--accent);color:var(--paper)}
+.search-panel{padding:20px 22px;border:1px solid var(--line);border-radius:14px;background:var(--paper);box-shadow:var(--shadow)}.search-label{font-size:12px;font-weight:700;display:block;margin-bottom:9px}.search{display:flex;gap:9px}.search-field{flex:1;position:relative;min-width:0}.search-field svg{width:19px;height:19px;position:absolute;left:14px;top:16px;color:var(--accent);pointer-events:none}.search input{min-width:0;width:100%;background:var(--soft);color:var(--ink);font-size:15px;padding:12px 12px 12px 42px;border:1px solid var(--line);border-radius:9px;outline:0;min-height:48px}.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}.search input::placeholder{color:var(--ink2);font-size:12px}.search button{border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink2);padding:0 13px;font-size:11px}.search-help{font-size:10px;color:var(--ink2);margin:8px 0 0}.result-head{margin:24px 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px}.result-head h2{font-size:15px;margin:0}.meta{display:flex;gap:6px 12px;flex-wrap:wrap;font-size:11px;color:var(--ink2);justify-content:flex-end}.meta .warn{color:var(--ink2)}main{padding:0;margin:0}mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}.hint{font-size:11px;color:var(--ink2);text-align:center;padding:22px 10px;line-height:1.9}.none{background:var(--paper);border:1px dashed var(--line);border-radius:15px;padding:40px 20px;text-align:center;color:var(--ink2);font-size:13px}.empty-icon{display:grid;place-items:center;width:66px;height:66px;border-radius:18px;background:var(--accent-soft);color:var(--accent);margin:0 auto 20px}.empty-icon svg{width:31px;height:31px}.empty-title{font-size:20px;color:var(--ink);margin:0 0 8px}.empty-copy{font-size:12px;margin:0;line-height:1.9}.steps{display:flex;justify-content:center;gap:10px;margin:23px auto 0;max-width:520px}.step{flex:1;background:var(--soft);border:1px solid var(--line);padding:12px 9px;border-radius:9px;font-size:11px}.step b{display:block;font:700 11px ui-monospace,monospace;color:var(--accent);margin-bottom:7px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}.bar button{font-size:11px;padding:10px 13px;min-height:40px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink2)}.bar button.pri{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on);font-weight:700}.kgrp{font-size:12px;font-weight:700;color:var(--ink2);margin:24px 0 10px;padding-left:10px;border-left:3px solid var(--accent)}.item,.card{background:var(--paper);border:1px solid var(--line);border-radius:13px;padding:19px 21px;margin-bottom:12px;box-shadow:var(--shadow)}.irow{display:flex;align-items:center;gap:9px 12px;flex-wrap:wrap}.ino{font:700 12px/1.8 "JetBrains Mono",monospace;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 8px}.inm{font-size:16px;font-weight:700}.iamt{font:500 14px "JetBrains Mono",monospace;color:var(--ink);margin-left:auto;white-space:nowrap}.imemo{font-size:11px;color:var(--ink2);flex-basis:100%;padding-top:1px}.sel{display:flex;align-items:center;gap:10px;margin-top:15px;padding-top:13px;border-top:1px solid var(--line)}.sel:before{content:'略番';font-size:11px;color:var(--ink2);white-space:nowrap}.sel select{min-width:0;flex:1;max-width:100%;font-size:12px;min-height:44px;padding:10px;background:var(--soft);color:var(--ink);border:1px solid var(--line);border-radius:8px}.sel select.auto{border-color:var(--auto)}.sel select.man{border-color:var(--ry)}.st{font-size:10px;padding:3px 8px;border-radius:5px;white-space:nowrap;background:var(--chip);color:var(--ink2)}.st.auto{background:var(--auto-soft);color:var(--auto)}.st.man,.st.sht{background:var(--ry-soft);color:var(--ry)}.st.none{background:var(--accent-soft);color:var(--accent);border:0;border-radius:5px}.rcode{font-size:11px;color:var(--ink2);margin:8px 0 0 32px;overflow-wrap:anywhere;line-height:1.8}.top{display:flex;align-items:center;flex-wrap:wrap;gap:8px 13px}.num{font:700 24px/1.5 "JetBrains Mono",monospace;color:var(--ry);background:var(--ry-soft);min-width:56px;text-align:center;padding:4px 8px;border-radius:8px}.name{font-size:16px;font-weight:700}.grp{margin-left:auto;font-size:10px;color:var(--ink2)}.code{flex-basis:100%;font:11px "JetBrains Mono",monospace;color:var(--ink2);padding-top:4px}.code:before{content:'工種コード ';font:10px "Zen Kaku Gothic New",sans-serif}.links{margin-top:15px;border-top:1px solid var(--line);padding-top:7px}.lk{display:flex;align-items:center;flex-wrap:wrap;gap:6px 9px;font-size:12px;padding:10px 0;border-bottom:1px solid var(--line)}.lk:last-child{border-bottom:0}.lno{font:700 10px "JetBrains Mono",monospace;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:4px 6px}.lks{font-size:10px;color:var(--ink2)}.lnm{font-weight:500}.lamt{font:12px "JetBrains Mono",monospace;color:var(--ink2);margin-left:auto}.sum{font:13px "JetBrains Mono",monospace;text-align:right;padding:13px 0 1px;color:var(--ry)}.nolink{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;font-size:11px;color:var(--ink2)}.tog{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ink2);padding:12px 14px;background:var(--paper);border:1px solid var(--line);border-radius:9px;margin-bottom:16px;cursor:pointer}.tog input{width:17px;height:17px;accent-color:var(--accent)}.footer{font-size:10px;color:var(--ink2);text-align:center;margin-top:25px;letter-spacing:.05em}
+.overlay{position:fixed;inset:0;background:#101c36aa;z-index:50;display:none;align-items:center;justify-content:center;padding:24px}.overlay.on{display:flex}.panel{background:var(--paper);width:100%;max-width:720px;border-radius:18px;padding:28px;max-height:90vh;overflow:auto;box-shadow:0 25px 90px #101c3655}.panel h2{font-size:21px;margin:0 0 10px}.panel p{font-size:12px;line-height:1.9;color:var(--ink2);margin:0 0 14px}.panel .panel-kicker{font-size:10px;letter-spacing:.15em;color:var(--accent);margin-bottom:8px}.column-guide{display:flex;gap:5px;flex-wrap:wrap;margin:15px 0}.column-guide span{font-size:10px;background:var(--chip);color:var(--ink2);border:1px solid var(--line);padding:5px 8px;border-radius:5px}.column-guide b{font:10px ui-monospace,monospace;color:var(--accent);margin-right:5px}.panel textarea{width:100%;height:210px;font:12px/1.8 "JetBrains Mono",monospace;border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);color:var(--ink);resize:vertical}.panel textarea:focus{outline:2px solid var(--accent)}.panel .bar{margin:15px 0 0}.panel .bar #close{margin-left:auto}.panel .bar #clearItems,.panel .bar #clearMap{color:var(--red);background:transparent}.ok{font-size:12px;color:var(--accent);min-height:1.2em;margin-top:9px}.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--chip-on);color:var(--chip-on-ink);padding:11px 18px;border-radius:10px;font-size:13px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;width:max-content}.toast.on{opacity:1}
+@media(min-width:801px){.sidebar summary{list-style:none;pointer-events:none}.sidebar summary::-webkit-details-marker{display:none}}
+@media(max-width:800px){header{padding:21px 17px}.hrow{gap:10px}.brand-icon{width:39px;height:43px}h1{font-size:22px}.eyebrow{font-size:8px}.subtitle{margin-left:0;font-size:11px}.icon{font-size:10px;padding:8px 10px;min-height:42px}.workspace{display:flex;flex-direction:column;gap:16px;padding:18px 14px 45px}.sidebar{position:static;width:100%;border-radius:11px}.sidebar summary{padding:12px 14px}.chips{display:grid;grid-template-columns:1fr 1fr;max-height:270px;gap:2px}.chip{font-size:10px;padding:10px 8px}.content{width:100%}.tabs{gap:8px;margin-bottom:14px}.tabs button{padding:12px 10px;gap:8px}.tab-symbol{width:29px;height:32px;font-size:18px}.tabs b{font-size:12px}.tabs small{font-size:9px}.search-panel{padding:16px 14px}.search input{font-size:16px}.search input::placeholder{font-size:11px}.search button{padding:0 9px;font-size:10px}.result-head{align-items:flex-start;flex-direction:column;gap:6px;margin:20px 0 12px}.meta{justify-content:flex-start}.item,.card{padding:16px 14px}.inm,.name{font-size:15px}.iamt{font-size:12px}.sel{gap:6px}.sel select{font-size:12px}.rcode{margin-left:0}.grp{width:100%;margin-left:0}.top{gap:7px 10px}.num{font-size:22px;min-width:50px}.bar{gap:6px}.bar button{font-size:10px;padding:10px;min-height:42px}.empty-title{font-size:17px}.none{padding:30px 15px}.steps{gap:6px}.step{font-size:10px;padding:10px 5px}.overlay{padding:12px;align-items:flex-end}.panel{padding:21px 17px;border-radius:16px;max-height:92dvh}.panel h2{font-size:18px}.panel .bar #close{margin-left:0}.panel .bar{display:grid;grid-template-columns:1fr 1fr}.panel .bar #doLoad{grid-column:1/-1}.panel .bar #close{grid-column:1/-1;grid-row:4}.panel textarea{height:170px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="hrow"><div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h16m-4-4 4 4-4 4M21 17H5m4-4-4 4 4 4"/></svg></div><div class="brand"><div class="eyebrow">CONSTRUCTION COST LINK</div><h1>細目 ⇄ 略番</h1></div><button id="load" class="icon" type="button">データを読み込む</button></div><p class="subtitle">出来高の細目と査定基準をつなぎ、対応関係をひと目で確認。</p></header>
+<div class="workspace"><aside class="sidebar"><details id="category-panel" open><summary>工事区分 <small>分類で絞り込み</small></summary><nav class="chips" id="chips" aria-label="工事区分"></nav></details></aside><section class="content" aria-label="細目と略番の対応一覧">
+<div class="tabs" role="group" aria-label="検索対象"><button id="tabI" class="on" type="button" aria-pressed="true"><span class="tab-symbol" aria-hidden="true">→</span><span><b>細目から探す</b><small>略番を確認・割り当て</small></span></button><button id="tabR" type="button" aria-pressed="false"><span class="tab-symbol" aria-hidden="true">←</span><span><b>略番から探す</b><small>対応する細目を確認</small></span></button></div>
+<div class="search-panel"><label class="search-label" for="q">番号・名称・工種で検索</label><div class="search"><div class="search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="q" type="search" placeholder="例: 12 / 外部足場 / 直接仮設" autocomplete="off" enterkeyhint="search" aria-describedby="search-help"></div><button id="clr" type="button">条件を解除</button></div><p class="search-help" id="search-help">数字は細目No・略番を検索。複数の言葉はスペースで区切れます。</p></div>
+<div class="result-head"><h2 id="list-title">細目と略番の対応</h2><div class="meta" id="meta" role="status" aria-live="polite"></div></div><main id="list"></main><div class="footer">出来高 × 査定基準 ｜ 細目・略番対応ツール</div></section></div>
+<div class="overlay" id="ov">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="load-title">
+    <div class="panel-kicker">IMPORT DATA</div><h2 id="load-title">項目シートを読み込む</h2>
+    <p>出来高スプレッドシートの「項目」シートをコピーし、下の欄に貼り付けてください。見出し行はあってもなくても読み込めます。H列の略番が入力済みなら、その番号を使用します。</p><div class="column-guide"><span><b>A</b>現場</span><span><b>B</b>No</span><span><b>C</b>工種</span><span><b>D</b>細目</span><span><b>E</b>金額</span><span><b>F</b>区分</span><span><b>G</b>メモ</span><span><b>H</b>略番（任意）</span></div><p>保存先はこのブラウザのみです。元のシートは変更されません。</p>
+    <textarea id="paste" aria-label="項目シートの貼り付け欄" placeholder="コピーしたセルをここに貼り付け"></textarea>
+    <div class="ok" id="okmsg"></div>
+    <div class="bar">
+      <button id="doLoad" class="pri" type="button">読み込む</button>
+      <button id="clearItems" type="button">細目データを消す</button>
+      <button id="clearMap" type="button">手動リンクを消す</button>
+      <button id="close" type="button">閉じる</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const DATA=[{"g": "共通仮設工事", "n": 1, "k": "とび・土工", "c": "A0102B", "d": "作業所内外清掃片付、草刈伐採、下水清掃、仮設建物関係、機械組立て据付、オペレーター、シート張り、仮囲い手間、看板取付け手間、仮設建物撤去後の整地、道路清掃、除雪費等"}, {"g": "共通仮設工事", "n": 2, "k": "仮設物費【削除:仮設建物】", "c": "A0170D", "d": "工事事務所、監督事務所、作業員宿舎、倉庫、下小屋、仮設便所、作業員詰所、その他仮設建物、オーバーブリッジ、家賃(共益費、手数料、退去時差引き分、建物に係る保険料、含む)、事務所等の台風養生 【追記】仮囲い及び門扉、台風養生材料、安全信号灯、各種危険防止棚、防音防臭、バリケード、借地仮囲い、仮囲いの塗装費(文字書きを含む)"}, {"g": "共通仮設工事", "n": 3, "k": "仮設進入路", "c": "A0173D", "d": "仮設進入路に要した土、セメント、骨材、生コン、鉄板、地盤改良等、仮排水路、仮橋、歩道乗り入れ(労務費共)、洗車設備"}, {"g": "共通仮設工事", "n": 4, "k": "動力用水光熱", "c": "A0175D", "d": "電力、水道、ガス、燃料代、給水車、設備テスト料金 ※特殊水替費に要する下水使用料は山止め工事に入れる。 【追記】仝上工事費、電気機械器具損料、変電設備、電柱、漏電遮断器、電撃防止装置、用水ポンプ、タンク、高圧受電主任技術者依頼料、井戸、場内電話、インターホン、排尿設備(処理費共)"}, {"g": "共通仮設工事", "n": 5, "k": "仝上設備費", "c": "A0176D", "d": "(網掛け行・内訳なし)"}, {"g": "共通仮設工事", "n": 6, "k": "機械等損料", "c": "A0177D", "d": "機械器具使用料、(修理費及び点検費共)並びに機械付属品等の売付費(ワイヤーロープ、ホース、一輪車、コンクリート馬、工具類等)及びゼネレーター、一般重機使用料(回送料、オペレーター経費、燃料費含む)、【追記】測量機器他"}, {"g": "共通仮設工事", "n": 7, "k": "養生費", "c": "A0180D", "d": "(網掛け行・内訳なし)"}, {"g": "共通仮設工事", "n": 8, "k": "運搬費", "c": "A01811", "d": "共通仮設に要した運搬費及び積卸し積込み手間"}, {"g": "共通仮設工事", "n": 9, "k": "借地料", "c": "A0184D", "d": "(網掛け行・内訳なし)"}, {"g": "共通仮設工事", "n": 10, "k": "補償費", "c": "A0185D", "d": "(網掛け行・内訳なし)"}, {"g": "共通仮設工事", "n": 11, "k": "警備費【削除:保安要員】", "c": "A01954", "d": "保安要員(ガードマン)等"}, {"g": "共通仮設工事", "n": 12, "k": "その他雑", "c": "A0199D", "d": "調査試験に伴う測量、【追記】敷地測量、土質調査、地耐力試験、室内環境測定(シックハウス)、各種材料試験等(但し杭関係の試験は杭工事とする)、その他工事用写真(現状及び工程)、竣工写真(コピー、マイクロ等は作業所経費事務用品で扱う)、式典直会費用、看板、モデルハウス、模型、地中及び地上障害物撤去、他上記以外に要した費用 【追記】作業用地の借地料(補修復旧も含む)、道路占用料 ※家賃は仮設建物に入れる。隣家補償費(隣家写真)、道路復旧費、事故補償費、街路樹及び歩道棚等の移設及び復旧も含む"}, {"g": "直接仮設工事", "n": 13, "k": "とび・土工", "c": "A0202B", "d": "足場組立て、解体、安全ネット取付け、保護棚取付け(鉄骨関係含む)、内部ステージ、横断足場、登桟橋、荷上げ用踊場、足場ブラケット取付け、くい打用養生手間"}, {"g": "直接仮設工事", "n": 14, "k": "雑人夫", "c": "A0215B", "d": "場内整理片付清掃、仕上養生手間、洗い仕上げ(二次的な洗い仕上げ)"}, {"g": "直接仮設工事", "n": 15, "k": "足場損料", "c": "A0272D", "d": "足場材、足場板、脚立、ローリングタワー、ブラケット足場等費用(鉄骨足場材含む)、溝形鋼、足場用インサート、壁つなぎ"}, {"g": "直接仮設工事", "n": 16, "k": "養生費", "c": "A0280D", "d": "仕上げ養生材料(養生コーナー、紙、ビニールシート)、安全養生材料(養生シート、保護棚、防災網)、コンクリート養生費、冬期養生費、くい打用仮設材、安全ネット、朝顔"}, {"g": "直接仮設工事", "n": 17, "k": "運搬費", "c": "A02811", "d": "直接仮設に要した運搬費及び積込み積卸し手間"}, {"g": "直接仮設工事", "n": 18, "k": "産業廃棄物", "c": "A02812", "d": "産業廃棄物処理費、コンテナー"}, {"g": "直接仮設工事", "n": 19, "k": "その他", "c": "A0299D", "d": "現寸型板、水盛やりかた、仕上墨出し、ダストシュート、溶接工、他上記以外に要した費用"}, {"g": "土工事", "n": 20, "k": "とび・土工", "c": "B0302B", "d": "根切り、埋戻し、残土処分(捨場代含む)、割り石地業、建物周囲整地 【追記】土地改良工事、水替費、上記以外に要した費用"}, {"g": "土工事", "n": 21, "k": "骨材", "c": "B0323A", "d": "割り石、砂利、玉石、砕石、砂、土購入費、【追記】路盤紙等"}, {"g": "土工事", "n": 22, "k": "その他", "c": "B0399D", "d": "(網掛け行・内訳なし)"}, {"g": "山止め工事", "n": 23, "k": "労務費", "c": "B0407B", "d": "レール、H鋼、シートパイル等の打抜、ステージ、山止め組立て解体、山止め工事に要したとび・土工事及び山止め、ステージ等に要した溶接工"}, {"g": "山止め工事", "n": 24, "k": "外注費", "c": "B0417C", "d": "ウエルポイント、ディープウエル等下水使用料も含む(一般の水替は除く)、凍結、薬剤注入、グラウト、連続くい、壁、バックアンカー、吹付工事、生コン等、山止め工事に要した運搬、積込、積卸し費用"}, {"g": "山止め工事", "n": 25, "k": "山止め材", "c": "B0474D", "d": "山止め材、ステージ材の売付、損料、覆工板、シートパイル、H型鋼の損料、売付の附属物(ステージを含む)"}, {"g": "基礎工事(特殊)", "n": 26, "k": "くい", "c": "B0519C", "d": "各種くい打工事(生コン、鉄筋、ラップルコンクリート含む)、給水車、発電気損料、くい間ざらえ、くい頭補強、くい残土処分及び泥水上処分 【追記】くい頭はつり、くい芯出し、くい載荷試験費、さぐり掘、スリッパ等、上記以外に要した費用"}, {"g": "基礎工事(特殊)", "n": 27, "k": "その他", "c": "B0599D", "d": "(網掛け行・内訳なし)"}, {"g": "コンクリート工事", "n": 28, "k": "大工", "c": "B0601B", "d": "型枠組立て解体"}, {"g": "コンクリート工事", "n": 29, "k": "とび・土工", "c": "B0602B", "d": "ポンプ車使用料、コンクリート打設手間"}, {"g": "コンクリート工事", "n": 30, "k": "はつり工", "c": "B0609B", "d": "金物はつり、雑はつり"}, {"g": "コンクリート工事", "n": 31, "k": "生コンクリート", "c": "B0625A", "d": "各種生コンクリート(くいに使用する場合はくい工事に入れる)、コンクリート混和剤"}, {"g": "コンクリート工事", "n": 32, "k": "その他", "c": "B0699D", "d": "ホールインアンカー、溶接工等、型枠清掃、雪養生、上記以外に要した費用"}, {"g": "くたいPC工事", "n": 33, "k": "くたいPC", "c": "B0726C", "d": "組立て手間、取付溶接費、構造用プレキャストコンクリート、プレストレストコンクリート、上記に要した運搬費、積卸し費(くいに使用する場合はくい工事に入れる)"}, {"g": "鉄筋工事", "n": 34, "k": "鉄筋工", "c": "B0805B", "d": "鉄筋加工、組立て、小運搬(場外加工場〜現場及び場内小運搬)"}, {"g": "鉄筋工事", "n": 35, "k": "圧接工・溶接工", "c": "B0808B", "d": "ガス圧接、溶接、切断"}, {"g": "鉄筋工事", "n": 36, "k": "鉄筋", "c": "B0820A", "d": "一般鉄筋、ワイヤーメッシュ、スペーサー、搬入時荷卸しレッカー代"}, {"g": "鉄骨工事", "n": 37, "k": "鉄骨", "c": "B0921C", "d": "一般鉄骨材工(鉄骨階段を含む但し手すりは金属工事に計上)、ジベル筋、はり貫通補強、建方用タラップ、超音波探傷試験費、建方用レッカー車"}, {"g": "鉄骨工事", "n": 38, "k": "その他", "c": "B0999D", "d": "岩綿、モルタル被覆、ラス貼共、溶接、溶断、アンカーボルト埋込費、ベースプレート下モルタル、上記以外に要した費用"}, {"g": "組積工事", "n": 39, "k": "組積", "c": "B1027C", "d": "ブロック積、レンガ積、断熱ブロック、鉄筋"}, {"g": "組積工事", "n": 40, "k": "PC製品 ALC版", "c": "B1028C", "d": "プレキャストコンクリート、PC板、PC階段、スパンクリート、PCカーテンウォール、イトン、ヘーベル、シポレックス、鉄筋、下地処理"}, {"g": "防水工事", "n": 41, "k": "アスファルト防水", "c": "B1132C", "d": "アスファルト防水、伸縮目地材(エラスタイト、アスファルトコンパウンド等)、目地注入"}, {"g": "防水工事", "n": 42, "k": "シーリング", "c": "B1133C", "d": "内外部の各種シーリング"}, {"g": "防水工事", "n": 43, "k": "その他雑防水", "c": "B1135C", "d": "モルタル防水、シート防水、塗布防水、ウレタン防水、エポキシ樹脂防水、吹付防水(シリコンを含む)、止水板、壁注入工事、防水押へ金物等"}, {"g": "石・テラゾ工事", "n": 44, "k": "石・テラゾ", "c": "B1236C", "d": "石、テラゾ、定礎、擬石、マーベロン、割り石、小たたき、コンクリートはつり仕上げ"}, {"g": "タイル工事", "n": 45, "k": "タイル", "c": "B13371", "d": "内外装の各種タイル、打込みタイル(PC打込み共)、クリーニング等"}, {"g": "木工事", "n": 46, "k": "大工", "c": "B1401B", "d": "大工手間(材料持ち、一括工事含む)"}, {"g": "木工事", "n": 47, "k": "材料", "c": "B1439A", "d": "一般木材、銘木、銘竹、縁甲板、ベニヤ板、特殊合板、合板床、押えボード、繊維板、木レンガ等含む 【追記】金物、ラスボード、接着材、トノコ塗り、針、防腐剤等"}, {"g": "木工事", "n": 48, "k": "その他", "c": "B1499D", "d": "(網掛け行・内訳なし)"}, {"g": "屋根工事", "n": 49, "k": "屋根", "c": "B1540C", "d": "各種屋根ふき(附属する板金及び断熱材の下ぶさがある場合は含む)、シングルぶき"}, {"g": "金属工事", "n": 50, "k": "既製金物【削除:金物】", "c": "B1643C", "d": "ルーフドレン、各種とい、インサート、アンカーボルト、アンカー埋込、ノンスリップ、避難用ハッチ、レジスター、一般市販金物、スチール手すり、鉄骨階段手すり、タラップ、鉄・ステンレス・アルミ・銅等加工品、天井スパンドレル、点検口、天井見切縁、天井廻り縁、出入口枠、カーテンレール、窓格子、ルーバー、物干金物、バルコニー隔て、メタルラス、リブラス、Kラス等(耐火被覆のラス貼りは鉄骨工事に計上)【追記】のうち既製金物"}, {"g": "金属工事", "n": 51, "k": "軽量下地", "c": "B1644C", "d": "軽量鉄骨天井下地(切込み補強含む)、軽量間仕切"}, {"g": "金属工事", "n": 52, "k": "製作金物【削除:その他】", "c": "B1699D", "d": "【削除:養生、クリーニング及び上記以外に要した費用】【追記】金属工事のうち製作金物"}, {"g": "左官工事", "n": 53, "k": "左官工", "c": "B1706B", "d": "一般左官工事、一般左官材料(普通セメント、砂を除く)、枠廻りトロ詰め(砂、セメント持工事を含む)(耐火被覆のモルタル塗りは鉄骨工事に計上)、カラークリート、フェロコン、薄塗工法"}, {"g": "左官工事", "n": 54, "k": "打放し補修", "c": "B1714B", "d": "補修費"}, {"g": "左官工事", "n": 55, "k": "その他", "c": "B1799D", "d": "上記に要した費用、接着材、コンクリート面洗い材料、【追記】セメント(仮設、外構は除く)、砂(仮設、外構は除く)"}, {"g": "金属建具工事", "n": 56, "k": "金属建具", "c": "B1846C", "d": "アルミ・スチール・ステンレス製建具、金属製カーテンウォール、金庫扉、取付調整費一式、シャッター、附属ドア、自動ドアーエンジン、取付調整費一式(マット枠含む)、現場養生費、クリーニング等"}, {"g": "木製建具工事", "n": 57, "k": "木製建具", "c": "B1949C", "d": "木製建具、ふすま(障子・戸ふすまの紙張りを含む)、建具取付に必要な金物及び建具の付帯物として取付ける金物"}, {"g": "ガラス工事", "n": 58, "k": "ガラス", "c": "B2051C", "d": "一般ガラス、特殊ガラス、ガラスブロック、プロフィリット、鏡(ガスケット、コーキング、クリーニングを含む)、アクリライト、プラスチック"}, {"g": "塗装工事", "n": 59, "k": "塗装", "c": "B2152C", "d": "一般塗装、鉄部さび止め、吹付塗装"}, {"g": "内・外装工事", "n": 60, "k": "床張り", "c": "B2255C", "d": "畳、フローリングブロック、モザイクパーケット等、カーペット、ジュータン、敷物、Pタイル、クッションフロアー、ビニール幅木、塗床(ウレタン塗床、エポキシ系、アクリル系等)、ネダフォーム、フリーアクセスフロアー"}, {"g": "内・外装工事", "n": 61, "k": "壁・天井練付", "c": "B2256C", "d": "合板練付、石こうボード、断熱ボード等各種ボード張り、クロス、天井スレート、木毛板打込み、壁断熱材(グラスウール等)、天井見切縁"}, {"g": "内・外装工事", "n": 62, "k": "吹付", "c": "B2257C", "d": "吹付タイル、リシン、各種吹付等"}, {"g": "内・外装工事", "n": 63, "k": "その他", "c": "B2299D", "d": "上記以外に要した費用"}, {"g": "雑・ユニット・その他工事", "n": 64, "k": "セメント", "c": "B2322A", "d": "セメント(仮設、外構は除く)"}, {"g": "雑・ユニット・その他工事", "n": 65, "k": "骨材", "c": "B2323A", "d": "砂(仮設、外構は除く)"}, {"g": "雑・ユニット・その他工事", "n": 66, "k": "可動間仕切", "c": "B2359C", "d": "可動間仕切、アコーディオンドア、ブラインド、スライディングドア、カーテン"}, {"g": "雑・ユニット・その他工事", "n": 67, "k": "家具", "c": "B2360C", "d": "造作家具、一般家具(塗装を含む)、黒板、掲示板、映写スクリーン、カウンター、トイレブース(取付用金物は雑)、浴槽、ユニットバス、厨房製品"}, {"g": "雑・ユニット・その他工事", "n": 68, "k": "雑", "c": "B23621", "d": "銘板、社名板、看板、煙突、トップライト、靴拭マット、クーラースリーブ、室名札、牛乳受、カーテンボックス、ルーフファン、防煙垂壁、避難設備、グリーストラップ、外構工事を設けない場内のコンクリート二次製品、花壇、客土、植樹等"}, {"g": "外構工事", "n": 69, "k": "材料費", "c": "C0000A", "d": "骨材、生コンクリート、鉄筋、既製金物、ヒューム管、U字溝、会所、コンクリートブロック、縁石等単に材料のみ購入するコンクリート二次製品"}, {"g": "外構工事", "n": 70, "k": "労務費", "c": "C0000B", "d": "大工、土工、鉄筋工、圧接工、左官工、補修工、はつり工、その他労務費"}, {"g": "外構工事", "n": 71, "k": "外注費", "c": "C0000C", "d": "石、テラゾ、石積、コンクリートブロック積、製作金物工事、舗装(アスファルト舗装、簡易舗装、砕石舗装、防塵工事、石畳、コンクリート舗装、ブロック舗装)、造園に伴なう植樹、花壇等材工一式、PC橋梁、縁石CB"}, {"g": "作業所経費", "n": 72, "k": "定期点検費", "c": "C0000D", "d": "分譲マンション定期点検立会社員および派遣社員人件費、交通費、通信費(定期点検の手直し補修費用およびその管理に要した人件費は含まない)"}, {"g": "設備工事", "n": 73, "k": "電気設備", "c": "D2400C", "d": "本工事電気関係一式(灯器、ブザー、電話、換気扇、その他電気設備業者にて施工し得るもの)"}, {"g": "設備工事", "n": 74, "k": "機械設備【削除:給排水ガス消火】", "c": "D2500C", "d": "各種給排水、衛生、厨房、ガス、消火装置等管工事業者の施工するもの(接続費及び供給負担金を含む)、ユニマットバストイレ、【追記】換気扇、冷暖房設備費"}, {"g": "設備工事", "n": 75, "k": "空調設備", "c": "D2600C", "d": "(網掛け行・内訳なし)"}, {"g": "設備工事", "n": 76, "k": "昇降設備", "c": "D2700C", "d": "エレベーター、エスカレーター、スイングガレージ、その他"}, {"g": "設備工事", "n": 77, "k": "その他設備", "c": "D2800C", "d": "上記以外の建築設備、体育、ボーリング、サウナ、焼却炉、医療機器、その他"}, {"g": "解体", "n": 78, "k": "解体工事", "c": "E0000C", "d": "既設建物、その他既設構築物の解体に要した費用"}, {"g": "一括", "n": 79, "k": "一括外注", "c": "10000C", "d": ""}, {"g": "JV", "n": 80, "k": "J・V", "c": "20000C", "d": "【追記】原価報告書Bの表記は、『物価変動』"}, {"g": "作業所経費", "n": 81, "k": "労務管理費", "c": "30086D", "d": "作業員用の福利厚生費用、防火用バケツ、吸ガラ入、消火器、スカイトイレ、ヘルボード、安全ロープ、安全衛生管理費、建退協証紙、労務者の募集解雇に要する費用、作業用具(ビニールカッパ、安全靴、命綱、手袋、雨靴)、被服、宿泊用品の費用、労災法による事業主負担補償費、他作業用保護具等"}, {"g": "作業所経費", "n": 82, "k": "租税公課", "c": "30087D", "d": "契約印紙等、道路占用及び河川敷申請証紙代等"}, {"g": "作業所経費", "n": 83, "k": "保険料", "c": "30088D", "d": "火災保険、建設工事保険、賠償責任保険、その他の保険料(労災任意保険)"}, {"g": "作業所経費", "n": 84, "k": "従業員給料", "c": "300891", "d": "社員給料、準職員給料、通勤費"}, {"g": "作業所経費", "n": 85, "k": "賞与", "c": "300892", "d": "社員及び準職員賞与振替"}, {"g": "作業所経費", "n": 86, "k": "退職金", "c": "300893", "d": "社員退職金振替"}, {"g": "作業所経費", "n": 87, "k": "社会保険", "c": "300901", "d": "厚生年金、厚生年金基金、健康保険、雇用保険事業主負担"}, {"g": "作業所経費", "n": 88, "k": "労災保険", "c": "300902", "d": "労災保険料"}, {"g": "作業所経費", "n": 89, "k": "福利厚生費", "c": "30091D", "d": "社員用の賄費、炊事用品、新聞代、テレビの受信料、フトン損料、急救薬品、長靴、ビニロン雨合羽、作業衣、汲取料、安全靴(半額)、オイルヒーター、ストーブ、扇風機、ベッド、炊飯器、ラジオ、テレビ、ロッカー、ウォータークーラー"}, {"g": "作業所経費", "n": 90, "k": "事務用品費", "c": "30092D", "d": "机、椅子、時計、黒板、一般事務用品、製図用品、図面、竣工図面、消耗品、用紙一切、コピー、修理費、温度計、施工図面CD化費用、プリンター、コピー機、プロッター、カメラ、OAソフト、その他OA機器、OA機器リース(パソコン、ゼロックス複合機、ルーター)"}, {"g": "作業所経費", "n": 91, "k": "交通費", "c": "300931", "d": "交通費、通行料、駐車代、規定に基づく私有車の燃料費、自転車、単車使用料"}, {"g": "作業所経費", "n": 92, "k": "通信費", "c": "300932", "d": "電報、電話料、通信費、プロバイダー料金、携帯電話代、宅急便、メール便"}, {"g": "作業所経費", "n": 93, "k": "交際費1", "c": "300941", "d": "【削除:一般交際費、中元、歳暮、寄付金】【追記】接待飲食費(1人当り5,000円超)"}, {"g": "作業所経費", "n": 94, "k": "交際費2", "c": "300942", "d": "【削除:本支店より振替手数料分】【追記】ゴルフ、贈答、寄付金、社内飲食等"}, {"g": "作業所経費", "n": 95, "k": "雑費【削除:1】", "c": "300951", "d": "会議費、町内会費、PR看板、協力会の会費、その他上記項目に含まない雑費、斡旋手数料、協会費、会議打合せに伴う食事代(1人5,000円以下)、作業所LAN設定費"}, {"g": "作業所経費", "n": 96, "k": "派遣等・経費", "c": "300952", "d": "派遣社員費用、業務委託費用"}, {"g": "作業所経費", "n": 97, "k": "協力費", "c": "30096D", "d": "その他共益費(設備業者の賦金)"}, {"g": "作業所経費", "n": 98, "k": "設計費", "c": "300971", "d": "社内設計料、外注設計料、確認申請料、追加変更設計料"}, {"g": "作業所経費", "n": 99, "k": "積算費", "c": "300972", "d": "積算料"}, {"g": "作業所経費", "n": 100, "k": "図面作成費", "c": "300973", "d": "CAD、ドレッシー、外注図面費"}, {"g": "特別交際費", "n": 110, "k": "交際費", "c": "400943", "d": "特別交際費"}, {"g": "特別交際費", "n": 111, "k": "税負担", "c": "400944", "d": "特別交際費にかかる税負担分"}, {"g": "金利", "n": 112, "k": "金利", "c": "50000D", "d": ""}, {"g": "管理費", "n": 113, "k": "一般管理費", "c": "60000D", "d": ""}];
+const GROUPS=[...new Set(DATA.map(r=>r.g))];
+const BYN=Object.fromEntries(DATA.map(r=>[r.n,r]));
+const $=id=>document.getElementById(id);
+const LS_ITEMS="saimoku_items", LS_MAP="saimoku_map";
+let grp="", tab="I", onlyLinked=true;
+let ITEMS=[]; try{ITEMS=JSON.parse(localStorage.getItem(LS_ITEMS)||"[]")}catch(e){ITEMS=[]}
+let MAP={};  try{MAP=JSON.parse(localStorage.getItem(LS_MAP)||"{}")}catch(e){MAP={}}
+
+const norm=s=>(s||"").toLowerCase().replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[\u30a1-\u30f6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).replace(/[\s　]/g,"");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const clean=s=>(s||"").replace(/【削除:([^】]*)】/g,"").replace(/【[^】]*】/g,"");
+const yen=v=>v?("¥"+Number(v).toLocaleString("ja-JP")):"";
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),1800);}
+function hl(text,terms){
+  let html=esc(text);
+  if(!terms.length) return html;
+  let out=html;
+  for(const t of terms){ if(!t) continue; const re=new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"); out=out.replace(re,m=>"\u0001"+m+"\u0002"); }
+  return out.replace(/\u0001/g,"<mark>").replace(/\u0002/g,"</mark>");
+}
+
+/* ===== 細目 → 略番 の推定・確定 ===== */
+function guess(it){
+  const nm=norm(it.name), ks=norm(it.ks), memo=norm(it.memo);
+  let best=null, bs=0;
+  for(const r of DATA){
+    let s=0;
+    const k=norm(r.k.replace(/【削除:([^】]*)】/g,"$1").replace(/【[^】]*】/g,"")), g=norm(r.g);
+    if(k&&nm===k) s+=100;
+    else if(k&&(nm.includes(k)||k.includes(nm))&&Math.min(nm.length,k.length)>=2) s+=30;
+    if(g&&ks&&(ks.includes(g)||g.includes(ks))&&Math.min(ks.length,g.length)>=2) s+=30;
+    if(g&&nm.includes(g)&&g.length>=2) s+=15;
+    const toks=norm(r.d).replace(/【[^】]*】/g,"").split(/[、,。・()（）※\/]/).map(t=>t.trim()).filter(t=>t.length>=2&&t.length<=12);
+    for(const t of toks){ if(nm.includes(t)||(memo&&memo.includes(t))){s+=35;break;} }
+    const mm=(it.memo||"").match(/(?:略番|#)\s*(\d{1,3})/);
+    if(mm&&Number(mm[1])===r.n) s+=200;
+    if(s>bs){bs=s;best=r;}
+  }
+  return bs>30?best.n:null;
+}
+function linkOf(it){
+  if(MAP[it.no]!==undefined&&MAP[it.no]!==null&&MAP[it.no]!==""){ return {n:Number(MAP[it.no]),src:"man"}; }
+  if(it.ryaku&&BYN[Number(it.ryaku)]){ return {n:Number(it.ryaku),src:"sht"}; }
+  const g=guess(it); return g?{n:g,src:"auto"}:{n:null,src:"none"};
+}
+let LINKS={};
+function rebuild(){ LINKS={}; for(const it of ITEMS) LINKS[it.no]=linkOf(it); }
+function itemsFor(n){ return ITEMS.filter(it=>LINKS[it.no]&&LINKS[it.no].n===n); }
+const SRC={man:"手動",sht:"シート",auto:"自動",none:"未"};
+
+/* ===== 項目シートの解析 ===== */
+function parseItems(text){
+  const lines=text.replace(/\r/g,"").split("\n").filter(l=>l.trim());
+  let idx={no:1,ks:2,name:3,amt:4,grp:5,memo:6,ryaku:7};
+  const out=[];
+  for(let i=0;i<lines.length;i++){
+    const j=lines[i].split("\t").map(x=>x.trim());
+    if(i===0&&j.some(x=>/^(細目|細目名)$/.test(x))){
+      const f=re=>j.findIndex(x=>re.test(x));
+      idx={no:f(/^(no|№|番号)$/i),ks:f(/^工種$/),name:f(/^(細目|細目名)$/),amt:f(/^金額/),grp:f(/^(区分|グループ)$/),memo:f(/^(メモ|備考)$/),ryaku:f(/^略番$/)};
+      continue;
+    }
+    const name=j[idx.name]||""; if(!name) continue;
+    const no=(j[idx.no]||"").replace(/[^\d.]/g,""); if(!no) continue;
+    const amt=Number((j[idx.amt]||"").replace(/[^\d.-]/g,""))||0;
+    const ry=idx.ryaku>=0?(j[idx.ryaku]||"").replace(/[^\d]/g,""):"";
+    out.push({no,ks:j[idx.ks]||"",name,amt,grp:idx.grp>=0?(j[idx.grp]||""):"",memo:idx.memo>=0?(j[idx.memo]||""):"",ryaku:ry});
+  }
+  return out;
+}
+
+/* ===== 描画: 細目タブ ===== */
+function renderI(){
+  const terms=$("q").value.trim().split(/\s+/).filter(Boolean), nterms=terms.map(norm);
+  if(!ITEMS.length){
+    $("meta").innerHTML='<span class="warn">細目がまだ読み込まれていません</span>';
+    $("list").innerHTML='<div class="none"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M10 9v12M4 15h16"/></svg></div><h3 class="empty-title">細目と略番の対応を、ここに。</h3><p class="empty-copy">右上の「データを読み込む」から、項目シートを貼り付けて始めましょう。</p><div class="steps"><div class="step"><b>01</b>項目シートをコピー</div><div class="step"><b>02</b>データを読み込む</div><div class="step"><b>03</b>略番の対応を確認</div></div></div>';return;
+  }
+  const rows=ITEMS.filter(it=>{
+    const l=LINKS[it.no], r=l.n?BYN[l.n]:null;
+    if(grp&&(!r||r.g!==grp)) return false;
+    if(!nterms.length) return true;
+    const hay=norm(it.name+" "+it.ks+" "+it.grp+" "+it.memo+" "+(r?clean(r.k)+" "+r.g+" "+r.c:""));
+    return nterms.every(t=>/^\d+$/.test(t)?(String(it.no)===t||(l.n&&String(l.n)===t)):hay.includes(t));
+  });
+  const cnt={man:0,sht:0,auto:0,none:0}; for(const it of ITEMS) cnt[LINKS[it.no].src]++;
+  $("meta").innerHTML=`<span>${rows.length}件 / 全${ITEMS.length}件</span><span>手動${cnt.man}・シート${cnt.sht}・自動${cnt.auto}・未${cnt.none}</span>`;
+  const opts=DATA.map(r=>`<option value="${r.n}">${r.n}　${esc(clean(r.k))}（${esc(r.g)}）</option>`).join("");
+  let html=`<div class="bar">
+    <button id="copyMap" class="pri" type="button">No→略番 をコピー（H列貼付用）</button>
+    <button id="copyTbl" type="button">対応表をコピー</button>
+    <button id="fixAuto" type="button">自動を手動に確定</button>
+  </div>`;
+  if(!rows.length){ $("list").innerHTML=html+'<div class="none">該当なし</div>'; bindBar(); return; }
+  let cur=null;
+  for(const it of rows){
+    const key=it.ks+(it.grp?"　"+it.grp:"");
+    if(key!==cur){cur=key;html+=`<div class="kgrp">${hl(key,terms)}</div>`;}
+    const l=LINKS[it.no], r=l.n?BYN[l.n]:null;
+    html+=`<div class="item">
+      <div class="irow"><span class="ino">No.${hl(String(it.no),terms)}</span><span class="inm">${hl(it.name,terms)}</span>${it.amt?`<span class="iamt">${yen(it.amt)}</span>`:""}${it.memo?`<span class="imemo">${hl(it.memo,terms)}</span>`:""}</div>
+      <div class="sel">
+        <select aria-label="細目No.${esc(it.no)}の略番" data-no="${esc(it.no)}" class="${l.src==="auto"?"auto":l.src==="man"?"man":""}"><option value="">— 略番未設定 —</option>${opts}</select>
+        <span class="st ${l.src}">${SRC[l.src]}</span>
+      </div>
+      ${r?`<div class="rcode">${esc(r.c)}　${hl(clean(r.d).slice(0,60),terms)}${clean(r.d).length>60?"…":""}</div>`:""}
+    </div>`;
+  }
+  $("list").innerHTML=html+'<div class="hint">プルダウンで略番を選ぶと「手動」として保存（この端末のみ）。共有したいときは「No→略番をコピー」→項目シートのH列に貼る</div>';
+  $("list").querySelectorAll("select").forEach(s=>{
+    s.value=LINKS[s.dataset.no].n?String(LINKS[s.dataset.no].n):"";
+    s.onchange=()=>{ MAP[s.dataset.no]=s.value?Number(s.value):""; save(); rebuild(); renderI(); };
+  });
+  bindBar();
+}
+function bindBar(){
+  const b1=$("copyMap"),b2=$("copyTbl"),b3=$("fixAuto");
+  if(b1) b1.onclick=()=>{ copy(ITEMS.map(it=>`${it.no}\t${LINKS[it.no].n||""}`).join("\n")); toast("No→略番 をコピーした"); };
+  if(b2) b2.onclick=()=>{ copy("No\t工種\t細目\t金額\t略番\t略番工種\t工種コード\n"+ITEMS.map(it=>{const l=LINKS[it.no],r=l.n?BYN[l.n]:null;return `${it.no}\t${it.ks}\t${it.name}\t${it.amt||""}\t${l.n||""}\t${r?clean(r.k):""}\t${r?r.c:""}`;}).join("\n")); toast("対応表をコピーした"); };
+  if(b3) b3.onclick=()=>{ let c=0; for(const it of ITEMS){const l=LINKS[it.no]; if(l.src==="auto"){MAP[it.no]=l.n;c++;}} save(); rebuild(); renderI(); toast(`自動${c}件を手動に確定`); };
+}
+
+/* ===== 描画: 略番タブ(略番→どの細目か) ===== */
+function renderR(){
+  const terms=$("q").value.trim().split(/\s+/).filter(Boolean), nterms=terms.map(norm);
+  let rows=DATA.filter(r=>!grp||r.g===grp);
+  if(onlyLinked&&ITEMS.length) rows=rows.filter(r=>itemsFor(r.n).length);
+  if(nterms.length){
+    rows=rows.filter(r=>{
+      const its=itemsFor(r.n);
+      const hay=norm(clean(r.k)+" "+r.c+" "+clean(r.d)+" "+r.g+" "+its.map(i=>i.name+" "+i.ks+" "+i.memo).join(" "));
+      return nterms.every(t=>/^\d+$/.test(t)?(String(r.n)===t||its.some(i=>String(i.no)===t)):hay.includes(t));
+    });
+  }
+  const linked=ITEMS.filter(it=>LINKS[it.no]&&LINKS[it.no].n).length;
+  $("meta").innerHTML=`<span>${rows.length}件${grp?`　▸ ${esc(grp)}`:""}</span>`+
+    (ITEMS.length?`<span>細目 ${ITEMS.length}件（リンク済 ${linked}）</span>`:`<span class="warn">細目未読込 →「データを読み込む」</span>`);
+  let html=ITEMS.length?`<label class="tog"><input type="checkbox" id="onlyL" ${onlyLinked?"checked":""}> 細目がリンクされた略番だけ表示</label>`:"";
+  if(!rows.length){ $("list").innerHTML=html+'<div class="none">該当なし</div>'; bindTog(); return; }
+  $("list").innerHTML=html+rows.map(r=>{
+    const its=itemsFor(r.n), tot=its.reduce((a,i)=>a+(i.amt||0),0);
+    const lk=its.length?`<div class="links">${its.map(i=>`
+      <div class="lk"><span class="lno">No.${hl(String(i.no),terms)}</span><span class="lks">${hl(i.ks,terms)}</span><span class="lnm">${hl(i.name,terms)}</span>${i.amt?`<span class="lamt">${yen(i.amt)}</span>`:""}<span class="st ${LINKS[i.no].src}">${SRC[LINKS[i.no].src]}</span></div>`).join("")}
+      ${its.length>1&&tot?`<div class="sum">計 ${yen(tot)}</div>`:""}</div>`
+      :(ITEMS.length?`<div class="nolink">対応する細目なし</div>`:"");
+    return `<div class="card">
+      <div class="top"><span class="num">${hl(String(r.n),terms)}</span><span class="name">${hl(clean(r.k),terms)}</span><span class="grp">${hl(r.g,terms)}</span><span class="code">${hl(r.c,terms)}</span></div>
+      ${lk}
+    </div>`;}).join("")+'<div class="hint">数字は略番か細目Noにピンポイント。細目名でも略番を探せる</div>';
+  bindTog();
+}
+function bindTog(){ const c=$("onlyL"); if(c) c.onchange=()=>{onlyLinked=c.checked;renderR();}; }
+
+function copy(t){
+  const fb=s=>{const ta=document.createElement("textarea");ta.value=s;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();};
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).catch(()=>fb(t)); else fb(t);
+}
+function save(){ try{localStorage.setItem(LS_ITEMS,JSON.stringify(ITEMS));localStorage.setItem(LS_MAP,JSON.stringify(MAP));}catch(e){} }
+function render(){ tab==="I"?renderI():renderR(); }
+function chips(){
+  $("chips").innerHTML=['<button class="chip'+(grp?"":" on")+'" data-g="">すべて</button>']
+    .concat(GROUPS.map(g=>`<button class="chip${grp===g?" on":""}" data-g="${esc(g)}">${esc(g)}</button>`)).join("");
+  $("chips").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{grp=b.dataset.g;chips();render();if(matchMedia("(max-width:800px)").matches) $("category-panel").open=false;});
+}
+function setTab(t){ tab=t; $("tabI").setAttribute("aria-pressed",t==="I"); $("tabR").setAttribute("aria-pressed",t==="R"); $("list-title").textContent=t==="I"?"細目と略番の対応":"略番とリンクされた細目"; $("tabI").classList.toggle("on",t==="I"); $("tabR").classList.toggle("on",t==="R");
+  $("q").placeholder=t==="I"?"例: 12 / 外部足場 / 直接仮設":"例: 13 / 足場 / ガードマン"; render(); }
+
+$("tabI").onclick=()=>setTab("I");
+$("tabR").onclick=()=>setTab("R");
+$("q").addEventListener("input",render);
+$("clr").onclick=()=>{$("q").value="";grp="";chips();render();$("q").focus();};
+$("load").onclick=()=>{$("ov").classList.add("on");$("okmsg").textContent=ITEMS.length?`現在 ${ITEMS.length}件 読込済`:"";$("paste").focus();};
+$("close").onclick=()=>$("ov").classList.remove("on");
+$("ov").onclick=e=>{if(e.target===$("ov"))$("ov").classList.remove("on");};
+$("doLoad").onclick=()=>{
+  const items=parseItems($("paste").value);
+  if(!items.length){$("okmsg").textContent="細目が読み取れなかった。項目シートを列ごとコピーして貼ってね";return;}
+  ITEMS=items; save(); rebuild();
+  $("okmsg").textContent=`${items.length}件 読み込んだ`; $("paste").value="";
+  toast(`細目 ${items.length}件を読み込んだ`); setTab("I"); setTimeout(()=>$("ov").classList.remove("on"),400);
+};
+$("clearItems").onclick=()=>{ if(!confirm("細目データを消す？（手動リンクは残る）"))return; ITEMS=[]; save(); rebuild(); $("okmsg").textContent="消した"; render(); };
+$("clearMap").onclick=()=>{ if(!confirm("手動で割り当てた略番を全部消す？"))return; MAP={}; save(); rebuild(); $("okmsg").textContent="手動リンクを消した"; render(); };
+
+const smallScreen=matchMedia("(max-width:800px)");
+$("category-panel").open=!smallScreen.matches;
+smallScreen.addEventListener("change",e=>{$("category-panel").open=!e.matches;});
+document.addEventListener("keydown",e=>{
+ if(!$("ov").classList.contains("on"))return;
+ if(e.key==="Escape"){$("ov").classList.remove("on");$("load").focus();}
+ if(e.key==="Tab"){
+  const focusable=Array.from($("ov").querySelectorAll('button,textarea'));
+  const first=focusable[0],last=focusable[focusable.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+  if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+ }
+});
+rebuild(); chips(); render();
+</script>
+</body>
+</html>
