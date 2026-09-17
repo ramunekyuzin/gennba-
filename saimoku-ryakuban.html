@@ -67,6 +67,11 @@ button{cursor:pointer}
 .st.auto{background:var(--auto-soft);color:var(--auto)}
 .st.man{background:var(--ry-soft);color:var(--ry)}
 .st.none{background:var(--accent-soft);color:var(--accent)}
+.st.ai{background:#e6dcf5;color:#5b3aa0}
+.st.ailow{background:var(--accent-soft);color:var(--red);font-weight:700}
+.sel select.ailow{border-color:var(--red)}
+.sel select.ai{border-color:#8b6bd0}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .st.ai{background:#2b2140;color:#c3aef0} }
 .rcode{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink2);margin-top:4px;word-break:break-all}
 .rcode b{color:var(--auto);font-weight:700}
 .cands{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
@@ -138,6 +143,10 @@ header{padding-top:18px;padding-bottom:12px}.hrow{margin-bottom:14px}h1 b{font-s
 .bar{align-items:flex-start;margin-bottom:18px}.bar>.pri{order:0}.bar>#onlyNone{order:1}.bar>#undoMap{order:2}.more-actions{order:3}.export-note{order:4}.more-actions summary{cursor:pointer;list-style:none;font-size:12px;border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-height:42px;background:var(--bg);color:var(--ink)}.more-actions summary:after{content:" ＋";color:var(--accent)}.more-actions[open] summary:after{content:" −"}.more-buttons{display:flex;gap:6px;flex-direction:column;margin-top:8px}.more-buttons button{text-align:left}.alternatives{margin-top:10px;font-size:12px}.alternatives summary{cursor:pointer;color:var(--accent);font-size:12px;min-height:32px;padding-top:5px}.alternatives .cands:before{display:none}.criterion{padding-top:8px;margin-top:10px}.criterion summary{min-height:30px;padding-top:3px}.item{padding:16px 20px}.sel-label{margin-top:10px}.sel{margin-top:5px}.sel select{min-height:42px}.inm{font-size:16px}.kgrp{margin-top:18px}.rcode{margin-top:6px}.panel textarea{font-family:"JetBrains Mono","Noto Sans JP","Yu Gothic",monospace}.more-actions summary:focus-visible,.alternatives summary:focus-visible,.criterion summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}.bar button{white-space:nowrap}
 @media(min-width:900px){.item{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,46%);column-gap:28px}.irow{grid-column:1;grid-row:1/4;align-content:start;align-items:center}.irow .imemo{margin-top:2px}.sel-label{grid-column:2;grid-row:1;margin-top:0}.sel{grid-column:2;grid-row:2;width:100%}.rcode{grid-column:2;grid-row:3}.criterion{grid-column:1/-1}.alternatives{grid-column:1/-1;margin-top:0}.iamt{font-size:15px}.hint{text-align:left}}
 @media(max-width:600px){header{position:relative;padding:14px 14px 12px}.hrow{gap:9px}h1 b{font-size:22px}.meta{gap:7px}.status-counts{gap:4px}.count{font-size:10px;padding:2px 6px}main{padding-top:14px}.bar{gap:7px;padding:10px}.bar>.pri{flex:1 1 100%}.bar>#onlyNone,.bar>#undoMap{flex:1 1 40%}.more-actions{width:100%}.more-buttons{flex-direction:row;flex-wrap:wrap}.more-buttons button{flex:1 1 45%;white-space:normal}.more-actions summary{text-align:center}.bar .export-note{font-size:10px;line-height:1.7}.item{padding:15px}.sel-label{margin-top:10px}.empty-title{font-size:20px}.criterion summary,.alternatives summary{min-height:38px;padding-top:8px}}
+
+.count.ai,.ai-action{color:#6b469f;background:#f0eafa}.count.review,.review-note{color:var(--red);background:color-mix(in srgb,var(--red) 8%,var(--paper))}.bar .ai-action{order:2;border-color:#d8c9f0;background:#f5efff;color:#674298;font-weight:700}.bar #undoMap{order:3}.more-actions{order:4}.bar .export-note{order:5}.ai-progress{order:6;flex-basis:100%;font-size:12px;color:var(--accent)}.needs-review{border-left:4px solid var(--red)}.review-note{grid-column:1/-1;font-size:12px;line-height:1.8;margin-top:12px;padding:9px 12px;border-radius:8px}.st.ai,.st.ailow{white-space:nowrap}.meta .status-counts{row-gap:6px}.bar button{white-space:normal}.toast{max-width:calc(100vw - 32px);width:max-content;text-align:center}.panel .bar .pri{order:0}.panel .bar #close{order:1}
+@media(prefers-color-scheme:dark){.count.ai,.bar .ai-action{background:#322440;color:#d3bafa;border-color:#635077}}
+@media(max-width:600px){.bar>#undoMap{flex:1 1 40%}.bar .ai-action{flex:1 1 40%}.meta{align-items:flex-start}.status-counts{width:100%}.count{padding:3px 7px}.review-note{font-size:11px}}
 </style>
 </head>
 <body>
@@ -168,7 +177,7 @@ header{padding-top:18px;padding-bottom:12px}.hrow{margin-bottom:14px}h1 b{font-s
     <div class="bar">
       <button id="doLoad" class="pri" type="button" disabled>読み込む</button>
       <button id="close" type="button">閉じる</button>
-    </div><p class="saved-note">この端末のブラウザに保存します。元のシートは変更しません。</p><details class="danger-zone"><summary>保存データの管理</summary><button id="clearItems" type="button">細目データを消す</button><button id="clearMap" type="button">手動リンクを消す</button><button id="clearLearn" type="button">学習を消す</button></details>
+    </div><p class="saved-note">この端末のブラウザに保存します。元のシートは変更しません。</p><details class="danger-zone"><summary>保存データの管理</summary><button id="clearAI" type="button">AI判定を消す</button><button id="clearItems" type="button">細目データを消す</button><button id="clearMap" type="button">手動リンクを消す</button><button id="clearLearn" type="button">学習を消す</button></details>
   </div>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -178,7 +187,9 @@ const DATA=[{"g": "共通仮設工事", "n": 1, "k": "とび・土工", "c": "A0
 const GROUPS=[...new Set(DATA.map(r=>r.g))];
 const BYN=Object.fromEntries(DATA.map(r=>[r.n,r]));
 const $=id=>document.getElementById(id);
-const LS_ITEMS="saimoku_items", LS_MAP="saimoku_map";
+const LS_ITEMS="saimoku_items", LS_MAP="saimoku_map", LS_AI="saimoku_ai";
+const AI_GAS_URL="https://script.google.com/macros/s/AKfycbwEUcxvhahE1MUuPVlIfPmx1gSn3Qhnr4DNCZyC8o3t-8xReVFroBA66bXZqR2C5DTvHg/exec"; // AI振り分け用GAS(Code.gs)のデプロイURL。空なら🤖ボタンは出ない
+let AIMAP={}; try{AIMAP=JSON.parse(localStorage.getItem(LS_AI)||"{}")}catch(e){AIMAP={}}
 let grp="", tab="I", onlyLinked=false, onlyNone=false;
 let ITEMS=[]; try{ITEMS=JSON.parse(localStorage.getItem(LS_ITEMS)||"[]")}catch(e){ITEMS=[]}
 let MAP={};  try{MAP=JSON.parse(localStorage.getItem(LS_MAP)||"{}")}catch(e){MAP={}}
@@ -257,16 +268,18 @@ function linkOf(it,prev){
   if(it.ryaku&&BYN[Number(it.ryaku)]){ return {n:Number(it.ryaku),src:"sht"}; }
   const ln=LEARN[norm(it.ks+"|"+it.name)]||LEARN[norm(it.name)];
   if(ln&&BYN[ln]) return {n:ln,src:"auto",why:"学習(前に同じ名前で選択)"};
+  const ai=AIMAP[it.no]; if(ai&&BYN[ai.n]) return {n:ai.n,src:ai.low?"ailow":"ai",why:ai.why||"AI判定"};
   if(/^(同上|〃|仝上)/.test(it.name.trim())&&prev&&prev.n) return {n:prev.n,src:"auto",why:"同上 → 前の行と同じ"};
   const g=guess(it); return g?{n:g.n,src:"auto",why:g.why}:{n:null,src:"none"};
 }
+let aiBusy=false,aiProgress="";
 let undoState=null;
 function rememberChange(){undoState={map:JSON.stringify(MAP),learn:JSON.stringify(LEARN)};}
 let LINKS={};
 function rebuild(){ LINKS={}; let prev=null; for(const it of ITEMS){ LINKS[it.no]=linkOf(it,prev); prev=LINKS[it.no]; } }
 function learn(it,n){ if(!it) return; const k=norm(it.ks+"|"+it.name); if(n) LEARN[k]=Number(n); else delete LEARN[k]; }
 function itemsFor(n){ return ITEMS.filter(it=>LINKS[it.no]&&LINKS[it.no].n===n); }
-const SRC={man:"手動",sht:"シート",auto:"自動",none:"未設定"};
+const SRC={man:"手動",sht:"シート",auto:"自動",ai:"AI",ailow:"AI要確認",none:"未設定"};
 
 /* ===== 項目シートの解析 ===== */
 function parseItems(text){
@@ -299,40 +312,46 @@ function renderI(){
   const rows=ITEMS.filter(it=>{
     const l=LINKS[it.no], r=l.n?BYN[l.n]:null;
     if(grp&&(!r||r.g!==grp)) return false;
-    if(onlyNone&&l.n) return false;
+    if(onlyNone&&l.n&&l.src!=="ailow") return false;
     if(!nterms.length) return true;
     const hay=norm(it.name+" "+it.ks+" "+it.grp+" "+it.memo+" "+(r?clean(r.k)+" "+r.g+" "+r.c:""));
     return nterms.every(t=>/^\d+$/.test(t)?(String(it.no)===t||(l.n&&String(l.n)===t)):hay.includes(t));
   });
-  const cnt={man:0,sht:0,auto:0,none:0}; for(const it of ITEMS) cnt[LINKS[it.no].src]++;
-  $("meta").innerHTML=`<span>${rows.length}件 / 全${ITEMS.length}件</span><span class="status-counts"><span class="count auto">自動 ${cnt.auto}</span><span class="count">手動 ${cnt.man}</span><span class="count">シート ${cnt.sht}</span><span class="count unset">未設定 ${cnt.none}</span></span>`;
+  const cnt={man:0,sht:0,auto:0,ai:0,ailow:0,none:0}; for(const it of ITEMS) cnt[LINKS[it.no].src]++;
+  $("meta").innerHTML=`<span>${rows.length}件 / 全${ITEMS.length}件</span><span class="status-counts"><span class="count">手動 ${cnt.man}</span><span class="count">シート ${cnt.sht}</span><span class="count ai">AI ${cnt.ai}</span><span class="count review">AI要確認 ${cnt.ailow}</span><span class="count auto">自動 ${cnt.auto}</span><span class="count unset">未設定 ${cnt.none}</span></span>`;
   const opts=DATA.map(r=>`<option value="${r.n}">${r.n}　${esc(clean(r.k))}（${esc(r.g)}）</option>`).join("");
   let html=`<div class="bar">
-    <button id="copyH" class="pri" type="button">略番のみコピー（H列用）</button>
-    <details class="more-actions"><summary>その他の操作</summary><div class="more-buttons"><button id="copyMap" type="button">No＋略番（2列）</button>
-    <button id="copyTbl" type="button">対応表をコピー</button>
-    <button id="fixAuto" type="button">自動判定を一括確定</button></div></details>
-    <button id="undoMap" type="button" ${undoState?"":"disabled"}>変更を戻す</button>
-    <button id="onlyNone" type="button" aria-pressed="${onlyNone}" class="">${onlyNone?"未設定のみ表示中":"未設定だけ表示"}</button>
-  <span class="export-note">コピー対象：全${ITEMS.length}件・読み込み順。H列用は元シートの最初のデータ行に貼り付けてください。</span></div>`;
+    <button id="copyH" class="pri" type="button">略番をコピー（H列用）</button>
+    <button id="onlyNone" type="button" aria-pressed="${onlyNone}">${onlyNone?"未設定・要確認を表示中":"未設定・要確認だけ"}</button>
+    ${AI_GAS_URL?`<button id="aiRun" type="button" class="ai-action" ${aiBusy?"disabled":""}>${aiBusy?`AI判定中 ${aiProgress}`:"AIで振り分け"}</button>`:""}
+    <button id="undoMap" type="button" ${undoState&&!aiBusy?"":"disabled"}>変更を戻す</button>
+    <details class="more-actions"><summary>その他の操作</summary><div class="more-buttons">
+      <button id="copyMap" type="button">No＋略番（2列）</button>
+      <button id="copyTbl" type="button">対応表をコピー</button>
+      <button id="fixAuto" type="button" ${aiBusy?"disabled":""}>AI・自動判定を一括確定</button>
+    </div></details>
+    <span class="export-note">コピー対象：全${ITEMS.length}件・読み込み順。H列用は元シートの最初のデータ行へ貼り付け。</span>
+    ${aiBusy?`<span class="ai-progress" role="status">AIが判定しています。${aiProgress}</span>`:""}
+  </div>`;
   if(!rows.length){ $("list").innerHTML=html+'<div class="none">条件に一致する項目がありません。<br><small>検索語や絞り込み条件を見直してください。</small></div>'; bindBar(); return; }
   let cur=null;
   for(const it of rows){
     const key=(it.ks||"工種未入力")+(it.grp?"　"+it.grp:"");
     if(key!==cur){cur=key;html+=`<div class="kgrp">${hl(key,terms)}</div>`;}
     const l=LINKS[it.no], r=l.n?BYN[l.n]:null;
-    html+=`<div class="item">
+    html+=`<div class="item ${l.src==='ailow'?'needs-review':''}">
       <div class="irow"><span class="ino">No.${hl(String(it.no),terms)}</span><span class="inm">${hl(it.name,terms)}</span>${it.amt?`<span class="iamt">${yen(it.amt)}</span>`:""}${it.memo?`<span class="imemo">${hl(it.memo,terms)}</span>`:""}</div>
       <div class="sel-label">対応する略番</div><div class="sel">
-        <select aria-label="No.${esc(it.no)} の略番" data-no="${esc(it.no)}" class="${l.src==="auto"?"auto":l.src==="man"?"man":""}"><option value="">— 略番未設定 —</option>${opts}</select>
+        <select aria-label="No.${esc(it.no)} の略番" data-no="${esc(it.no)}" class="${l.src==="auto"?"auto":l.src==="man"?"man":l.src==="ai"?"ai":l.src==="ailow"?"ailow":""}"><option value="">— 略番未設定 —</option>${opts}</select>
         <span class="st ${l.src}">${SRC[l.src]}</span>
       </div>
       ${r?`<div class="rcode">${esc(r.c)}　${l.why?`<b>${esc(l.why)}</b>　`:""}</div>`:""}
+      ${l.src==="ailow"?`<div class="review-note">要確認：AIの確信度が低い候補です。内訳を確認して略番を選び直してください。</div>`:""}
       ${r?`<details class="criterion"><summary>査定基準の内訳を見る</summary><p>${hl(clean(r.d)||"内訳の記載はありません",terms)}</p></details>`:""}
       ${cands(it,l)}
     </div>`;
   }
-  $("list").innerHTML=html+'<div class="hint">略番の内訳(説明文)に細目名の言葉が含まれていれば自動で振り分け、黄色で根拠を表示。下の候補をタップかプルダウンで直すと「手動」保存（この端末のみ）。共有は「略番のみコピー（H列用）」で全件を読み込み順にコピーし、項目シートのH列へ貼り付けます。</div>';
+  $("list").innerHTML=html+'<div class="hint">優先順: 手動 ＞ シート(H列) ＞ 学習 ＞ AI ＞ 自動。確認後は「略番をコピー（H列用）」で元シートへ貼り付け。同じシートを読み込むと、その略番が優先されます。</div>';
   $("list").querySelectorAll(".cand").forEach(b=>b.onclick=()=>{ rememberChange();MAP[b.dataset.no]=Number(b.dataset.n); learn(ITEMS.find(x=>x.no===b.dataset.no),b.dataset.n); save(); rebuild(); renderI(); toast(`No.${b.dataset.no} → 略番${b.dataset.n}`); });
   $("list").querySelectorAll("select").forEach(s=>{
     s.value=LINKS[s.dataset.no].n?String(LINKS[s.dataset.no].n):"";
@@ -352,7 +371,8 @@ function bindBar(){
   if(b4) b4.onclick=()=>{onlyNone=!onlyNone;renderI();};
   if(b1) b1.onclick=()=>{ copy(ITEMS.map(it=>`${it.no}\t${LINKS[it.no].n||""}`).join("\n")); };
   if(b2) b2.onclick=()=>{ copy("No\t工種\t細目\t金額\t略番\t略番工種\t工種コード\n"+ITEMS.map(it=>{const l=LINKS[it.no],r=l.n?BYN[l.n]:null;return `${it.no}\t${it.ks}\t${it.name}\t${it.amt||""}\t${l.n||""}\t${r?clean(r.k):""}\t${r?r.c:""}`;}).join("\n")); };
-  if(b3) b3.onclick=()=>{ const total=ITEMS.filter(it=>LINKS[it.no].src==="auto").length;if(!total){toast("確定する自動判定はありません");return;}if(!confirm(`全${total}件の自動判定を手動として確定します。内容を確認しましたか？`))return;rememberChange();let c=0; for(const it of ITEMS){const l=LINKS[it.no]; if(l.src==="auto"){MAP[it.no]=l.n;c++;}} save(); rebuild(); renderI(); toast(`自動${c}件を手動に確定`); };
+  if(b3) b3.onclick=()=>{ if(aiBusy)return;const total=ITEMS.filter(it=>["auto","ai","ailow"].includes(LINKS[it.no].src)).length;if(!total){toast("確定するAI・自動判定はありません");return;}if(!confirm(`全${total}件のAI・自動判定を手動として確定します（AI要確認も含みます）。内容を確認しましたか？`))return;rememberChange();let c=0; for(const it of ITEMS){const l=LINKS[it.no]; if(l.src==="auto"||l.src==="ai"||l.src==="ailow"){MAP[it.no]=l.n;learn(it,l.n);c++;}} save(); rebuild(); renderI(); toast(`${c}件を手動に確定`); };
+  const b5=$("aiRun"); if(b5) b5.onclick=aiRun;
 }
 
 /* ===== 描画: 略番タブ(略番→どの細目か) ===== */
@@ -387,11 +407,37 @@ function renderR(){
 }
 function bindTog(){ const c=$("onlyL"); if(c) c.onchange=()=>{onlyLinked=c.checked;renderR();}; }
 
+function syncAIState(){
+  for(const id of ["load","doLoad","clearItems","clearMap","clearLearn","clearAI"]){const el=$(id);if(el)el.disabled=aiBusy;}
+  if(!aiBusy)previewImport();
+}
+async function aiRun(){
+  if(aiBusy)return;
+  const targets=ITEMS.filter(it=>{const l=LINKS[it.no];return l.src!=="man"&&l.src!=="sht";});
+  if(!targets.length){toast("AIに送る対象がありません（手動・シート確定分は対象外）");return;}
+  if(!confirm(`${targets.length}件をAIで判定します。手動・シート確定分は送りません。続けますか？`))return;
+  aiBusy=true;aiProgress=`0 / ${targets.length}件`;syncAIState();render();
+  const ryaku=DATA.map(r=>({n:r.n,g:r.g,k:clean(r.k),d:clean(r.d).slice(0,160)}));
+  try{
+    for(let i=0;i<targets.length;i+=40){
+      const chunk=targets.slice(i,i+40).map(it=>({no:it.no,ks:it.ks,name:it.name,memo:it.memo||"",hint:LINKS[it.no].n||null}));
+      const res=await fetch(AI_GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({items:chunk,ryaku})});
+      if(!res.ok)throw new Error(`通信エラー（${res.status}）`);
+      const j=await res.json();if(j.error)throw new Error(j.error);
+      const allowed=new Set(chunk.map(it=>String(it.no)));
+      for(const r of (j.results||[])){if(r&&allowed.has(String(r.no))&&BYN[Number(r.n)])AIMAP[String(r.no)]={n:Number(r.n),why:"AI: "+(r.why||""),low:r.conf==="low"};}
+      aiProgress=`${Math.min(i+40,targets.length)} / ${targets.length}件`;
+      save();rebuild();render();
+    }
+    toast("AI判定が完了しました。要確認の項目をご確認ください。");
+  }catch(e){alert("AI判定でエラー: "+e.message);}
+  finally{aiBusy=false;aiProgress="";syncAIState();render();}
+}
 async function copy(t){
  try{if(navigator.clipboard&&navigator.clipboard.writeText) await navigator.clipboard.writeText(t);else throw Error();toast("コピーしました");}
  catch(e){const ta=document.createElement("textarea");ta.value=t;ta.style.cssText="position:fixed;left:-9999px";document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand("copy");}catch(e){}ta.remove();toast(ok?"コピーしました":"コピーできませんでした。ブラウザの権限を確認してください。");}
 }
-function save(){ try{localStorage.setItem(LS_ITEMS,JSON.stringify(ITEMS));localStorage.setItem(LS_MAP,JSON.stringify(MAP));localStorage.setItem("saimoku_learn",JSON.stringify(LEARN));}catch(e){} }
+function save(){ try{localStorage.setItem(LS_ITEMS,JSON.stringify(ITEMS));localStorage.setItem(LS_MAP,JSON.stringify(MAP));localStorage.setItem("saimoku_learn",JSON.stringify(LEARN));localStorage.setItem(LS_AI,JSON.stringify(AIMAP));}catch(e){} }
 function render(){ tab==="I"?renderI():renderR(); }
 function chips(){
   $("groupSelect").innerHTML='<option value="">すべての工種</option>'+GROUPS.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join("");$("groupSelect").value=grp;
@@ -415,6 +461,7 @@ $("doLoad").onclick=()=>{
   toast(`細目 ${items.length}件を読み込んだ`); setTab("I"); setTimeout(closeImport,400);
 };
 $("clearItems").onclick=()=>{ if(!confirm("細目データを消す？（手動リンクは残る）"))return; ITEMS=[]; undoState=null;save(); rebuild(); $("okmsg").textContent="消した"; render(); };
+$("clearAI").onclick=()=>{ if(!confirm("AI判定の結果を全部消す？"))return; AIMAP={}; undoState=null;save(); rebuild(); $("okmsg").textContent="AI判定を消した"; render(); };
 $("clearLearn").onclick=()=>{ if(!confirm("学習した名前→略番を全部消す？"))return; LEARN={}; undoState=null;save(); rebuild(); $("okmsg").textContent="学習を消した"; render(); };
 $("clearMap").onclick=()=>{ if(!confirm("手動で割り当てた略番を全部消す？"))return; MAP={}; undoState=null;save(); rebuild(); $("okmsg").textContent="手動リンクを消した"; render(); };
 
