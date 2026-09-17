@@ -91,24 +91,28 @@ body{padding:0;max-width:none;line-height:1.7}.page-header{background:#183147;co
 @media(max-width:1000px){.stat{grid-template-columns:1fr 1fr}.stat>span{padding:14px}.stat b{font-size:23px}.tabs{gap:8px}.tab{padding:13px 11px}.tab strong{font-size:12px}}
 @media(max-width:700px){body{padding:0}.page-header{padding:23px 17px;gap:11px}.brand-icon{width:42px;height:45px}h1{font-size:22px}.header-copy{font-size:10px}.workspace{padding:20px 14px 40px}.tabs{gap:7px;margin-bottom:23px}.tab{flex-direction:column;gap:7px;padding:12px 5px;text-align:center;position:relative}.step-no{width:30px;height:30px;font-size:14px}.tab strong{font-size:11px}.tab small{font-size:9px}.tab .tag{margin:0;font-size:9px;padding:1px 4px}.section-intro{display:block}.section-intro h2{font-size:17px}.section-intro p{margin-top:4px}#tab-in{grid-template-columns:1fr;gap:14px}.card{padding:18px 15px}.drop{min-height:230px;padding:24px 14px}.drop strong{font-size:14px}textarea{font-size:16px;min-height:195px}textarea::placeholder{font-size:12px}.maintenance .small{margin-left:0;width:100%}.stat{gap:8px}.stat>span{font-size:10px;padding:11px 9px}.stat b,.stat>span:last-child b{font-size:19px;margin:0 3px}.assign-actions button{font-size:10px;padding:8px;min-height:40px}.assign-actions label{width:100%;margin-top:5px}.bulk{bottom:8px;gap:8px;padding:11px}.bulk .small{width:100%}.bulk select{min-width:0;width:100%;flex-basis:100%}.bulk button{width:100%}.grp{padding:15px}.grp h3{font-size:14px}.grp h3 .sum{width:100%;text-align:right;font-size:19px}.grp h3 .code{flex-basis:100%}.grp li{font-size:11px}.table-note{display:block;font-size:10px;color:var(--ink2);margin-top:10px}.paste-action button{width:100%}td,th{padding:10px 8px}td select{max-width:calc(100% - 53px)}td input.amt{width:100%}#tab-out .row button{font-size:10px;padding:8px 10px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+#aiState{margin-top:17px;padding-top:13px;border-top:1px solid var(--line);width:100%;font-size:10px}#aiState .tag{margin:0;border-radius:6px;padding:5px 11px;font-size:10px}.drop{min-height:300px}.reader-guide{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}.reader-guide span{flex:1;text-align:center;font-size:10px;background:var(--soft);border:1px solid var(--line);padding:8px;border-radius:7px;color:var(--ink2)}.reader-guide b{color:var(--ink);font-weight:500}.card:has(#paste){display:flex;flex-direction:column}.card:has(#paste) textarea{flex:1;min-height:235px}.card:has(#paste) .paste-action{margin-top:15px}#status:not(:empty){padding:11px 13px;background:var(--accent2);border-radius:8px;margin-top:12px;overflow-wrap:anywhere}#status.ng:not(:empty){background:var(--warnbg);color:var(--warn)}
+@media(max-width:700px){.drop{min-height:260px}.card:has(#paste) textarea{min-height:190px}}
 </style>
 </head>
 <body>
 
 <header class="page-header"><div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M15 4h5v5M14 10l6-6M4 15v5h5M4 20l6-6"/></svg></div><div><div class="eyebrow">CONSTRUCTION COST SORTER</div><h1>品名 → 略番 仕分け</h1><p class="header-copy">明細を取り込み、略番を選び、工種ごとにまとめる。</p></div></header>
 <main class="workspace"><nav class="tabs" aria-label="仕分けの手順">
-<button class="tab on" data-tab="in" aria-pressed="true"><span class="step-no">01</span><span><strong>明細を読み込む</strong><small>PDF・テキスト貼り付け</small></span></button>
+<button class="tab on" data-tab="in" aria-pressed="true"><span class="step-no">01</span><span><strong>明細を読み込む</strong><small>PDF・写真・貼り付け</small></span></button>
 <button class="tab" data-tab="assign" aria-pressed="false"><span class="step-no">02</span><span><strong>略番を選ぶ</strong><small>候補を確認して仕分け</small></span><span id="cntBadge" class="tag"></span></button>
 <button class="tab" data-tab="out" aria-pressed="false"><span class="step-no">03</span><span><strong>集計結果を見る</strong><small>コピー・CSVで保存</small></span></button></nav>
 <!-- ============ ① 読み込み ============ -->
-<section id="tab-in"><div class="section-intro"><h2>明細を取り込む</h2><p>PDF・テキストのどちらからでも始められます。</p></div>
+<section id="tab-in"><div class="section-intro"><h2>明細を取り込む</h2><p>PDF・写真・テキストから明細を取り込めます。</p></div>
   <div class="card">
-    <h3 class="section-title"><span>PDF</span>ファイルから読み込み</h3><label class="drop" id="drop" tabindex="0" role="button" aria-label="PDFファイルを選択">
-      <input type="file" id="file" accept="application/pdf,.pdf" multiple>
-      <div class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></svg></div><strong>PDFをここにドロップ</strong><span class="file-choose">ファイルを選択</span>
-      <div class="hint">請求書・見積・明細など、文字が選択できるPDF。複数ファイルまとめてOK。<br>スキャン画像のPDFは対象外です。文字に起こした内容を貼り付けてください。</div>
+    <h3 class="section-title"><span>PDF / IMAGE</span>ファイルから読み込み</h3><label class="drop" id="drop" tabindex="0" role="button" aria-label="PDF・写真ファイルを選択">
+      <input type="file" id="file" accept="application/pdf,.pdf,image/*" multiple>
+      <div class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></svg></div><strong>PDF・写真をここにドロップ</strong><span class="file-choose">ファイルを選択</span>
+      <div class="hint">請求書・納品書・見積書に対応。複数ファイルもまとめて選択できます。<br>文字のあるPDFは直接読み取り、写真・スキャンPDFは <b>AI読み取り</b> を使用します。</div>
+      <div class="hint" id="aiState" role="status"></div>
     </label>
-    <div id="status" role="status" aria-live="polite"></div>
+    <div class="reader-guide"><span><b>文字PDF</b> → 直接読み取り</span><span><b>写真・スキャン</b> → AI読み取り</span></div><div id="status" role="status" aria-live="polite"></div>
   </div>
 
   <div class="card">
@@ -192,6 +196,11 @@ body{padding:0;max-width:none;line-height:1.7}.page-header{background:#183147;co
 // ===================== マスタ(出来高査定基準・略番) =====================
 const MASTER = [{"n":1,"g":"共通仮設工事","k":"とび・土工","c":"A0102B","d":"作業所内外清掃片付、草刈伐採、下水清掃、仮設建物関係、機械組立て据付、オペレーター、シート張り、仮囲い手間、看板取付け手間、仮設建物撤去後の整地、道路清掃、除雪費等"},{"n":2,"g":"共通仮設工事","k":"仮設物費","c":"A0170D","d":"工事事務所、監督事務所、作業員宿舎、倉庫、下小屋、仮設便所、作業員詰所、その他仮設建物、オーバーブリッジ、家賃、事務所等の台風養生、仮囲い及び門扉、台風養生材料、安全信号灯、各種危険防止棚、防音防臭、バリケード、借地仮囲い、仮囲いの塗装費"},{"n":3,"g":"共通仮設工事","k":"仮設進入路","c":"A0173D","d":"仮設進入路に要した土、セメント、骨材、生コン、鉄板、地盤改良等、仮排水路、仮橋、歩道乗り入れ、洗車設備"},{"n":4,"g":"共通仮設工事","k":"動力用水光熱","c":"A0175D","d":"電力、水道、ガス、燃料代、給水車、設備テスト料金、電気機械器具損料、変電設備、電柱、漏電遮断器、電撃防止装置、用水ポンプ、タンク、高圧受電主任技術者依頼料、井戸、場内電話、インターホン、排尿設備"},{"n":5,"g":"共通仮設工事","k":"仝上設備費","c":"A0176D","d":""},{"n":6,"g":"共通仮設工事","k":"機械等損料","c":"A0177D","d":"機械器具使用料、修理費及び点検費、機械付属品等の売付費、ワイヤーロープ、ホース、一輪車、コンクリート馬、工具類、ゼネレーター、一般重機使用料、回送料、オペレーター経費、燃料費、測量機器"},{"n":7,"g":"共通仮設工事","k":"養生費","c":"A0180D","d":""},{"n":8,"g":"共通仮設工事","k":"運搬費","c":"A01811","d":"共通仮設に要した運搬費及び積卸し積込み手間"},{"n":9,"g":"共通仮設工事","k":"借地料","c":"A0184D","d":""},{"n":10,"g":"共通仮設工事","k":"補償費","c":"A0185D","d":""},{"n":11,"g":"共通仮設工事","k":"警備費","c":"A01954","d":"保安要員、ガードマン"},{"n":12,"g":"共通仮設工事","k":"その他雑","c":"A0199D","d":"調査試験に伴う測量、敷地測量、土質調査、地耐力試験、室内環境測定、シックハウス、各種材料試験、工事用写真、竣工写真、式典直会費用、看板、モデルハウス、模型、地中及び地上障害物撤去、作業用地の借地料、道路占用料、隣家補償費、道路復旧費、事故補償費、街路樹及び歩道棚等の移設及び復旧"},{"n":13,"g":"直接仮設工事","k":"とび・土工","c":"A0202B","d":"足場組立て、解体、安全ネット取付け、保護棚取付け、内部ステージ、横断足場、登桟橋、荷上げ用踊場、足場ブラケット取付け、くい打用養生手間"},{"n":14,"g":"直接仮設工事","k":"雑人夫","c":"A0215B","d":"場内整理片付清掃、仕上養生手間、洗い仕上げ"},{"n":15,"g":"直接仮設工事","k":"足場損料","c":"A0272D","d":"足場材、足場板、脚立、ローリングタワー、ブラケット足場、鉄骨足場材、溝形鋼、足場用インサート、壁つなぎ"},{"n":16,"g":"直接仮設工事","k":"養生費","c":"A0280D","d":"仕上げ養生材料、養生コーナー、紙、ビニールシート、安全養生材料、養生シート、保護棚、防災網、コンクリート養生費、冬期養生費、くい打用仮設材、安全ネット、朝顔"},{"n":17,"g":"直接仮設工事","k":"運搬費","c":"A02811","d":"直接仮設に要した運搬費及び積込み積卸し手間"},{"n":18,"g":"直接仮設工事","k":"産業廃棄物","c":"A02812","d":"産業廃棄物処理費、コンテナー"},{"n":19,"g":"直接仮設工事","k":"その他","c":"A0299D","d":"現寸型板、水盛やりかた、仕上墨出し、ダストシュート、溶接工"},{"n":20,"g":"土工事","k":"とび・土工","c":"B0302B","d":"根切り、埋戻し、残土処分、捨場代、割り石地業、建物周囲整地、土地改良工事、水替費"},{"n":21,"g":"土工事","k":"骨材","c":"B0323A","d":"割り石、砂利、玉石、砕石、砂、土購入費、路盤紙"},{"n":22,"g":"土工事","k":"その他","c":"B0399D","d":""},{"n":23,"g":"山止め工事","k":"労務費","c":"B0407B","d":"レール、H鋼、シートパイル等の打抜、ステージ、山止め組立て解体、山止め工事に要したとび・土工事、山止め、ステージ等に要した溶接工"},{"n":24,"g":"山止め工事","k":"外注費","c":"B0417C","d":"ウエルポイント、ディープウエル、下水使用料、凍結、薬剤注入、グラウト、連続くい、壁、バックアンカー、吹付工事、生コン、山止め工事に要した運搬、積込、積卸し費用"},{"n":25,"g":"山止め工事","k":"山止め材","c":"B0474D","d":"山止め材、ステージ材の売付、損料、覆工板、シートパイル、H型鋼の損料、売付の附属物"},{"n":26,"g":"基礎工事(特殊)","k":"くい","c":"B0519C","d":"各種くい打工事、生コン、鉄筋、ラップルコンクリート、給水車、発電気損料、くい間ざらえ、くい頭補強、くい残土処分、泥水上処分、くい頭はつり、くい芯出し、くい載荷試験費、さぐり掘、スリッパ"},{"n":27,"g":"基礎工事(特殊)","k":"その他","c":"B0599D","d":""},{"n":28,"g":"コンクリート工事","k":"大工","c":"B0601B","d":"型枠組立て解体"},{"n":29,"g":"コンクリート工事","k":"とび・土工","c":"B0602B","d":"ポンプ車使用料、コンクリート打設手間"},{"n":30,"g":"コンクリート工事","k":"はつり工","c":"B0609B","d":"金物はつり、雑はつり"},{"n":31,"g":"コンクリート工事","k":"生コンクリート","c":"B0625A","d":"各種生コンクリート、コンクリート混和剤"},{"n":32,"g":"コンクリート工事","k":"その他","c":"B0699D","d":"ホールインアンカー、溶接工、型枠清掃、雪養生"},{"n":33,"g":"くたいPC工事","k":"くたいPC","c":"B0726C","d":"組立て手間、取付溶接費、構造用プレキャストコンクリート、プレストレストコンクリート"},{"n":34,"g":"鉄筋工事","k":"鉄筋工","c":"B0805B","d":"鉄筋加工、組立て、小運搬"},{"n":35,"g":"鉄筋工事","k":"圧接工・溶接工","c":"B0808B","d":"ガス圧接、溶接、切断"},{"n":36,"g":"鉄筋工事","k":"鉄筋","c":"B0820A","d":"一般鉄筋、ワイヤーメッシュ、スペーサー、搬入時荷卸しレッカー代"},{"n":37,"g":"鉄骨工事","k":"鉄骨","c":"B0921C","d":"一般鉄骨材工、鉄骨階段、ジベル筋、はり貫通補強、建方用タラップ、超音波探傷試験費、建方用レッカー車"},{"n":38,"g":"鉄骨工事","k":"その他","c":"B0999D","d":"耐火被覆、岩綿、モルタル被覆、ラス貼共、溶接、溶断、アンカーボルト埋込費、ベースプレート下モルタル"},{"n":39,"g":"組積工事","k":"組積","c":"B1027C","d":"ブロック積、レンガ積、断熱ブロック、鉄筋"},{"n":40,"g":"組積工事","k":"PC製品 ALC版","c":"B1028C","d":"プレキャストコンクリート、PC板、PC階段、スパンクリート、PCカーテンウォール、イトン、ヘーベル、シポレックス、鉄筋、下地処理"},{"n":41,"g":"防水工事","k":"アスファルト防水","c":"B1132C","d":"アスファルト防水、伸縮目地材、エラスタイト、アスファルトコンパウンド、目地注入"},{"n":42,"g":"防水工事","k":"シーリング","c":"B1133C","d":"内外部の各種シーリング"},{"n":43,"g":"防水工事","k":"その他雑防水","c":"B1135C","d":"モルタル防水、シート防水、塗布防水、ウレタン防水、エポキシ樹脂防水、吹付防水、シリコン、止水板、壁注入工事、防水押へ金物"},{"n":44,"g":"石・テラゾ工事","k":"石・テラゾ","c":"B1236C","d":"石、テラゾ、定礎、擬石、マーベロン、割り石、小たたき、コンクリートはつり仕上げ"},{"n":45,"g":"タイル工事","k":"タイル","c":"B13371","d":"内外装の各種タイル、打込みタイル、クリーニング"},{"n":46,"g":"木工事","k":"大工","c":"B1401B","d":"大工手間"},{"n":47,"g":"木工事","k":"材料","c":"B1439A","d":"一般木材、銘木、銘竹、縁甲板、ベニヤ板、特殊合板、合板床、押えボード、繊維板、木レンガ、金物、ラスボード、接着材、トノコ塗り、針、防腐剤"},{"n":48,"g":"木工事","k":"その他","c":"B1499D","d":""},{"n":49,"g":"屋根工事","k":"屋根","c":"B1540C","d":"各種屋根ふき、板金、断熱材の下ぶさ、シングルぶき"},{"n":50,"g":"金属工事","k":"既製金物","c":"B1643C","d":"ルーフドレン、各種とい、インサート、アンカーボルト、アンカー埋込、ノンスリップ、避難用ハッチ、レジスター、一般市販金物、スチール手すり、鉄骨階段手すり、タラップ、鉄・ステンレス・アルミ・銅等加工品、天井スパンドレル、点検口、天井見切縁、天井廻り縁、出入口枠、カーテンレール、窓格子、ルーバー、物干金物、バルコニー隔て、メタルラス、リブラス、Kラス"},{"n":51,"g":"金属工事","k":"軽量下地","c":"B1644C","d":"軽量鉄骨天井下地、切込み補強、軽量間仕切"},{"n":52,"g":"金属工事","k":"製作金物","c":"B1699D","d":"金属工事のうち製作金物"},{"n":53,"g":"左官工事","k":"左官工","c":"B1706B","d":"一般左官工事、一般左官材料、枠廻りトロ詰め、カラークリート、フェロコン、薄塗工法"},{"n":54,"g":"左官工事","k":"打放し補修","c":"B1714B","d":"補修費"},{"n":55,"g":"左官工事","k":"その他","c":"B1799D","d":"接着材、コンクリート面洗い材料、セメント、砂"},{"n":56,"g":"金属建具工事","k":"金属建具","c":"B1846C","d":"アルミ・スチール・ステンレス製建具、金属製カーテンウォール、金庫扉、取付調整費、シャッター、附属ドア、自動ドアーエンジン、マット枠、現場養生費、クリーニング"},{"n":57,"g":"木製建具工事","k":"木製建具","c":"B1949C","d":"木製建具、ふすま、障子、戸ふすまの紙張り、建具取付に必要な金物"},{"n":58,"g":"ガラス工事","k":"ガラス","c":"B2051C","d":"一般ガラス、特殊ガラス、ガラスブロック、プロフィリット、鏡、ガスケット、コーキング、クリーニング、アクリライト、プラスチック"},{"n":59,"g":"塗装工事","k":"塗装","c":"B2152C","d":"一般塗装、鉄部さび止め、吹付塗装"},{"n":60,"g":"内・外装工事","k":"床張り","c":"B2255C","d":"畳、フローリングブロック、モザイクパーケット、カーペット、ジュータン、敷物、Pタイル、クッションフロアー、ビニール幅木、塗床、ウレタン塗床、エポキシ系、アクリル系、ネダフォーム、フリーアクセスフロアー"},{"n":61,"g":"内・外装工事","k":"壁・天井練付","c":"B2256C","d":"合板練付、石こうボード、断熱ボード、各種ボード張り、クロス、天井スレート、木毛板打込み、壁断熱材、グラスウール、天井見切縁"},{"n":62,"g":"内・外装工事","k":"吹付","c":"B2257C","d":"吹付タイル、リシン、各種吹付"},{"n":63,"g":"内・外装工事","k":"その他","c":"B2299D","d":""},{"n":64,"g":"雑・ユニット・その他工事","k":"セメント","c":"B2322A","d":"セメント"},{"n":65,"g":"雑・ユニット・その他工事","k":"骨材","c":"B2323A","d":"砂"},{"n":66,"g":"雑・ユニット・その他工事","k":"可動間仕切","c":"B2359C","d":"可動間仕切、アコーディオンドア、ブラインド、スライディングドア、カーテン"},{"n":67,"g":"雑・ユニット・その他工事","k":"家具","c":"B2360C","d":"造作家具、一般家具、黒板、掲示板、映写スクリーン、カウンター、トイレブース、浴槽、ユニットバス、厨房製品"},{"n":68,"g":"雑・ユニット・その他工事","k":"雑","c":"B23621","d":"銘板、社名板、看板、煙突、トップライト、靴拭マット、クーラースリーブ、室名札、牛乳受、カーテンボックス、ルーフファン、防煙垂壁、避難設備、グリーストラップ、コンクリート二次製品、花壇、客土、植樹"},{"n":69,"g":"外構工事","k":"材料費","c":"C0000A","d":"骨材、生コンクリート、鉄筋、既製金物、ヒューム管、U字溝、会所、コンクリートブロック、縁石、コンクリート二次製品"},{"n":70,"g":"外構工事","k":"労務費","c":"C0000B","d":"大工、土工、鉄筋工、圧接工、左官工、補修工、はつり工、その他労務費"},{"n":71,"g":"外構工事","k":"外注費","c":"C0000C","d":"石、テラゾ、石積、コンクリートブロック積、製作金物工事、舗装、アスファルト舗装、簡易舗装、砕石舗装、防塵工事、石畳、コンクリート舗装、ブロック舗装、造園、植樹、花壇、PC橋梁、縁石CB"},{"n":72,"g":"作業所経費","k":"定期点検費","c":"C0000D","d":"分譲マンション定期点検立会社員および派遣社員人件費、交通費、通信費"},{"n":73,"g":"設備工事","k":"電気設備","c":"D2400C","d":"本工事電気関係一式、灯器、ブザー、電話、換気扇、電気設備業者にて施工し得るもの"},{"n":74,"g":"設備工事","k":"機械設備","c":"D2500C","d":"各種給排水、衛生、厨房、ガス、消火装置、管工事業者の施工するもの、接続費、供給負担金、ユニマットバストイレ、換気扇、冷暖房設備費"},{"n":75,"g":"設備工事","k":"空調設備","c":"D2600C","d":""},{"n":76,"g":"設備工事","k":"昇降設備","c":"D2700C","d":"エレベーター、エスカレーター、スイングガレージ"},{"n":77,"g":"設備工事","k":"その他設備","c":"D2800C","d":"上記以外の建築設備、体育、ボーリング、サウナ、焼却炉、医療機器"},{"n":78,"g":"解体","k":"解体工事","c":"E0000C","d":"既設建物、その他既設構築物の解体に要した費用"},{"n":79,"g":"一括","k":"一括外注","c":"10000C","d":""},{"n":80,"g":"JV","k":"J・V","c":"20000C","d":"物価変動"},{"n":81,"g":"作業所経費","k":"労務管理費","c":"30086D","d":"作業員用の福利厚生費用、防火用バケツ、吸ガラ入、消火器、スカイトイレ、ヘルボード、安全ロープ、安全衛生管理費、建退協証紙、労務者の募集解雇に要する費用、作業用具、ビニールカッパ、安全靴、命綱、手袋、雨靴、被服、宿泊用品の費用、労災法による事業主負担補償費、作業用保護具"},{"n":82,"g":"作業所経費","k":"租税公課","c":"30087D","d":"契約印紙、道路占用及び河川敷申請証紙代"},{"n":83,"g":"作業所経費","k":"保険料","c":"30088D","d":"火災保険、建設工事保険、賠償責任保険、その他の保険料、労災任意保険"},{"n":84,"g":"作業所経費","k":"従業員給料","c":"300891","d":"社員給料、準職員給料、通勤費"},{"n":85,"g":"作業所経費","k":"賞与","c":"300892","d":"社員及び準職員賞与振替"},{"n":86,"g":"作業所経費","k":"退職金","c":"300893","d":"社員退職金振替"},{"n":87,"g":"作業所経費","k":"社会保険","c":"300901","d":"厚生年金、厚生年金基金、健康保険、雇用保険事業主負担"},{"n":88,"g":"作業所経費","k":"労災保険","c":"300902","d":"労災保険料"},{"n":89,"g":"作業所経費","k":"福利厚生費","c":"30091D","d":"社員用の賄費、炊事用品、新聞代、テレビの受信料、フトン損料、急救薬品、長靴、ビニロン雨合羽、作業衣、汲取料、安全靴、オイルヒーター、ストーブ、扇風機、ベッド、炊飯器、ラジオ、テレビ、ロッカー、ウォータークーラー"},{"n":90,"g":"作業所経費","k":"事務用品費","c":"30092D","d":"机、椅子、時計、黒板、一般事務用品、製図用品、図面、竣工図面、消耗品、用紙一切、コピー、修理費、温度計、施工図面CD化費用、プリンター、コピー機、プロッター、カメラ、OAソフト、その他OA機器、OA機器リース、パソコン、ゼロックス複合機、ルーター"},{"n":91,"g":"作業所経費","k":"交通費","c":"300931","d":"交通費、通行料、駐車代、規定に基づく私有車の燃料費、自転車、単車使用料"},{"n":92,"g":"作業所経費","k":"通信費","c":"300932","d":"電報、電話料、通信費、プロバイダー料金、携帯電話代、宅急便、メール便"},{"n":93,"g":"作業所経費","k":"交際費1","c":"300941","d":"接待飲食費"},{"n":94,"g":"作業所経費","k":"交際費2","c":"300942","d":"ゴルフ、贈答、寄付金、社内飲食"},{"n":95,"g":"作業所経費","k":"雑費","c":"300951","d":"会議費、町内会費、PR看板、協力会の会費、雑費、斡旋手数料、協会費、会議打合せに伴う食事代、作業所LAN設定費"},{"n":96,"g":"作業所経費","k":"派遣等・経費","c":"300952","d":"派遣社員費用、業務委託費用"},{"n":97,"g":"作業所経費","k":"協力費","c":"30096D","d":"その他共益費、設備業者の賦金"},{"n":98,"g":"作業所経費","k":"設計費","c":"300971","d":"社内設計料、外注設計料、確認申請料、追加変更設計料"},{"n":99,"g":"作業所経費","k":"積算費","c":"300972","d":"積算料"},{"n":100,"g":"作業所経費","k":"図面作成費","c":"300973","d":"CAD、ドレッシー、外注図面費"},{"n":110,"g":"特別交際費","k":"交際費","c":"400943","d":"特別交際費"},{"n":111,"g":"特別交際費","k":"税負担","c":"400944","d":"特別交際費にかかる税負担分"},{"n":112,"g":"金利","k":"金利","c":"50000D","d":""},{"n":113,"g":"管理費","k":"一般管理費","c":"60000D","d":""}];
 const MAP = Object.fromEntries(MASTER.map(m=>[m.n,m]));
+
+// ===================== AI読み取り(GAS) =====================
+// スキャンPDF/写真を読むときだけ使う。Code.gs をデプロイしたWebアプリURLを入れる。空なら文字PDF/貼り付けのみ。
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwYGWcuVGq48JlrzuCb3_vArEr1Lx_hWpfZVtcGORVzzxRmxtIQr5VShXA5u2Y2IrWzoA/exec';
+const AI_SCALE_W = 1400; // ページ画像の横幅(px)。読みが甘ければ 1800 くらいまで上げる
 
 // ===================== 状態 =====================
 const LS_ROWS='hr_rows_v1', LS_LEARN='hr_learn_v1';
@@ -318,20 +327,79 @@ async function pdfToLines(file){
   }
   return lines;
 }
+// PDFの各ページを画像(dataURL, jpeg)にする
+async function pdfToImages(file){
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  const out=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const vp0=page.getViewport({scale:1});
+    const scale=AI_SCALE_W/vp0.width;
+    const vp=page.getViewport({scale});
+    const cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+    await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+    out.push(cv.toDataURL('image/jpeg',0.85));
+  }
+  return out;
+}
+// 画像ファイル → dataURL(横幅をAI_SCALE_Wに縮小)
+function imageToDataURL(file){
+  return new Promise((ok,ng)=>{
+    const img=new Image();
+    img.onload=()=>{ const s=Math.min(1, AI_SCALE_W/img.width); const cv=document.createElement('canvas');
+      cv.width=Math.round(img.width*s); cv.height=Math.round(img.height*s);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height); ok(cv.toDataURL('image/jpeg',0.85)); URL.revokeObjectURL(img.src); };
+    img.onerror=()=>ng(new Error('画像を開けなかった'));
+    img.src=URL.createObjectURL(file);
+  });
+}
+// GAS経由でClaudeに読ませる → [{name, amt}]
+async function aiExtract(images, onProgress){
+  if(!GAS_URL) throw new Error('AI読み取りが未設定(HTML内の GAS_URL に Code.gs のWebアプリURLを入れて)');
+  const items=[];
+  for(let i=0;i<images.length;i++){
+    onProgress && onProgress(i+1, images.length);
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'ocr',images:[images[i]]})}).then(r=>r.json());
+    if(!res.ok) throw new Error(res.error||'GASエラー');
+    (res.result||[]).forEach(it=>{
+      let amt = it.amount;
+      if(amt==null && it.qty!=null && it.unitPrice!=null) amt=Math.round(it.qty*it.unitPrice);
+      const name=String(it.name||'').trim();
+      if(!name) return;
+      if(SKIP.test(norm(name))) return;
+      items.push({name, amt: amt==null?null:Math.round(amt)});
+    });
+  }
+  return items;
+}
+
 async function handleFiles(files){
   const st=document.getElementById('status'); st.className='';
-  let total=0, empty=[];
+  let total=0, failed=[];
   for(const f of files){
-    if(!/pdf$/i.test(f.name) && f.type!=='application/pdf') continue;
+    const isPdf=/pdf$/i.test(f.name)||f.type==='application/pdf';
+    const isImg=/^image\//.test(f.type);
+    if(!isPdf && !isImg) continue;
     st.textContent=`読み込み中: ${f.name}`;
     try{
-      const lines=await pdfToLines(f);
-      const items=lines.map(parseLine).filter(Boolean);
-      if(!items.length) empty.push(f.name);
-      total+=addParsed(items, f.name);
-    }catch(e){ st.className='ng'; st.textContent='読めなかった: '+f.name+' ('+e.message+')'; return; }
+      let items=[], how='文字';
+      if(isPdf){
+        const lines=await pdfToLines(f);
+        items=lines.map(parseLine).filter(Boolean);
+      }
+      if(items.length<2){
+        // 文字が取れない = スキャン → AI読み取り
+        if(!GAS_URL){ failed.push(f.name); continue; }
+        how='AI';
+        const imgs = isPdf ? await pdfToImages(f) : [await imageToDataURL(f)];
+        items=await aiExtract(imgs,(i,n)=>{ st.textContent=`AI読み取り中: ${f.name} (${i}/${n}ページ)`; });
+        if(!items.length){ failed.push(f.name+'(AIでも明細が見つからず)'); continue; }
+      }
+      total+=addParsed(items, f.name+' ['+how+']');
+    }catch(e){ st.className='ng'; st.textContent='読めなかった: '+f.name+' — '+e.message; return; }
   }
-  st.textContent=`${total}件の明細を取り込んだよ。` + (empty.length?` 文字が取れなかったPDF: ${empty.join(', ')}(スキャン画像かも。貼り付けで入れて)`:'');
+  st.textContent=`${total}件の明細を取り込んだよ。` + (failed.length?` 読めなかった: ${failed.join(', ')}` + (GAS_URL?'':'(スキャンPDFはAI読み取りの設定が必要。無理なら貼り付けで)'):'');
   if(total) switchTab('assign');
 }
 const drop=document.getElementById('drop'), fileIn=document.getElementById('file');
@@ -455,6 +523,9 @@ function switchTab(name){
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
 
 // 初期化
+document.getElementById('aiState').innerHTML = GAS_URL
+  ? '<span class="tag ok">AI読み取り：設定済み</span>'
+  : '<span class="tag ng">AI読み取り：未設定</span> 写真・スキャンPDFの読み取りには接続設定が必要です。';
 document.getElementById('bulkSel').innerHTML=optionsHTML(0);
 renderRows(); renderOut();
 </script>
