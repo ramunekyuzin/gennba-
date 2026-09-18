@@ -70,6 +70,16 @@ details>summary{cursor:pointer;color:var(--sub);padding:6px 0}
 .seg button[aria-pressed=true]{background:var(--pri);color:var(--pri-ink);font-weight:700}
 button.chip[aria-pressed=true]{background:var(--low-bg);border-color:var(--low);color:var(--low);font-weight:700}
 
+.seg.mode{display:flex;margin-bottom:12px}
+.seg.mode button{flex:1}
+.fcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:6px;display:flex;gap:12px}
+.fcard .fn{font-size:1.6rem;font-weight:800;line-height:1.1;min-width:2.6ch;text-align:right}
+.fcard .fb{flex:1;min-width:0}
+.fcard .fk{font-weight:700}
+.fcard .fg{color:var(--sub);font-size:.85rem}
+.fcard .fd{font-size:.9rem;margin-top:4px;overflow-wrap:anywhere}
+.fcard .fl{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);font-size:.85rem;color:var(--sub);overflow-wrap:anywhere}
+.fgrp{font-size:.85rem;color:var(--sub);margin:16px 4px 6px;font-weight:700}
 /* 一覧 */
 .ghead{display:flex;gap:10px;align-items:flex-start;margin:18px 2px 6px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
 .ghead .gn{font-size:1.7rem;font-weight:800;line-height:1;min-width:2.4ch;text-align:right}
@@ -141,12 +151,22 @@ main{max-width:1100px;padding:36px 28px 150px}
 @media(max-width:640px){main{padding:22px 14px 180px}.apphead{gap:12px;margin-bottom:22px}h1{font-size:23px}.appmark{width:44px;height:44px;border-radius:13px}.lead{font-size:11px}.steps{gap:7px}.steps li{font-size:10px}.steps b{margin-right:4px;width:19px;height:19px}.card{padding:17px;border-radius:14px}.legend{grid-template-columns:repeat(4,1fr);gap:6px}.legend>span:first-child{grid-column:1/-1;padding:8px 12px}.legend>span:first-child b{display:inline;font-size:18px;margin:0 5px}.legend>span{padding:10px 7px;font-size:10px}.legend b{font-size:22px}.toolbar{top:5px;padding:10px}.search-wrap{flex-basis:100%}.seg{flex:1}.seg button{flex:1;padding:8px 12px}.item{padding:11px;gap:10px}.badge{flex-basis:56px}.item .top{flex-wrap:wrap}.item .nm{font-size:14px}.item .amt{font-size:13px}.list-info{font-size:11px}.dock{padding:10px 14px calc(10px + env(safe-area-inset-bottom))}.dock-info{flex-basis:100%;font-size:10px}.dock-info strong{display:inline;font-size:12px;margin-right:6px}.dock button{flex:1;padding:10px 6px;font-size:12px}#toast{bottom:145px}.ghead .gd{display:none}}
 @media(prefers-reduced-motion:reduce){button{transition:none}}
 
+
+.mode{display:flex;width:fit-content;margin:0 0 24px;padding:5px;background:#e5eaf2;border:0;gap:5px;border-radius:13px}.mode button{min-width:180px;border-radius:9px}.mode button[aria-pressed=true]{box-shadow:0 3px 8px #192a4315}.finder{margin-bottom:12px}.finder .search-wrap{max-width:100%}.find-filter{display:flex;gap:14px;align-items:center;margin-top:16px}.find-filter label{white-space:nowrap;font-size:12px;color:var(--sub)}.find-filter select{max-width:300px;padding:9px 12px}.fcard{padding:20px;margin-bottom:10px;gap:20px;border-radius:14px;align-items:flex-start}.fcard .fn{flex:0 0 65px;min-width:0;font-size:26px;background:var(--ai-bg);color:var(--ai);border:0;border-radius:11px;padding:12px 6px;text-align:center}.fn small{display:block;font-size:10px;font-weight:600;margin-top:7px}.fcard .fk{font-size:16px}.fcard .fg{font-size:11px;margin:3px 0 9px}.fcard .fd{font-size:13px;line-height:1.85}.fcard .fl{padding-top:12px;margin-top:12px;font-size:12px}.fgrp{padding:12px 2px 8px;margin-top:20px;border-bottom:1px solid var(--line);color:var(--ink);font-size:13px}.fcard .fb{overflow-wrap:anywhere}
+@media(max-width:640px){.mode{width:100%}.mode button{min-width:0;flex:1;font-size:13px}.fcard{padding:14px;gap:12px}.fcard .fn{flex-basis:52px;font-size:23px}.fcard .fk{font-size:14px}.fcard .fd{font-size:12px}.find-filter{gap:10px}.find-filter select{min-width:0;flex:1}}
 </style>
 </head>
 <body>
 <main>
-  <header class="apphead"><div class="appmark" aria-hidden="true">⇄</div><div><div class="eyebrow">CONSTRUCTION WORKSPACE</div><h1>細目 ⇄ 略番</h1><p class="lead">細目の整理から略番の振り分けまで、ひとつの画面で。</p></div></header>
-  <ol class="steps" aria-label="作業の流れ"><li class="active" id="stepPaste"><b>1</b>データを貼り付け</li><li id="stepReview"><b>2</b>振り分け・確認</li><li id="stepCopy"><b>3</b>コピーして戻す</li></ol>
+  <header class="apphead"><div class="appmark" aria-hidden="true">⇄</div><div><div class="eyebrow">CONSTRUCTION WORKSPACE</div><h1>細目 ⇄ 略番</h1><p class="lead" id="lead">細目の整理から略番の振り分けまで、ひとつの画面で。</p></div></header>
+  <div class="seg mode" role="group" aria-label="モード"><button id="mSort" type="button" aria-pressed="true">細目を振り分ける</button><button id="mFind" type="button" aria-pressed="false">略番をさがす</button></div>
+  <ol id="workflow" class="steps" aria-label="作業の流れ"><li class="active" id="stepPaste"><b>1</b>データを貼り付け</li><li id="stepReview"><b>2</b>振り分け・確認</li><li id="stepCopy"><b>3</b>コピーして戻す</li></ol>
+
+  <section id="find" hidden>
+    <div class="card finder"><div class="section-label">CODE DIRECTORY</div><h2 class="section-title">略番をさがす</h2><p class="review-note">名称・番号・関連する言葉で検索。番号のボタンでコピーできます。</p><label class="paste-label" for="fq">キーワード</label><div class="search-wrap"><input id="fq" type="search" placeholder="例：足場、生コン、13" aria-label="略番をさがす"><button id="clearFq" type="button" aria-label="略番検索をクリア" hidden>×</button></div><div class="find-filter"><label for="fgSelect">工種で絞り込み</label><select id="fgSelect"><option value="">すべての工種</option></select></div></div>
+    <p class="msg" id="fmeta" role="status"></p>
+    <div id="flist"></div>
+  </section>
 
   <section class="card" id="pasteCard">
     <details id="pasteBox" open>
@@ -235,7 +255,7 @@ let MEM={};
 try{S=Object.assign(S,JSON.parse(localStorage.getItem(LS_STATE)||"{}"))}catch(e){}
 try{MEM=JSON.parse(localStorage.getItem(LS_MEM)||"{}")}catch(e){}
 let aiBusy=false;
-let ROWS=[], TABLE=[], HEAD=null, view="item", onlyChk=false, dlgKey=null;
+let ROWS=[], TABLE=[], HEAD=null, view="item", onlyChk=false, dlgKey=null, mode="sort";
 
 function save(){
   try{localStorage.setItem(LS_STATE,JSON.stringify(S));localStorage.setItem(LS_MEM,JSON.stringify(MEM));}catch(e){}
@@ -331,12 +351,16 @@ function hl(text,terms){
   return out;
 }
 function renderAll(){
-  const has=ROWS.length>0;
+  const has=ROWS.length>0, find=mode==="find";
+  $("welcome").hidden=find||has;$("workflow").hidden=find;
+  $("find").hidden=!find; $("pasteCard").hidden=find;
+  $("lead").textContent=find?"出来高査定基準の略番を、言葉か番号でさがす":"貼り付け・AI振り分け・確認・コピーを、ひとつの画面で。";
+  if(find){ $("work").hidden=true; $("dock").hidden=true; renderFind(); return; }
   $("welcome").hidden=has;
   $("stepPaste").classList.toggle("active",!has);$("stepReview").classList.toggle("active",has);
   $("work").hidden=!has; $("dock").hidden=!has; $("colBox").hidden=!S.raw||!S.map;
   $("pasteSum").textContent=has?`読み込みデータ・列の設定（${ROWS.length}件）`:"データを読み込む";
-  if(S.raw&&S.map) renderCols();
+  if(S.raw&&S.map){renderCols();if(aiBusy)$("cols").querySelectorAll("select").forEach(e=>e.disabled=true);}
   if(!has){ if(S.raw) setMsg("細目が1件も読めなかった。列の割当を見てね",true); return; }
   setMsg(`${ROWS.length}件を読み込みました`);
   renderStat(); renderList();
@@ -384,6 +408,33 @@ function renderList(){
     }
   }
   $("list").innerHTML=html;
+}
+
+/* ===== 略番をさがす（貼らなくても使える） ===== */
+function renderFind(){
+  const terms=$("fq").value.trim().split(/\s+/).filter(Boolean), nt=terms.map(norm);
+  const linked={}; for(const r of ROWS){const n=pickOf(r).n; if(n)(linked[n]=linked[n]||[]).push(r);}
+  $("clearFq").hidden=!$("fq").value;
+  const hit=DATA.filter(d=>{
+    if($("fgSelect").value&&d.g!==$("fgSelect").value)return false;
+    if(!nt.length) return true;
+    const its=(linked[d.n]||[]).map(r=>r.eff+" "+r.ks).join(" ");
+    const hay=norm(clean(d.k)+" "+d.g+" "+clean(d.d)+" "+(d.c||"")+" "+its);
+    return nt.every(t=>/^\d+$/.test(t)?String(d.n)===t:hay.includes(t));
+  });
+  $("fmeta").textContent=`${hit.length} / ${DATA.length}項目を表示`;
+  if(!hit.length){$("flist").innerHTML=`<div class="empty">条件に一致する略番がありません。検索語や工種を変更してください。</div>`;return;}
+  let html="", g="";
+  for(const d of hit){
+    if(d.g!==g){g=d.g;html+=`<div class="fgrp">${esc(g)}</div>`;}
+    const its=linked[d.n]||[];
+    html+=`<div class="fcard"><button type="button" class="fn" data-copy-n="${d.n}" aria-label="略番${d.n}をコピー">${d.n}<small>コピー</small></button><div class="fb">
+      <div class="fk">${hl(clean(d.k),terms)}</div><div class="fg">${esc(d.g)}${d.c?" ・ "+esc(d.c):""}</div>
+      <div class="fd">${hl(clean(d.d),terms)}</div>
+      ${its.length?`<div class="fl">いま振り分けてる細目（${its.length}件）: ${its.slice(0,12).map(r=>hl(r.eff,terms)).join("、")}${its.length>12?" ほか":""}</div>`:""}
+    </div></div>`;
+  }
+  $("flist").innerHTML=html;
 }
 
 /* ===== 略番えらび ===== */
@@ -483,6 +534,14 @@ $("onlyChk").onclick=()=>{onlyChk=!onlyChk;$("onlyChk").setAttribute("aria-press
 $("q").oninput=renderList;
 $("clearQ").onclick=()=>{$("q").value="";renderList();$("q").focus();};
 $("paste").addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"&&!aiBusy){e.preventDefault();loadPaste();}});
+$("fq").oninput=renderFind;
+$("fgSelect").innerHTML='<option value="">すべての工種</option>'+[...new Set(DATA.map(d=>d.g))].map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join("");
+$("fgSelect").onchange=renderFind;
+$("clearFq").onclick=()=>{$("fq").value="";renderFind();$("fq").focus();};
+$("flist").onclick=e=>{const b=e.target.closest('[data-copy-n]');if(b)copy(b.dataset.copyN,`略番 ${b.dataset.copyN} をコピーしました`);};
+const setMode=m=>{mode=m;$("mSort").setAttribute("aria-pressed",String(m==="sort"));$("mFind").setAttribute("aria-pressed",String(m==="find"));renderAll();if(m==="find")$("fq").focus();};
+$("mSort").onclick=()=>setMode("sort");
+$("mFind").onclick=()=>setMode("find");
 $("list").onclick=e=>{
   const ok=e.target.closest("[data-ok]"); if(ok){const r=ROWS.find(x=>x.key===ok.dataset.ok); if(r) setPick(r.key,pickOf(r).n); return;}
   const b=e.target.closest("[data-key]"); if(b) openPicker(b.dataset.key);
