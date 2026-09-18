@@ -82,6 +82,7 @@ textarea{min-height:110px; font-size:14px; font-family:ui-monospace,Consolas,mon
 .idbtn .idval{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:ui-monospace,Consolas,monospace}
 .idbtn .idact{flex:none; font-weight:700; color:var(--muted)}
 .idbtn:hover .idact{color:var(--ink)}
+.idbtn:not(:last-of-type){border-radius:0}
 .empty{text-align:center; color:var(--muted); padding:34px 10px; border:2px dashed var(--line); border-radius:10px; margin-top:18px}
 #toast{
   position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
@@ -90,30 +91,17 @@ textarea{min-height:110px; font-size:14px; font-family:ui-monospace,Consolas,mon
 }
 #toast.show{opacity:1}
 @media (prefers-reduced-motion:reduce){ #toast{transition:none} .link:active{transform:none} }
-
-/* Calm, readable link workspace */
-:root{color-scheme:light;--bg:#f4f6fa;--surface:#fff;--ink:#20304a;--muted:#69778e;--line:#dfe5ee;--field:#f7f9fc;--main:#325fc9;--main-ink:#fff;--danger:#b84e45;--t0:#3667c9;--t1:#298371;--t2:#aa7a1c;--t3:#b4584d;--t4:#795bab;--t5:#526f8d;--shadow:0 4px 16px #23375808}
-@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#111925;--surface:#1b2738;--ink:#e8effa;--muted:#a5b4c9;--line:#344258;--field:#152031;--main:#a3bfff;--main-ink:#172641;--danger:#ef998e;--t0:#9fbaff;--t1:#80cbb6;--t2:#e2c274;--t3:#e7a099;--t4:#baa3e4;--t5:#a0b8d2;--shadow:0 4px 16px #00000014}}
-body{font-family:"Yu Gothic UI","Hiragino Sans",Meiryo,"Noto Sans JP",system-ui,sans-serif;line-height:1.7}
-.wrap{max-width:1180px;padding:42px 28px 70px}header{gap:24px;margin-bottom:27px;align-items:center}.heading{display:flex;gap:16px;align-items:center;min-width:0}.brand{display:grid;place-items:center;width:54px;height:54px;flex:none;background:#274882;border-radius:16px;color:white;box-shadow:0 5px 14px #27488219}.brand svg{width:27px;height:27px}.heading-copy{min-width:0}.eyebrow{font-size:11px;letter-spacing:.13em;color:var(--muted);margin:0 0 4px;font-weight:700}h1{font-size:29px;line-height:1.35;letter-spacing:.02em;overflow-wrap:anywhere}.subtitle{font-size:13px;color:var(--muted);margin:7px 0 0}.btn{border-radius:11px;transition:background .15s,border-color .15s,box-shadow .15s}.btn.small{min-height:44px;padding:0 15px;font-size:12px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}.btn svg{width:15px;height:15px}.btn:hover{border-color:var(--main);background:var(--field)}
-.search-panel{background:var(--surface);border:1px solid var(--line);border-radius:17px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:26px}.search-label{font-size:12px;color:var(--ink);font-weight:700;margin:0 0 9px}.search-field{position:relative}.search-field svg{width:20px;height:20px;position:absolute;left:16px;top:17px;color:var(--muted);pointer-events:none}#q{min-height:54px;border-radius:11px;padding:12px 15px 12px 47px;font-size:15px;transition:border-color .15s,box-shadow .15s}#q:focus{border-color:var(--main);outline:0;box-shadow:0 0 0 3px color-mix(in srgb,var(--main) 15%,transparent)}.search-meta{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:10px;font-size:11px;color:var(--muted)}#resultCount{font-weight:700;color:var(--ink)}.status-text{display:flex;align-items:center;gap:6px}.status-text:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--t1)}.status-text[data-state="error"]:before{background:var(--danger)}
-h2{font-size:14px;color:var(--ink);margin:26px 0 12px;gap:9px}h2 .dot{width:4px;height:17px;border-radius:4px}.group-count{font-size:11px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 9px;color:var(--muted);font-weight:500;margin-left:3px}.grid{gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}.card{min-width:0;border-radius:15px;box-shadow:var(--shadow);transition:box-shadow .18s,transform .18s}.card:hover{box-shadow:0 7px 24px #23375812;transform:translateY(-2px)}.link{min-height:105px;gap:13px;padding:20px 34px 20px 19px;border-radius:15px;background:var(--surface);border-color:var(--line)}.link:before{width:3px;top:22px;bottom:22px;border-radius:0 3px 3px 0}.link:after{content:"↗";position:absolute;right:15px;top:16px;font-size:16px;color:var(--muted)}.link:hover{border-color:var(--tab)}.ini{width:43px;height:43px;border-radius:12px;color:var(--tab);background:color-mix(in srgb,var(--tab) 11%,var(--surface));font-size:20px}.txt{flex:1}.name{font-size:16px;line-height:1.55;font-weight:700}.host{font-size:11px;margin-top:5px;letter-spacing:.01em}.idbtn{padding:10px 15px 10px 19px;min-height:44px;border-radius:0 0 15px 15px;font-size:12px;background:var(--field);gap:8px}.idbtn:before{display:none}.idbtn .idval{font-size:11px}.idbtn .idact{font-size:10px;color:var(--main);padding:2px 7px;border:1px solid var(--line);border-radius:5px;background:var(--surface)}.id-label{color:var(--muted);font-size:10px;font-weight:700;flex:none}.idbtn:hover{background:color-mix(in srgb,var(--tab) 7%,var(--surface))}.empty{background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:48px 20px;font-size:14px;line-height:1.9}.hint{font-size:12px;line-height:1.9}#idHint{border-top:1px solid var(--line);padding:17px 0 0;margin-top:30px!important}#toast{border-radius:12px;box-shadow:0 8px 30px #0002;z-index:20;font-size:13px;max-width:calc(100vw - 32px);width:max-content;text-align:center}
-@media(min-width:1120px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.name{font-size:15px}.link{padding-left:16px;gap:10px}.ini{width:38px;height:38px;font-size:18px}}
-@media(max-width:760px){.wrap{padding:26px 20px 50px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}h1{font-size:25px}.subtitle{font-size:12px}.heading{gap:12px}.brand{width:46px;height:46px;border-radius:13px}header{gap:14px}.btn.small{padding:0 11px}.search-panel{padding:16px;margin-bottom:22px}}
-@media(max-width:480px){.wrap{padding:22px 16px 44px}.heading{gap:10px}.brand{width:40px;height:40px;border-radius:12px}.brand svg{width:22px;height:22px}.eyebrow{font-size:9px}h1{font-size:23px}.subtitle{font-size:11px}.btn.small{font-size:11px;padding:0 10px;gap:5px;flex:none}.grid{grid-template-columns:1fr;gap:11px}.search-panel{padding:14px;border-radius:14px;margin-bottom:20px}#q{font-size:16px}.search-meta{align-items:flex-start;flex-wrap:wrap;gap:5px}.link{min-height:84px;padding:16px 40px 16px 18px}.ini{width:41px;height:41px}.name{font-size:16px}.host{font-size:11px;margin-top:3px}.idbtn{min-height:43px}h2{margin:23px 0 10px}.heading-copy{min-width:0}.subtitle{max-width:220px}header{align-items:flex-start;margin-bottom:21px}.btn.small{margin-top:13px}#idHint{font-size:11px}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}.card:hover{transform:none}}
-
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="heading"><div class="brand" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></div><div class="heading-copy"><p class="eyebrow">いつものツールへ、すぐに。</p><h1 id="title">リンク集</h1><p class="subtitle">よく使うページを、ひとつに。</p></div></div>
-    <button class="btn small" id="reload" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.3 7a8 8 0 0 1 13-1L20 8M4 16l1.7 2a8 8 0 0 0 13-1"/></svg><span id="reloadText">最新にする</span></button>
+    <h1 id="title">リンク集</h1>
+    <button class="btn small" id="reload" type="button">最新にする</button>
   </header>
-  <section class="search-panel" aria-label="リンク検索"><label class="search-label" for="q">リンクを探す</label><div class="search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="q" type="search" autocomplete="off" aria-label="名前・グループ・URLでリンクを探す" placeholder="名前・グループ・URLで検索"></div><div class="search-meta"><span id="resultCount" aria-live="polite">リンクを読み込んでいます</span><span class="status-text" id="loadStatus" role="status">読み込み中</span></div></section>
+  <input id="q" type="search" autocomplete="off" aria-label="ボタンを名前で探す" placeholder="名前で探す">
   <div id="list"><div class="empty">読み込み中…</div></div>
-  <p class="hint" id="idHint" style="margin-top:22px" hidden>ID付きのリンクは、開くときにIDを自動コピーします。IDだけ必要な場合は、カード下部の「IDコピー」を押してください。</p>
+  <p class="hint" id="idHint" style="margin-top:22px" hidden>IDが付いてるボタンは、押すとIDが自動でコピーされるよ。開いた先のID欄に貼り付けて、パスワードはここに戻って「PW コピー」を押してね。</p>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -124,7 +112,12 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
 
 (function(){
   'use strict';
-  var CACHE = 'linkButtons.view.v1';
+  var CACHE = 'linkButtons.view.v2';
+  // URLの後ろの #k=… が配布用のカギ。これが合ってるとID・パスワードも届く
+  var VIEW_K = (function(){
+    var m = (location.hash||'').match(/[#&]k=([0-9a-zA-Z]+)/);
+    return m ? m[1] : '';
+  })();
   var TABS = 6;
   var DATA = [];
   var list = document.getElementById('list');
@@ -179,9 +172,8 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
       if(!word) return true;
       return (x.name+' '+x.group+' '+x.url).toLowerCase().indexOf(word) >= 0;
     });
-    document.getElementById('resultCount').textContent=shown.length+'件'+(word?' / 全'+DATA.filter(function(x){return safeUrl(x.url);}).length+'件':'のリンク');
     if(!shown.length){
-      list.appendChild(el('div','empty', word ? '「'+q.value+'」に一致するリンクはありません。検索語を変えてみてください。' : 'リンクがまだ登録されていません。'));
+      list.appendChild(el('div','empty', word ? '「'+q.value+'」に合うボタンがないよ。' : 'まだボタンが登録されてないよ。'));
       return;
     }
     var groups = [];
@@ -192,13 +184,13 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
       var tab = 'var(--t'+tabOf(g)+')';
       if(g){
         var h = el('h2'); h.style.setProperty('--tab', tab);
-        h.appendChild(el('span','dot')); h.appendChild(document.createTextNode(g));h.appendChild(el('span','group-count',shown.filter(function(x){return x.group===g;}).length));
+        h.appendChild(el('span','dot')); h.appendChild(document.createTextNode(g));
         list.appendChild(h);
       }
       var grid = el('div','grid');
       if(!g) grid.style.marginTop = '16px';
       shown.filter(function(x){ return x.group===g; }).forEach(function(it){
-        var c = el('div', it.loginId ? 'card hasid' : 'card'); c.style.setProperty('--tab', tab);
+        var c = el('div', (it.loginId || it.pw) ? 'card hasid' : 'card'); c.style.setProperty('--tab', tab);
         var a = el('a','link');
         a.href = it.url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = it.url;
         a.appendChild(el('span','ini', Array.from(it.name)[0] || '?'));
@@ -215,10 +207,18 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
         if(it.loginId){
           var ib = el('button','idbtn'); ib.type='button';
           ib.setAttribute('aria-label', it.name+' のログインIDをコピー');
-          ib.appendChild(el('span','id-label','ID'));ib.appendChild(el('span','idval', it.loginId));
-          ib.appendChild(el('span','idact','IDコピー'));
+          ib.appendChild(el('span','idval', it.loginId));
+          ib.appendChild(el('span','idact','コピー'));
           ib.onclick = function(){ copy(it.loginId, 'IDをコピーした'); };
           c.appendChild(ib);
+        }
+        if(it.pw){
+          var pb = el('button','idbtn'); pb.type='button';
+          pb.setAttribute('aria-label', it.name+' のパスワードをコピー');
+          pb.appendChild(el('span','idval','PW ••••••'));
+          pb.appendChild(el('span','idact','コピー'));
+          pb.onclick = function(){ copy(it.pw, 'パスワードをコピーした'); };
+          c.appendChild(pb);
         }
         grid.appendChild(c);
       });
@@ -231,12 +231,10 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
     var title = (res && res.title) || 'リンク集';
     document.getElementById('title').textContent = title;
     document.title = title;
-    document.getElementById('idHint').hidden = !DATA.some(function(x){ return !!x.loginId; });
+    document.getElementById('idHint').hidden = !DATA.some(function(x){ return !!(x.loginId || x.pw); });
     render();
   }
   function fail(msg){
-    document.getElementById('loadStatus').textContent=DATA.length?'前回の内容を表示中':'読み込めませんでした';document.getElementById('loadStatus').dataset.state='error';
-    if(!DATA.length)document.getElementById('resultCount').textContent='再読み込みをお試しください';
     if(DATA.length){ toast('最新にできなかった(前回の内容を表示中)'); return; }
     list.textContent = '';
     list.appendChild(el('div','empty', msg));
@@ -245,17 +243,24 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
   function loadData(){
     if(!GAS_URL){ fail('まだ準備中だよ。(GAS_URL が未設定)'); return; }
     var btn = document.getElementById('reload');
-    btn.disabled = true;document.getElementById('reloadText').textContent='更新中…';document.getElementById('loadStatus').textContent=DATA.length?'保存済みの内容を表示・更新中':'読み込み中';document.getElementById('loadStatus').dataset.state='loading';
-    fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({action:'view'}) })
+    btn.disabled = true;
+    fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({action:'view', k: VIEW_K}) })
       .then(function(r){ return r.json(); })
       .then(function(res){
-        btn.disabled = false;document.getElementById('reloadText').textContent='最新にする';
+        btn.disabled = false;
         if(!res.ok){ fail('読み込めなかった: ' + res.error); return; }
-        show(res.result);document.getElementById('loadStatus').textContent='最新の内容を表示中';document.getElementById('loadStatus').dataset.state='ready';
-        try{ localStorage.setItem(CACHE, JSON.stringify(res.result)); }catch(e){}
+        show(res.result);
+        // 端末に残す控えにはID・パスワードを入れない(ボタンだけ先に出す用)
+        try{
+          var lite = { title: res.result.title, items: (res.result.items||[]).map(function(x){
+            return { name:x.name, url:x.url, group:x.group, loginId:'', pw:'' };
+          }) };
+          localStorage.setItem(CACHE, JSON.stringify(lite));
+          localStorage.removeItem('linkButtons.view.v1');
+        }catch(e){}
       })
       .catch(function(err){
-        btn.disabled = false;document.getElementById('reloadText').textContent='最新にする';
+        btn.disabled = false;
         fail('読み込めなかった。電波を確認して「最新にする」を押してみて。');
       });
   }
