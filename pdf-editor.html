@@ -183,7 +183,7 @@ const FONTS = {
   mincho: '"Hiragino Mincho ProN","Yu Mincho","YuMincho","MS PMincho","Noto Serif JP",serif',
 };
 const HINTS = {
-  select:  '項目をタップで選択・ドラッグで移動/選択中の文字をもう一度タップで編集',
+  select:  '項目をタップで選択・ドラッグで移動(PCは矢印キーで微調整)/選択中の文字をもう一度タップで編集',
   replace: '黄色い枠の文字をタップすると、その文字を書き換えられます',
   text:    '文字を入れたい場所をタップ',
   white:   'ドラッグした範囲を白で塗りつぶします(色は「色」で変更可)',
@@ -858,10 +858,28 @@ $('zoomIn').onclick = () => { zoom = Math.min(4, zoom * 1.25); pages.forEach(siz
 $('zoomOut').onclick = () => { zoom = Math.max(0.3, zoom / 1.25); pages.forEach(sizePage); };
 document.querySelectorAll('#tools button[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
 
+// 矢印キーで選択中の項目を微調整(1回=0.5pt、Shift押しながら=5pt)
+const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+let lastNudge = 0;
+function nudge(dx, dy) {
+  const { p, o } = sel;
+  // 連打をまとめて「戻す」1回で戻せるように、間が空いたときだけ履歴に積む
+  const now = Date.now();
+  if (now - lastNudge > 800) pushUndo();
+  lastNudge = now;
+  if (o.type === 'path') o.pts = o.pts.map(q => [q[0] + dx, q[1] + dy]);
+  else { o.x += dx; o.y += dy; }
+  updateEl(p, o);
+}
 document.addEventListener('keydown', e => {
   if (editing || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
   else if (e.key === 'Delete' || e.key === 'Backspace') { if (sel) { e.preventDefault(); deleteSel(); } }
+  else if (ARROWS[e.key] && sel) {
+    e.preventDefault();
+    const step = e.shiftKey ? 5 : 0.5;
+    nudge(ARROWS[e.key][0] * step, ARROWS[e.key][1] * step);
+  }
 });
 
 // ドラッグ&ドロップ
