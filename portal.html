@@ -7,9 +7,13 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f5f6f8; color: #222; padding-bottom: 80px; }
-    header { background: #1e5aa8; color: #fff; padding: 18px 16px 14px; }
+    header { background: #1e5aa8; color: #fff; padding: 14px 16px 14px; }
+    header .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    header .brand .logo { background: #fff; border-radius: 6px; padding: 4px 8px; display: none; }
+    header .brand .logo img { height: 22px; display: block; }
     header h1 { font-size: 20px; }
     header .sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+    .hero { display: none; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #dde3ec; }
     main { max-width: 600px; margin: 0 auto; padding: 12px 12px 0; }
     .card { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
     .card h2 { font-size: 15px; color: #1e5aa8; margin-bottom: 10px; }
@@ -27,7 +31,6 @@
     .contact a.tel { flex: none; margin-left: 10px; background: #1a8a3c; color: #fff; text-decoration: none; padding: 12px 16px; border-radius: 10px; font-size: 15px; font-weight: bold; }
     .contact a.tel.mail { background: #1e5aa8; }
     .contact.kinkyu .name::before { content: "🚨 "; }
-    .tag { display: inline-block; font-size: 11px; background: #e8eef7; color: #1e5aa8; border-radius: 4px; padding: 1px 6px; margin-right: 4px; }
     .news { padding: 8px 0; border-bottom: 1px solid #eee; font-size: 15px; display: flex; gap: 10px; }
     .news:last-child { border-bottom: none; }
     .news .d { color: #c0392b; font-weight: bold; flex: none; }
@@ -48,9 +51,16 @@
 </head>
 <body>
   <header>
+    <div class="brand">
+      <!-- ★ ロゴ: リポジトリに logo.png を置くと表示(無ければ非表示) -->
+      <div class="logo" id="logoBox"><img src="logo.png" alt="" onload="document.getElementById('logoBox').style.display='block'" onerror="this.parentNode.remove()"></div>
+    </div>
     <h1 id="siteName">現場ポータル</h1>
     <div class="sub" id="siteSub">読み込み中...</div>
   </header>
+
+  <!-- 現場写真(現場情報の「写真」にURLを入れると表示) -->
+  <img class="hero" id="hero" alt="">
 
   <main>
     <div id="pinCard" class="card" style="display:none">
@@ -92,6 +102,9 @@
     // ★ GASのWebアプリURLをここに入れる
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbx-UTuS9k4NNP_bzp_fSF6yEEZe08PSAk9byDCaptjsGry3Fq55jl8xbL3gf8Odyx3IEA/exec';
 
+    // 現場情報で表示用に使う項目(一覧には出さない)
+    const HIDDEN_INFO = ['写真'];
+
     let DATA = null;
 
     function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -100,6 +113,7 @@
     function showTab(name) {
       document.querySelectorAll('.sec').forEach(s => s.classList.toggle('on', s.id === 'sec-' + name));
       document.querySelectorAll('nav.tabs button').forEach((b, i) => b.classList.toggle('on', ['home','contact','rules'][i] === name));
+      document.getElementById('hero').style.display = (name === 'home' && document.getElementById('hero').dataset.ok) ? 'block' : 'none';
       window.scrollTo(0, 0);
     }
 
@@ -107,6 +121,14 @@
       localStorage.setItem('portal_pin', document.getElementById('pin').value.trim());
       document.getElementById('pinCard').style.display = 'none';
       load();
+    }
+
+    // GoogleドライブのURLなら画像として表示できる形に変換
+    function toImageUrl(url) {
+      url = String(url || '').trim();
+      const m = url.match(/\/d\/([\w-]{20,})/) || url.match(/[?&]id=([\w-]{20,})/);
+      if (url.includes('drive.google.com') && m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1200';
+      return url;
     }
 
     function load() {
@@ -138,8 +160,18 @@
       document.getElementById('siteName').textContent = get('現場名') || '現場ポータル';
       document.getElementById('siteSub').textContent = [get('住所'), get('工期')].filter(Boolean).join('　');
 
-      document.getElementById('info').innerHTML = info.length
-        ? info.map(r => `<div class="kv"><div class="k">${esc(r['項目'])}</div><div class="v">${esc(r['内容'])}</div></div>`).join('')
+      // 現場写真
+      const hero = document.getElementById('hero');
+      const photo = toImageUrl(get('写真'));
+      if (photo) {
+        hero.onload = () => { hero.dataset.ok = '1'; if (document.getElementById('sec-home').classList.contains('on')) hero.style.display = 'block'; };
+        hero.onerror = () => { delete hero.dataset.ok; hero.style.display = 'none'; };
+        hero.src = photo;
+      }
+
+      const shown = info.filter(r => !HIDDEN_INFO.includes(r['項目']));
+      document.getElementById('info').innerHTML = shown.length
+        ? shown.map(r => `<div class="kv"><div class="k">${esc(r['項目'])}</div><div class="v">${esc(r['内容'])}</div></div>`).join('')
         : '<div class="empty">未登録</div>';
 
       const news = DATA['お知らせ'] || [];
