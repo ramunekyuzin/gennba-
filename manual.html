@@ -36,18 +36,30 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .logout{border:0;background:none;color:var(--ink-2);font-size:12px;padding:8px 0;min-height:36px}
 .logout:hover{color:var(--accent)}
-.tag.lock{background:var(--field);color:var(--danger);border:1px solid var(--hair)}
-.tag.unlocked{background:var(--field);color:var(--accent);border:1px solid var(--hair)}
-.row.locked .go{color:var(--danger)}
+.topbar-r{display:flex;align-items:center;gap:14px;min-width:0}
+.whoami{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50vw}
+.whoami:empty{display:none}
+.tag.level{background:var(--field);color:var(--danger);border:1px solid var(--hair)}
+[hidden]{display:none!important}
+.user-list{margin-top:14px;border-top:1px solid var(--hair)}
+.urow{display:flex;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--hair)}
+.u-main{flex:1;min-width:0}
+.u-name{font-weight:700;overflow-wrap:anywhere}
+.u-sub{font-size:12px;color:var(--ink-2);overflow-wrap:anywhere}
+.u-lv{display:inline-block;font-size:10px;background:var(--soft);color:var(--accent);border-radius:5px;padding:1px 7px;margin-right:6px}
+.urow button{flex-shrink:0;border:1px solid var(--hair);border-radius:7px;padding:8px 11px;background:var(--field);color:var(--ink);font-size:12px}
+.urow button.del{color:var(--danger)}
+.user-form{margin-top:14px;padding:4px 16px 16px;border:1px solid var(--hair);border-radius:12px;background:var(--field)}
+.user-form input,.user-form select{background:var(--paper)}
+.user-empty{padding:18px 0;font-size:13px;color:var(--ink-2);text-align:center;line-height:1.8}
 .field-note{font-size:11px;color:var(--ink-2);margin-top:6px;line-height:1.6}
-.lock-title{font-size:14px;color:var(--ink-2);margin:0 0 4px;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="topbar">
     <a class="back mono" href="./office.html">← OFFICE TOOLS</a>
-    <button class="logout mono" id="logoutBtn" type="button">ログアウト</button>
+    <div class="topbar-r"><span class="whoami" id="whoami"></span><button class="logout mono" id="logoutBtn" type="button">ログアウト</button></div>
   </div>
 
   <div class="title-block">
@@ -68,7 +80,7 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
     <button id="clear" type="button" aria-label="クリア">×</button>
   </div>
 
-<div class="search-meta"><span id="resultCount" role="status" aria-live="polite">マニュアルを読み込んでいます</span><span class="search-help">タイトル・タグ・カテゴリ・本文から検索</span></div></div><div class="edit-note">編集中 · マニュアルの追加・編集・本文更新ができます。「閲覧パス」を入れたマニュアルは🔒限定になります。</div>
+<div class="search-meta"><span id="resultCount" role="status" aria-live="polite">マニュアルを読み込んでいます</span><span class="search-help">タイトル・タグ・カテゴリ・本文から検索</span></div></div><div class="edit-note">編集中 · マニュアルの追加・編集・本文更新ができます。「閲覧レベル」を上げたマニュアルは、そのレベル以上のパスワードでログインした人にだけ見えます。ユーザーの登録は右下の「ユーザー」から。</div>
   <div class="loading" id="loading">読み込み中…</div>
   <div id="sections"></div>
   <div class="empty" id="empty">一致するマニュアルがありません。別のキーワードで検索してください。</div>
@@ -79,6 +91,7 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
 <div class="fab">
   <button class="add primary" id="addBtn">＋ 追加</button>
   <button class="add" id="refreshBtn">本文更新</button>
+  <button class="add" id="userBtn">ユーザー</button>
   <button id="editBtn">編集</button>
 </div>
 
@@ -106,21 +119,6 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
   </div>
 </div>
 
-<!-- 限定閲覧(2段階目) -->
-<div class="modal-bg" id="unlockModal">
-  <div class="modal">
-    <h3>🔒 限定マニュアル</h3>
-    <p class="lock-title" id="unlockName"></p>
-    <label>閲覧パス</label>
-    <input id="unlockInput" type="password" autocomplete="off" enterkeyhint="done">
-    <div class="msg" id="unlockMsg"></div>
-    <div class="btns">
-      <button type="button" onclick="closeModal('unlockModal')">やめる</button>
-      <button type="button" class="ok" id="unlockOk" onclick="submitUnlock()">開く</button>
-    </div>
-  </div>
-</div>
-
 <!-- 合言葉(編集モード) -->
 <div class="modal-bg" id="passModal">
   <div class="modal">
@@ -131,6 +129,33 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
     <div class="btns">
       <button type="button" onclick="closeModal('passModal')">やめる</button>
       <button type="button" class="ok" id="passOk" onclick="submitPass()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ユーザー管理 -->
+<div class="modal-bg" id="userModal">
+  <div class="modal">
+    <h3>ユーザー管理</h3>
+    <div class="field-note">パスワードごとに名前と閲覧レベルを決めます。ログインしたパスワードのレベル以下のマニュアルだけが見えます。</div>
+    <div class="user-list" id="userList"></div>
+    <div class="user-form" id="userForm" hidden>
+      <input type="hidden" id="uId">
+      <label for="uName">名前</label>
+      <input id="uName" autocomplete="off" placeholder="例: 田中 / 現場スタッフ">
+      <label for="uPass">パスワード(4文字以上)</label>
+      <input id="uPass" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例: tanaka123">
+      <label for="uLevel">閲覧レベル</label>
+      <select id="uLevel"></select>
+      <div class="btns">
+        <button type="button" onclick="closeUserForm()">やめる</button>
+        <button type="button" class="ok" id="uOk" onclick="saveUser()">保存</button>
+      </div>
+    </div>
+    <div class="msg" id="userMsg"></div>
+    <div class="btns" id="userBtns">
+      <button type="button" onclick="closeModal('userModal')">閉じる</button>
+      <button type="button" class="ok" onclick="openUserForm('')">＋ ユーザー追加</button>
     </div>
   </div>
 </div>
@@ -149,9 +174,9 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
     <input id="fTag" placeholder="例: 請求書, 月末, 経理">
     <label>URL(Googleドキュメント / DriveのPDF・画像 / スプシ / フォルダ)</label>
     <input id="fUrl" type="url" inputmode="url" placeholder="https://docs.google.com/… または https://drive.google.com/file/d/…">
-    <label>閲覧パス(任意)</label>
-    <input id="fLock" type="text" autocomplete="off" placeholder="空欄 = ログインした全員が見れる">
-    <div class="field-note">入れると🔒限定になり、開くときにこのパスを聞かれます。同じパスを複数のマニュアルに付ければ、1回解除でまとめて見れます。</div>
+    <label for="fLevel">閲覧レベル</label>
+    <select id="fLevel"></select>
+    <div class="field-note">選んだレベル以上のユーザーにだけ一覧に出ます。一番下のレベルなら全員が見れます。</div>
     <div class="msg" id="formMsg"></div>
     <div class="btns">
       <button type="button" onclick="closeModal('formModal')">やめる</button>
@@ -167,23 +192,27 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzONR9VsGsimnsN1eCVlRSAXHlNomIZUXvJRBsI2r_MWCduIhY6JpDAKIDZtbjvcCM7/exec";
 
 let DOCS = [];
+let USER = null;
+let LEVELS = [];
+let USERS = [];
 let PASS = sessionStorage.getItem("officePass") || "";          // 編集用の合言葉(タブを閉じたら消える)
 let LOGIN = localStorage.getItem("officeLogin") || "";          // ログインパス(この端末に記憶)
-let KEYS = readKeys();                                           // 解除した閲覧パス(タブを閉じたら消える)
 let afterPass = null;
-let unlockId = "";
 
 const $ = id => document.getElementById(id);
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function pad2(n){ return String(n).padStart(2, "0"); }
 function setMsg(id, text, cls){ const m = $(id); m.textContent = text || ""; m.className = "msg " + (cls || ""); }
 function isEdit(){ return document.body.classList.contains("edit"); }
-function readKeys(){ try { const k = JSON.parse(sessionStorage.getItem("officeKeys") || "[]"); return Array.isArray(k) ? k : []; } catch (e) { return []; } }
-function saveKeys(){ sessionStorage.setItem("officeKeys", JSON.stringify(KEYS)); }
+function levelName(v){ const l = LEVELS.find(x => Number(x.v) === Number(v)); return l ? l.name : "レベル" + v; }
+function levelOptions(sel){
+  const min = LEVELS.length ? Math.min(...LEVELS.map(l => l.v)) : 1;
+  return LEVELS.map(l => `<option value="${l.v}"${Number(sel) === Number(l.v) ? " selected" : ""}>${esc(l.v + " · " + l.name + (l.v === min ? "(全員)" : ""))}</option>`).join("");
+}
 
 async function api(body){
   if (!GAS_URL) throw new Error("GAS_URL が未設定");
-  const payload = Object.assign({ login: LOGIN, keys: KEYS }, body);
+  const payload = Object.assign({ login: LOGIN }, body);
   const r = await fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(payload) });
   const j = await r.json();
   if (!j.ok) {
@@ -199,23 +228,26 @@ async function load(){
   if (!GAS_URL) { $("loading").textContent = "GAS_URL が未設定"; return; }
   const hadLogin = !!LOGIN;
   try {
-    DOCS = await api({ action: "list", pass: isEdit() ? PASS : "" });
+    const r = await api({ action: "list", pass: isEdit() ? PASS : "" });
+    DOCS = r.docs || [];
+    USER = r.user || null;
+    LEVELS = r.levels || LEVELS;
+    $("whoami").textContent = USER && USER.name ? `${USER.name}(${USER.levelName})でログイン中` : "";
     $("loading").style.display = "none";
     render(); filter();
   } catch (e) {
+    $("loading").style.display = "";
     if (/ログイン/.test(e.message)) {
-      $("loading").style.display = "";
       $("loading").textContent = "ログインしてください";
       $("sections").innerHTML = "";
       showLogin(hadLogin ? e.message : "");
     } else {
-      $("loading").style.display = "";
       $("loading").textContent = "読み込み失敗: " + e.message;
     }
   }
 }
 
-// ---------- ログイン(1段階目) ----------
+// ---------- ログイン(パスワードで見える範囲が変わる) ----------
 function showLogin(msg){
   setMsg("loginMsg", msg || "", msg ? "ng" : "");
   $("loginInput").value = "";
@@ -223,9 +255,9 @@ function showLogin(msg){
   setTimeout(() => $("loginInput").focus(), 50);
 }
 async function submitLogin(){
-  const p = $("loginInput").value;
+  const p = $("loginInput").value.trim();
   if (!p) { setMsg("loginMsg", "パスワードを入れてね", "ng"); return; }
-  $("loginOk").disabled = true;
+  $("loginOk").disabled = true; setMsg("loginMsg", "確認中…");
   LOGIN = p;
   try {
     await api({ action: "checkLogin" });
@@ -238,40 +270,15 @@ async function submitLogin(){
 }
 $("loginInput").addEventListener("keydown", e => { if (e.key === "Enter") submitLogin(); });
 $("logoutBtn").addEventListener("click", () => {
-  if (!confirm("ログアウトする？(解除した限定マニュアルもロックに戻る)")) return;
-  LOGIN = ""; PASS = ""; KEYS = [];
-  localStorage.removeItem("officeLogin"); sessionStorage.removeItem("officePass"); sessionStorage.removeItem("officeKeys");
+  if (!confirm("ログアウトする？")) return;
+  LOGIN = ""; PASS = ""; USER = null;
+  localStorage.removeItem("officeLogin"); sessionStorage.removeItem("officePass");
+  sessionStorage.removeItem("officeKeys");   // 前バージョンの残りを掃除
   document.body.classList.remove("edit"); $("editBtn").textContent = "編集";
-  DOCS = []; $("sections").innerHTML = "";
+  DOCS = []; $("sections").innerHTML = ""; $("whoami").textContent = "";
   $("loading").style.display = ""; $("loading").textContent = "ログインしてください";
   showLogin("");
 });
-
-// ---------- 限定閲覧(2段階目) ----------
-function showUnlock(d){
-  unlockId = d["ID"];
-  $("unlockName").textContent = d["タイトル"] || "";
-  setMsg("unlockMsg", ""); $("unlockInput").value = "";
-  openModal("unlockModal");
-  setTimeout(() => $("unlockInput").focus(), 50);
-}
-async function submitUnlock(){
-  const k = $("unlockInput").value;
-  if (!k) { setMsg("unlockMsg", "閲覧パスを入れてね", "ng"); return; }
-  $("unlockOk").disabled = true; setMsg("unlockMsg", "確認中…");
-  try {
-    await api({ action: "unlock", id: unlockId, key: k });
-    if (!KEYS.includes(k)) { KEYS.push(k); saveKeys(); }
-    closeModal("unlockModal");
-    await load();
-    openDoc(unlockId);
-  } catch (e) {
-    if (/ログイン/.test(e.message)) { closeModal("unlockModal"); showLogin(e.message); }
-    else setMsg("unlockMsg", e.message, "ng");
-  }
-  $("unlockOk").disabled = false;
-}
-$("unlockInput").addEventListener("keydown", e => { if (e.key === "Enter") submitUnlock(); });
 
 // ---------- URL変換 ----------
 // Google系のURLはiframeで表示できる /preview 形式に変換(Docs・スプシ・スライド・Driveのファイル=PDF/画像/動画など)
@@ -296,10 +303,8 @@ function grouped(){
   return map;
 }
 function noteFor(d){
-  const openable = !!d["URL"];
-  if (d["限定"] && !openable) return "🔒 閲覧パスが必要";
-  if (d["本文あり"]) return "本文検索対応 · " + (d["更新日時"] || "");
-  if (d["Docs"]) return "本文未取得";
+  if (d["本文キャッシュ"]) return "本文検索対応 · " + (d["更新日時"] || "");
+  if (/\/document\/d\//.test(String(d["URL"] || ""))) return "本文未取得";
   return "資料を開く";
 }
 function render(){
@@ -313,18 +318,18 @@ function render(){
       <h2><span class="no mono">${pad2(secNo)}</span>${esc(cat)}<span class="cat-count">${items.length}件</span></h2>
       ${items.map((d, i) => {
         const tags = String(d["タグ"] || "").split(/[,、\s]+/).filter(Boolean);
-        const locked = !!d["限定"] && !d["URL"];
-        let lockTag = "";
-        if (d["限定"]) lockTag = locked ? `<span class="tag lock">🔒 限定</span>` : `<span class="tag unlocked">🔓 限定・解除済</span>`;
+        const lv = Number(d["閲覧レベル"]) || 1;
+        const minLv = LEVELS.length ? Math.min(...LEVELS.map(l => l.v)) : 1;
+        const groupTag = lv > minLv ? `<span class="tag level">🔑 ${esc(levelName(lv))}以上</span>` : "";
         return `
-        <div class="row${locked ? " locked" : ""}" tabindex="0" data-id="${esc(d["ID"])}" onclick="openDoc('${esc(d["ID"])}')">
+        <div class="row" tabindex="0" data-id="${esc(d["ID"])}" onclick="openDoc('${esc(d["ID"])}')">
           <div class="idx mono">${pad2(i + 1)}</div>
           <div>
-            <div class="name">${esc(d["タイトル"])}</div><div class="tags">${lockTag}${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+            <div class="name">${esc(d["タイトル"])}</div><div class="tags">${groupTag}${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
             <div class="desc" id="snip-${esc(d["ID"])}"></div>
             <div class="cache-note mono">${esc(noteFor(d))}</div>
           </div>
-          <div class="go">${locked ? "🔒" : "→"}</div>
+          <div class="go">→</div>
           <div class="tools">
             <button type="button" onclick="event.stopPropagation();openForm('${esc(d["ID"])}')">編集</button>
             <button type="button" onclick="event.stopPropagation();refreshOne('${esc(d["ID"])}')">本文</button>
@@ -378,8 +383,7 @@ function filter(){
 // ---------- ビューア ----------
 function openDoc(id){
   if (isEdit()) return;
-  const d = DOCS.find(x => x["ID"] === id); if (!d) return;
-  if (!d["URL"]) { if (d["限定"]) showUnlock(d); return; }
+  const d = DOCS.find(x => x["ID"] === id); if (!d || !d["URL"]) return;
   $("vCat").textContent = d["カテゴリ"] || "";
   $("vName").textContent = d["タイトル"] || "";
   $("vOpen").href = d["URL"];
@@ -447,7 +451,7 @@ function openForm(id){
   $("fTitle").value = d["タイトル"] || "";
   $("fTag").value = d["タグ"] || "";
   $("fUrl").value = d["URL"] || "";
-  $("fLock").value = d["閲覧パス"] || "";
+  $("fLevel").innerHTML = levelOptions(d["閲覧レベル"] || 1);
   setMsg("formMsg", "");
   openModal("formModal");
 }
@@ -458,7 +462,7 @@ function submitForm(){
     "タイトル": $("fTitle").value.trim(),
     "タグ": $("fTag").value.trim(),
     "URL": $("fUrl").value.trim(),
-    "閲覧パス": $("fLock").value.trim(),
+    "閲覧レベル": $("fLevel").value,
   };
   if (!data["タイトル"]) { setMsg("formMsg", "タイトルは必須", "ng"); return; }
   if (!/^https?:\/\//.test(data["URL"])) { setMsg("formMsg", "URLを入れてね", "ng"); return; }
@@ -482,6 +486,60 @@ function delDoc(id, name){
     catch (e) { alert(e.message); }
   });
 }
+
+// ---------- ユーザー管理(管理者のみ) ----------
+$("userBtn").addEventListener("click", () => withPass(openUsers));
+async function openUsers(){
+  closeUserForm();
+  $("userList").innerHTML = "";
+  openModal("userModal");
+  setMsg("userMsg", "読み込み中…");
+  try { USERS = await api({ action: "users", pass: PASS }); setMsg("userMsg", ""); renderUsers(); }
+  catch (e) { setMsg("userMsg", e.message, "ng"); }
+}
+function renderUsers(){
+  $("userList").innerHTML = USERS.length ? USERS.map(u => `
+    <div class="urow">
+      <div class="u-main">
+        <div class="u-name">${esc(u["名前"] || "(名前なし)")}</div>
+        <div class="u-sub"><span class="u-lv">${esc(u["レベル"] + " · " + levelName(u["レベル"]))}</span><span class="mono">${esc(u["パスワード"])}</span></div>
+      </div>
+      <button type="button" onclick="openUserForm('${esc(u["ID"])}')">編集</button>
+      <button type="button" class="del" onclick="deleteUser('${esc(u["ID"])}')">削除</button>
+    </div>`).join("")
+    : `<div class="user-empty">まだユーザーがいません。<br>登録するまでは、ログインなしで全部見える状態です。</div>`;
+}
+function openUserForm(id){
+  const u = USERS.find(x => x["ID"] === id) || {};
+  $("uId").value = id;
+  $("uName").value = u["名前"] || "";
+  $("uPass").value = u["パスワード"] || "";
+  $("uLevel").innerHTML = levelOptions(u["レベル"] || 1);
+  $("userForm").hidden = false; $("userBtns").hidden = true;
+  setMsg("userMsg", "");
+  setTimeout(() => $("uName").focus(), 50);
+}
+function closeUserForm(){ $("userForm").hidden = true; $("userBtns").hidden = false; }
+async function saveUser(){
+  const data = { "ID": $("uId").value, "名前": $("uName").value.trim(), "パスワード": $("uPass").value.trim(), "レベル": $("uLevel").value };
+  if (!data["名前"]) { setMsg("userMsg", "名前を入れてね", "ng"); return; }
+  if (data["パスワード"].length < 4) { setMsg("userMsg", "パスワードは4文字以上にしてね", "ng"); return; }
+  $("uOk").disabled = true; setMsg("userMsg", "保存中…");
+  try {
+    USERS = await api({ action: "userSave", pass: PASS, data: data });
+    closeUserForm(); renderUsers();
+    setMsg("userMsg", `「${data["名前"]}」を保存した`, "ok");
+  } catch (e) { setMsg("userMsg", e.message, "ng"); }
+  $("uOk").disabled = false;
+}
+async function deleteUser(id){
+  const u = USERS.find(x => x["ID"] === id) || {};
+  if (!confirm(`「${u["名前"] || ""}」を削除する？このパスワードではログインできなくなる`)) return;
+  setMsg("userMsg", "削除中…");
+  try { USERS = await api({ action: "userDelete", pass: PASS, id: id }); renderUsers(); setMsg("userMsg", "削除した", "ok"); }
+  catch (e) { setMsg("userMsg", e.message, "ng"); }
+}
+$("uPass").addEventListener("keydown", e => { if (e.key === "Enter") saveUser(); });
 
 // ---------- 表示モード(AUTO → LIGHT → DARK) office.htmlと共有 ----------
 function applyTheme(t){
