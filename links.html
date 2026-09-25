@@ -9,8 +9,27 @@
 <meta name="application-name" content="DTS">
 <meta name="apple-mobile-web-app-title" content="DTS">
 <meta name="theme-color" content="#2F5597">
-<link rel="icon" type="image/png" sizes="64x64" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAYFBMVEX////+///9/f7w8/jI2fq+0fq5zvqyxOmPrOaHp+SCo+R8mtNkhL9Mb60+YqIzWJoyV5gxV5gxVpgwVpkwVpgwVpcvVpgwVZcvVZcvVZYuVZctU5UrUZQpUJIlTZEfSI5Q+A9UAAAClUlEQVR42u2XyaLiIBREY0AhMoV00gaZ/v8v+wKJU6sv2L20No+34IQLRXFt5n9U8wV8AY+A8arPAM4vcs5sZdwCJnGRVN7PYyXgrI+0W3Q8cmHcWAtgMHERQJj04yeAvALapYHYQHgEdFyCBD8Wws9VPAIoD9bBaSieCEybeoDXYANtfCb8XMQTQJ4yGAVnQpn9EGDM2QkOhpitKaoDnBTIWJBaNVYARifJow7C6xrAYX8A7bPS6IB5qALscVKh5FEdwEpWlObTMnzlqeebaEJSlHntMf9jp6pj1MrKo5T7BPBKg8ZKJzrD6AJ4Ufzru5BzSbGuuwGMSg0p8/r85/1tzImUbuMNQLkYg52ND9E/FPNXHpREohAMlxLUHCUjGCOMCRPBDpsSiXbslygO+u0oala1RLnhZSZ2l0xkXFi/AByBeev8tsHaTC9iXV41eqcXQGRpGqKMM4LSkEX16l24yKZHZgXgtt1hBdsYo0i1IHXjqjcv0wqw8Nn01b7vVWQIYSJvbP3mbVwBJgFoBCfAd5XUIdrTXAMIUEKLeIzeaDW689BvfJ0ve0DzGYAFVIhhVtNcC5Bp73dp9wAyRKurAHvuvcDZAdkLiKm7cHsPKFGk/JwcsELwXTy+A5RgEm7ScwySU4wuVjxta3FsiiI483SLXUgQ0jbNvRXf90g5isazA8oEEBsihypaEvuaJsv3kpdInbSKBFaAb0LqZ8BEEGoIGFEPwwIgNYA+kOQCBtnsIagFarOvtwN0EG2yEUlZx2m+z6KqhB7yoMkm2mUr7BoatvngugZWDFC82LJQ2+pqyFRcUhFhKuJ0qu2VIdU9NF6cC2mj7z9otkfIAZ9tOT++LJu79Wl4/kJ+f7F8Af8F8Ae6C1Fxc15fiQAAAABJRU5ErkJggg==">
-<link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,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">
+<!-- GASへの接続を先に温めておく(DNS・暗号化の準備を前倒し) -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+<script>
+// ▼▼▼ GASのWebアプリURL(デプロイし直してURLが変わったらここだけ書き換える) ▼▼▼
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi75zkXBa4GQSgrCe4DZWoIBPQMFuLssYouE12okFwCJc3Q/exec';
+// ▲▲▲ ここまで ▲▲▲
+
+// ページの残りを読み込む前に、いちばん最初にデータ取りに出発しておく
+function fetchView(){
+  var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+  var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 20000) : null;
+  return fetch(GAS_URL, {
+    method:'POST', headers:{'Content-Type':'text/plain'},
+    body:'{"action":"view"}', signal: ctrl ? ctrl.signal : undefined
+  }).then(function(r){ clearTimeout(timer); return r.json(); },
+          function(e){ clearTimeout(timer); throw e; });
+}
+var FIRST_LOAD = GAS_URL ? fetchView() : null;
+</script>
+<link rel="icon" type="image/png" sizes="64x64" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAYFBMVEX////+///9/f7w8/jI2fq+0fq5zvqyxOmPrOaHp+SCo+R8mtNkhL9Mb60+YqIzWJoyV5gxV5gxVpgwVpkwVpgwVpcvVpgwVZcvVZcvVZYuVZctU5UrUZQpUJIlTZEfSI5Q+A9UAAAClUlEQVR42u2XyaLiIBREY0AhMoV00gaZ/v8v+wKJU6sv2L20No+34IQLRXFt5n9U8wV8AY+A8arPAM4vcs5sZdwCJnGRVN7PYyXgrI+0W3Q8cmHcWAtgMHERQJj04yeAvALapYHYQHgEdFyCBD8Wws9VPAIoD9bBaSieCEybeoDXYANtfCb8XMQTQJ4yGAVnQpn9EGDM2QkOhpitKaoDnBTIWJBaNVYARifJow7C6xrAYX8A7bPS6IB5qALscVKh5FEdwEpWlObTMnzlqeebaEJSlHntMf9jp6pj1MrKo5T7BPBKg8ZKJzrD6AJ4Ufzru5BzSbGuuwGMSg0p8/r85/1tzImUbuMNQLkYg52ND9E/FPNXHpREohAMlxLUHCUjGCOYtFYgzxELlZ7HgaRgexwkgVQDaCG4lOWNmO37AOUWHUQLIrNJv1lVu9ZUzhOX4oXQRowRQla3HlTmziKZt6SLieIwABOXIVebTNB4zWB7rWqEeFoCEVABVnTYfMxjGEuZojADX/kBhd+5DSAQL9FaZewfAL40yNjo0TCD/0uNoaxNc/LQF8vCDGrDLI4y1HlmMKBdUdZnM1rrolSBIP5VSYga+/77dFdgF9a85kDmX6vOFt1ZZE0IVqKMPAZBjUhlQbB2wjFF4khDJpS7a7Nss7qX+AwAQXJ5PvGvSjxLiKFN4jsC5uGtWAZb5xwBeYkURzUUOvWW9xD4HLB4/QGFcJUTKmW9XYqVOFfbxfMcWRjGnlYi70x4a1ZeEISpT/1J51+jQpfkAwAPjHv+PLW8EM2Px/EKvMex5DVFE0tMDHVSLFwZ4uoeMQZeeC8FP8MHgfbV4YXbwBAMBFEsnEHju0rb8+y3gY6UIPCKAy9LP63Lux5kNgHFsoUO6/J3By6DHgll898lK/ct87skGAUDCNS25cvMapd31T1EOygqwno8LDgIQcVBpoM79ewSVdr5p2M/v2QxzBii2Z9X+Y2t1/YCEX0pwFjNnLKFEtbiu9gYQKQpxLR6SCbNllrvhHdqUwwAo816OlVV1HXKu5iyvU6M4yUVQmTboNmwwkBmtqcAwZ6qCBZPfk6M8C4BbnffoNu4xVChxItVQucCxbDUwKsV1nSIrK9e8Ptmpb5EwB7UChFlPIWu1osUHhz3aN5HXqMiZpcHRenmlY04/YDSqjoE5NzqKTGZofxNbPbkz4Zl3i9O14VHTWOKk023FIfOBUBTFafPp8iWly2i325aDJjSIB0Vxev5wZlQCLoE49jf42qcOLsVp43dkV+9xqFftPc07dzgGzonLw+vm1f5cfp6JpH+jnIRkpADn6wNp6/UBY1G0XPkry/9MVQIdmEqNwV454LM4juv5EOWC0/C1q9KfqQsVV2hyNdfEi+ov58UlmnfGDj5X2CouMYWX+q+KSqO3rjHp/z+gATSABtAAGkADaAANoAE0gAbQABpAA2gADaABNIAG0AAaQANogMnJ/wFRiaihyoewLQAAAABJRU5ErkJggg==">
 <link rel="apple-touch-icon" href="data:image/png;base64,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">
 <style>
 :root{
@@ -36,30 +55,21 @@ body{
 .wrap{max-width:960px; margin:0 auto; padding:16px 14px 80px}
 header{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px}
 h1{font-size:22px; margin:0; letter-spacing:.02em}
-h1 small{font-size:13px; font-weight:700; color:var(--muted); margin-left:8px}
 h2{font-size:15px; margin:22px 0 8px; color:var(--muted); font-weight:700; display:flex; align-items:center; gap:8px}
 h2 .dot{width:10px; height:10px; border-radius:2px; background:var(--tab)}
-button,input,textarea{font:inherit; color:inherit}
+button,input{font:inherit; color:inherit}
 button{cursor:pointer}
 button:disabled{opacity:.5; cursor:default}
-button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible{
-  outline:3px solid var(--main); outline-offset:2px;
-}
-.panel{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px}
-label{display:block; font-size:13px; color:var(--muted); margin-bottom:3px}
-input[type=text],input[type=password],input[type=search],textarea{
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--main); outline-offset:2px}
+input[type=search]{
   width:100%; min-height:48px; padding:10px 12px; border-radius:8px;
   border:1px solid var(--line); background:var(--field); color:var(--ink);
 }
-textarea{min-height:110px; font-size:14px; font-family:ui-monospace,Consolas,monospace}
 .btn{
-  min-height:48px; padding:0 18px; border-radius:8px; border:1px solid var(--line);
-  background:var(--surface); color:var(--ink); font-weight:700; white-space:nowrap;
+  min-height:40px; padding:0 12px; border-radius:8px; border:1px solid var(--line);
+  background:var(--surface); color:var(--ink); font-weight:700; font-size:14px; white-space:nowrap;
 }
-.btn.main{background:var(--main); color:var(--main-ink); border-color:var(--main)}
-.btn.small{min-height:40px; padding:0 12px; font-size:14px}
-.btn.on{background:var(--ink); color:var(--bg); border-color:var(--ink)}
-.hint{font-size:13px; color:var(--muted); margin:8px 0 0}
+.hint{font-size:13px; color:var(--muted); margin:22px 0 0}
 .grid{display:grid; gap:10px; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); align-items:start}
 @media (min-width:700px){ .grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))} }
 .card{position:relative}
@@ -98,34 +108,31 @@ textarea{min-height:110px; font-size:14px; font-family:ui-monospace,Consolas,mon
 }
 #toast.show{opacity:1}
 @media (prefers-reduced-motion:reduce){ #toast{transition:none} .link:active{transform:none} }
-
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1 id="title">リンク集</h1>
-    <button class="btn small" id="reload" type="button">最新にする</button>
+    <button class="btn" id="reload" type="button">最新にする</button>
   </header>
   <input id="q" type="search" autocomplete="off" aria-label="ボタンを名前で探す" placeholder="名前で探す">
   <div id="list"><div class="empty">読み込み中…</div></div>
-  <p class="hint" id="idHint" style="margin-top:22px" hidden>IDが付いてるボタンは、押すとIDが自動でコピーされるよ。開いた先のID欄に貼り付けて、パスワードはここに戻って「PW コピー」を押してね。</p>
+  <p class="hint" id="idHint" hidden>IDが付いてるボタンは、押すとIDが自動でコピーされるよ。開いた先のID欄に貼り付けて、パスワードはここに戻って「PW コピー」を押してね。</p>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
-// ▼▼▼ GASのWebアプリURL(デプロイし直してURLが変わったらここだけ書き換える) ▼▼▼
-var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi75zkXBa4GQSgrCe4DZWoIBPQMFuLssYouE12okFwCJc3Q/exec';
-// ▲▲▲ ここまで ▲▲▲
-
 (function(){
   'use strict';
   var CACHE = 'linkButtons.view.v2';
   var TABS = 6;
   var DATA = [];
+  var lastSig = '';
   var list = document.getElementById('list');
   var q = document.getElementById('q');
-  var toastTimer;
+  var btn = document.getElementById('reload');
+  var toastTimer, searchTimer;
 
   function el(tag, cls, text){
     var e = document.createElement(tag);
@@ -134,7 +141,8 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
     return e;
   }
   function hostOf(u){
-    try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return u; }
+    var m = /^https?:\/\/(?:www\.)?([^\/?#:]+)/i.exec(u);
+    return m ? m[1] : u;
   }
   function tabOf(group){
     if(!group) return 0;
@@ -167,20 +175,43 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
   }
   function safeUrl(u){ return /^https?:\/\//i.test(u); }
 
+  // ボタンのクリックは1か所でまとめて受ける(ボタンごとに仕掛けないので軽い)
+  list.addEventListener('click', function(ev){
+    var t = ev.target.closest('[data-i]');
+    if(!t) return;
+    var it = DATA[+t.getAttribute('data-i')];
+    if(!it) return;
+    var kind = t.getAttribute('data-k');
+    if(kind === 'link'){
+      if(it.loginId && copySync(it.loginId)) toast('IDをコピーした。開いた先で貼り付けてね');
+    }else if(kind === 'id'){
+      copy(it.loginId, 'IDをコピーした');
+    }else if(kind === 'pw'){
+      copy(it.pw, 'パスワードをコピーした');
+    }
+  });
+
   function render(){
     var word = (q.value||'').trim().toLowerCase();
-    list.textContent = '';
-    var shown = DATA.filter(function(x){
-      if(!safeUrl(x.url)) return false;
-      if(!word) return true;
-      return (x.name+' '+x.group+' '+x.url).toLowerCase().indexOf(word) >= 0;
-    });
+    var frag = document.createDocumentFragment();
+    var shown = [];
+    for(var i=0;i<DATA.length;i++){
+      var x = DATA[i];
+      if(!safeUrl(x.url)) continue;
+      if(word && (x.name+' '+x.group+' '+x.url).toLowerCase().indexOf(word) < 0) continue;
+      shown.push(i);
+    }
     if(!shown.length){
-      list.appendChild(el('div','empty', word ? '「'+q.value+'」に合うボタンがないよ。' : 'まだボタンが登録されてないよ。'));
+      frag.appendChild(el('div','empty', word ? '「'+q.value+'」に合うボタンがないよ。' : 'まだボタンが登録されてないよ。'));
+      list.textContent = ''; list.appendChild(frag);
       return;
     }
-    var groups = [];
-    shown.forEach(function(x){ if(groups.indexOf(x.group)<0) groups.push(x.group); });
+    var groups = [], byGroup = {};
+    shown.forEach(function(i){
+      var g = DATA[i].group || '';
+      if(!byGroup[g]){ byGroup[g] = []; groups.push(g); }
+      byGroup[g].push(i);
+    });
     groups.sort(function(a,b){ return (a===''?-1:0) - (b===''?-1:0); });
 
     groups.forEach(function(g){
@@ -188,50 +219,55 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
       if(g){
         var h = el('h2'); h.style.setProperty('--tab', tab);
         h.appendChild(el('span','dot')); h.appendChild(document.createTextNode(g));
-        list.appendChild(h);
+        frag.appendChild(h);
       }
       var grid = el('div','grid');
+      grid.style.setProperty('--tab', tab);
       if(!g) grid.style.marginTop = '16px';
-      shown.filter(function(x){ return x.group===g; }).forEach(function(it){
-        var c = el('div', (it.loginId || it.pw) ? 'card hasid' : 'card'); c.style.setProperty('--tab', tab);
+      byGroup[g].forEach(function(i){
+        var it = DATA[i];
+        var c = el('div', (it.loginId || it.pw) ? 'card hasid' : 'card');
         var a = el('a','link');
         a.href = it.url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = it.url;
+        a.setAttribute('data-i', i); a.setAttribute('data-k', 'link');
         a.appendChild(el('span','ini', Array.from(it.name)[0] || '?'));
         var t = el('span','txt');
         t.appendChild(el('span','name', it.name));
         t.appendChild(el('span','host', hostOf(it.url)));
         a.appendChild(t);
-        if(it.loginId){
-          a.addEventListener('click', function(){
-            if(copySync(it.loginId)) toast('IDをコピーした。開いた先で貼り付けてね');
-          });
-        }
         c.appendChild(a);
         if(it.loginId){
           var ib = el('button','idbtn'); ib.type='button';
+          ib.setAttribute('data-i', i); ib.setAttribute('data-k', 'id');
           ib.setAttribute('aria-label', it.name+' のログインIDをコピー');
           ib.appendChild(el('span','idval', it.loginId));
           ib.appendChild(el('span','idact','コピー'));
-          ib.onclick = function(){ copy(it.loginId, 'IDをコピーした'); };
           c.appendChild(ib);
         }
         if(it.pw){
           var pb = el('button','idbtn'); pb.type='button';
+          pb.setAttribute('data-i', i); pb.setAttribute('data-k', 'pw');
           pb.setAttribute('aria-label', it.name+' のパスワードをコピー');
           pb.appendChild(el('span','idval','PW ••••••'));
           pb.appendChild(el('span','idact','コピー'));
-          pb.onclick = function(){ copy(it.pw, 'パスワードをコピーした'); };
           c.appendChild(pb);
         }
         grid.appendChild(c);
       });
-      list.appendChild(grid);
+      frag.appendChild(grid);
     });
+    list.textContent = '';
+    list.appendChild(frag);
   }
 
   function show(res){
-    DATA = (res && res.items) || [];
+    var items = (res && res.items) || [];
     var title = (res && res.title) || 'リンク集';
+    // 中身が前回と同じなら描き直さない(チラつき・無駄な処理を防ぐ)
+    var sig = title + '\n' + JSON.stringify(items);
+    if(sig === lastSig) return;
+    lastSig = sig;
+    DATA = items;
     document.getElementById('title').textContent = title;
     document.getElementById('idHint').hidden = !DATA.some(function(x){ return !!(x.loginId || x.pw); });
     render();
@@ -242,40 +278,39 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbz8-TEf6fpPvpaAPAOfi5NOi7
     list.appendChild(el('div','empty', msg));
   }
 
-  function loadData(){
-    if(!GAS_URL){ fail('まだ準備中だよ。(GAS_URL が未設定)'); return; }
-    var btn = document.getElementById('reload');
+  function handle(p){
     btn.disabled = true;
-    fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({action:'view'}) })
-      .then(function(r){ return r.json(); })
-      .then(function(res){
-        btn.disabled = false;
-        if(!res.ok){ fail('読み込めなかった: ' + res.error); return; }
-        show(res.result);
-        // 端末に残す控えにはID・パスワードを入れない(ボタンだけ先に出す用)
-        try{
-          var lite = { title: res.result.title, items: (res.result.items||[]).map(function(x){
-            return { name:x.name, url:x.url, group:x.group, loginId:'', pw:'' };
-          }) };
-          localStorage.setItem(CACHE, JSON.stringify(lite));
-          localStorage.removeItem('linkButtons.view.v1');
-        }catch(e){}
-      })
-      .catch(function(err){
-        btn.disabled = false;
-        fail('読み込めなかった。電波を確認して「最新にする」を押してみて。');
-      });
+    p.then(function(res){
+      btn.disabled = false;
+      if(!res || !res.ok){ fail('読み込めなかった: ' + (res && res.error)); return; }
+      show(res.result);
+      // 端末に残す控えにはID・パスワードを入れない(ボタンだけ先に出す用)
+      try{
+        var lite = { title: res.result.title, items: (res.result.items||[]).map(function(x){
+          return { name:x.name, url:x.url, group:x.group, loginId:'', pw:'' };
+        }) };
+        localStorage.setItem(CACHE, JSON.stringify(lite));
+      }catch(e){}
+    }, function(){
+      btn.disabled = false;
+      fail('読み込めなかった。電波を確認して「最新にする」を押してみて。');
+    });
   }
 
-  // 前回の内容を先に出しておいて、裏で最新を取りに行く(開いた瞬間に押せるように)
+  // 前回の内容を先に出しておく(開いた瞬間に押せるように)
   try{
     var c = localStorage.getItem(CACHE);
     if(c) show(JSON.parse(c));
   }catch(e){}
 
-  q.addEventListener('input', render);
-  document.getElementById('reload').onclick = loadData;
-  loadData();
+  q.addEventListener('input', function(){
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(render, 120);
+  });
+  btn.onclick = function(){ if(GAS_URL) handle(fetchView()); };
+
+  if(FIRST_LOAD) handle(FIRST_LOAD);
+  else fail('まだ準備中だよ。(GAS_URL が未設定)');
 })();
 </script>
 </body>
