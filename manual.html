@@ -31,14 +31,26 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
 @media(max-width:750px){.title-block{padding:23px 20px}.title-block h1{font-size:27px}.dashboard .stat{padding:10px}.row .go{width:24px;height:24px}.viewer .bar .t small{max-width:100%;overflow:hidden;text-overflow:ellipsis}}
 
 .appearance-settings{margin:0 0 18px;border:1px solid var(--hair);border-radius:12px;background:var(--paper)}.appearance-settings summary{cursor:pointer;padding:12px 15px;color:var(--ink);font-size:12px;font-weight:700;list-style-position:inside;min-height:44px}.settings-summary-note{font-size:11px;font-weight:400;color:var(--ink-2);margin-left:12px}.appearance-settings summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:10px}.appearance-settings .settings{padding:14px 15px;margin:0;border-top:1px solid var(--hair)}@media(max-width:380px){.settings-summary-note{font-size:10px;margin-left:8px}}
+
+/* 限定閲覧まわり */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logout{border:0;background:none;color:var(--ink-2);font-size:12px;padding:8px 0;min-height:36px}
+.logout:hover{color:var(--accent)}
+.tag.lock{background:var(--field);color:var(--danger);border:1px solid var(--hair)}
+.tag.unlocked{background:var(--field);color:var(--accent);border:1px solid var(--hair)}
+.row.locked .go{color:var(--danger)}
+.field-note{font-size:11px;color:var(--ink-2);margin-top:6px;line-height:1.6}
+.lock-title{font-size:14px;color:var(--ink-2);margin:0 0 4px;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <a class="back mono" href="./office.html">← OFFICE TOOLS</a>
+  <div class="topbar">
+    <a class="back mono" href="./office.html">← OFFICE TOOLS</a>
+    <button class="logout mono" id="logoutBtn" type="button">ログアウト</button>
+  </div>
 
   <div class="title-block">
-    
     <div class="l">
       <div class="kicker mono">GENBA OFFICE / MANUAL</div>
       <h1>事務所マニュアル</h1><p class="intro">手順も、図面も、ひとつに。必要な資料へすぐアクセス。</p>
@@ -56,7 +68,7 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
     <button id="clear" type="button" aria-label="クリア">×</button>
   </div>
 
-<div class="search-meta"><span id="resultCount" role="status" aria-live="polite">マニュアルを読み込んでいます</span><span class="search-help">タイトル・タグ・カテゴリ・本文から検索</span></div></div><div class="edit-note">編集中 · マニュアルの追加・編集・本文更新ができます。</div>
+<div class="search-meta"><span id="resultCount" role="status" aria-live="polite">マニュアルを読み込んでいます</span><span class="search-help">タイトル・タグ・カテゴリ・本文から検索</span></div></div><div class="edit-note">編集中 · マニュアルの追加・編集・本文更新ができます。「閲覧パス」を入れたマニュアルは🔒限定になります。</div>
   <div class="loading" id="loading">読み込み中…</div>
   <div id="sections"></div>
   <div class="empty" id="empty">一致するマニュアルがありません。別のキーワードで検索してください。</div>
@@ -81,7 +93,35 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
   <div class="hint">表示されない場合は「別タブ」で開き、ドキュメントの共有設定をご確認ください。</div>
 </div>
 
-<!-- 合言葉 -->
+<!-- ログイン(1段階目) -->
+<div class="modal-bg" id="loginModal" data-sticky="1">
+  <div class="modal">
+    <h3>ログイン</h3>
+    <label>パスワード</label>
+    <input id="loginInput" type="password" autocomplete="current-password" enterkeyhint="done">
+    <div class="msg" id="loginMsg"></div>
+    <div class="btns">
+      <button type="button" class="ok" id="loginOk" onclick="submitLogin()">ログイン</button>
+    </div>
+  </div>
+</div>
+
+<!-- 限定閲覧(2段階目) -->
+<div class="modal-bg" id="unlockModal">
+  <div class="modal">
+    <h3>🔒 限定マニュアル</h3>
+    <p class="lock-title" id="unlockName"></p>
+    <label>閲覧パス</label>
+    <input id="unlockInput" type="password" autocomplete="off" enterkeyhint="done">
+    <div class="msg" id="unlockMsg"></div>
+    <div class="btns">
+      <button type="button" onclick="closeModal('unlockModal')">やめる</button>
+      <button type="button" class="ok" id="unlockOk" onclick="submitUnlock()">開く</button>
+    </div>
+  </div>
+</div>
+
+<!-- 合言葉(編集モード) -->
 <div class="modal-bg" id="passModal">
   <div class="modal">
     <h3>編集モード</h3>
@@ -109,6 +149,9 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
     <input id="fTag" placeholder="例: 請求書, 月末, 経理">
     <label>URL(Googleドキュメント / DriveのPDF・画像 / スプシ / フォルダ)</label>
     <input id="fUrl" type="url" inputmode="url" placeholder="https://docs.google.com/… または https://drive.google.com/file/d/…">
+    <label>閲覧パス(任意)</label>
+    <input id="fLock" type="text" autocomplete="off" placeholder="空欄 = ログインした全員が見れる">
+    <div class="field-note">入れると🔒限定になり、開くときにこのパスを聞かれます。同じパスを複数のマニュアルに付ければ、1回解除でまとめて見れます。</div>
     <div class="msg" id="formMsg"></div>
     <div class="btns">
       <button type="button" onclick="closeModal('formModal')">やめる</button>
@@ -124,36 +167,111 @@ html[data-theme="dark"][data-palette="emerald"]{--accent:#77dfbf;--soft:#1b403a}
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzONR9VsGsimnsN1eCVlRSAXHlNomIZUXvJRBsI2r_MWCduIhY6JpDAKIDZtbjvcCM7/exec";
 
 let DOCS = [];
-let PASS = sessionStorage.getItem("officePass") || "";
+let PASS = sessionStorage.getItem("officePass") || "";          // 編集用の合言葉(タブを閉じたら消える)
+let LOGIN = localStorage.getItem("officeLogin") || "";          // ログインパス(この端末に記憶)
+let KEYS = readKeys();                                           // 解除した閲覧パス(タブを閉じたら消える)
 let afterPass = null;
+let unlockId = "";
 
 const $ = id => document.getElementById(id);
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function pad2(n){ return String(n).padStart(2, "0"); }
 function setMsg(id, text, cls){ const m = $(id); m.textContent = text || ""; m.className = "msg " + (cls || ""); }
+function isEdit(){ return document.body.classList.contains("edit"); }
+function readKeys(){ try { const k = JSON.parse(sessionStorage.getItem("officeKeys") || "[]"); return Array.isArray(k) ? k : []; } catch (e) { return []; } }
+function saveKeys(){ sessionStorage.setItem("officeKeys", JSON.stringify(KEYS)); }
 
 async function api(body){
   if (!GAS_URL) throw new Error("GAS_URL が未設定");
-  const r = await fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body) });
+  const payload = Object.assign({ login: LOGIN, keys: KEYS }, body);
+  const r = await fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(payload) });
   const j = await r.json();
   if (!j.ok) {
-    if (/合言葉/.test(j.error || "")) { PASS = ""; sessionStorage.removeItem("officePass"); }
-    throw new Error(j.error || "エラー");
+    const err = j.error || "エラー";
+    if (/合言葉/.test(err)) { PASS = ""; sessionStorage.removeItem("officePass"); }
+    if (/ログイン/.test(err)) { LOGIN = ""; localStorage.removeItem("officeLogin"); }
+    throw new Error(err);
   }
   return j.result;
 }
 
 async function load(){
   if (!GAS_URL) { $("loading").textContent = "GAS_URL が未設定"; return; }
+  const hadLogin = !!LOGIN;
   try {
-    const r = await fetch(GAS_URL + "?t=" + Date.now());
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error);
-    DOCS = j.result;
+    DOCS = await api({ action: "list", pass: isEdit() ? PASS : "" });
     $("loading").style.display = "none";
     render(); filter();
-  } catch (e) { $("loading").textContent = "読み込み失敗: " + e.message; }
+  } catch (e) {
+    if (/ログイン/.test(e.message)) {
+      $("loading").style.display = "";
+      $("loading").textContent = "ログインしてください";
+      $("sections").innerHTML = "";
+      showLogin(hadLogin ? e.message : "");
+    } else {
+      $("loading").style.display = "";
+      $("loading").textContent = "読み込み失敗: " + e.message;
+    }
+  }
 }
+
+// ---------- ログイン(1段階目) ----------
+function showLogin(msg){
+  setMsg("loginMsg", msg || "", msg ? "ng" : "");
+  $("loginInput").value = "";
+  openModal("loginModal");
+  setTimeout(() => $("loginInput").focus(), 50);
+}
+async function submitLogin(){
+  const p = $("loginInput").value;
+  if (!p) { setMsg("loginMsg", "パスワードを入れてね", "ng"); return; }
+  $("loginOk").disabled = true;
+  LOGIN = p;
+  try {
+    await api({ action: "checkLogin" });
+    localStorage.setItem("officeLogin", p);
+    closeModal("loginModal");
+    $("loading").textContent = "読み込み中…";
+    await load();
+  } catch (e) { setMsg("loginMsg", e.message, "ng"); }
+  $("loginOk").disabled = false;
+}
+$("loginInput").addEventListener("keydown", e => { if (e.key === "Enter") submitLogin(); });
+$("logoutBtn").addEventListener("click", () => {
+  if (!confirm("ログアウトする？(解除した限定マニュアルもロックに戻る)")) return;
+  LOGIN = ""; PASS = ""; KEYS = [];
+  localStorage.removeItem("officeLogin"); sessionStorage.removeItem("officePass"); sessionStorage.removeItem("officeKeys");
+  document.body.classList.remove("edit"); $("editBtn").textContent = "編集";
+  DOCS = []; $("sections").innerHTML = "";
+  $("loading").style.display = ""; $("loading").textContent = "ログインしてください";
+  showLogin("");
+});
+
+// ---------- 限定閲覧(2段階目) ----------
+function showUnlock(d){
+  unlockId = d["ID"];
+  $("unlockName").textContent = d["タイトル"] || "";
+  setMsg("unlockMsg", ""); $("unlockInput").value = "";
+  openModal("unlockModal");
+  setTimeout(() => $("unlockInput").focus(), 50);
+}
+async function submitUnlock(){
+  const k = $("unlockInput").value;
+  if (!k) { setMsg("unlockMsg", "閲覧パスを入れてね", "ng"); return; }
+  $("unlockOk").disabled = true; setMsg("unlockMsg", "確認中…");
+  try {
+    await api({ action: "unlock", id: unlockId, key: k });
+    if (!KEYS.includes(k)) { KEYS.push(k); saveKeys(); }
+    closeModal("unlockModal");
+    await load();
+    openDoc(unlockId);
+  } catch (e) {
+    if (/ログイン/.test(e.message)) { closeModal("unlockModal"); showLogin(e.message); }
+    else setMsg("unlockMsg", e.message, "ng");
+  }
+  $("unlockOk").disabled = false;
+}
+$("unlockInput").addEventListener("keydown", e => { if (e.key === "Enter") submitUnlock(); });
 
 // ---------- URL変換 ----------
 // Google系のURLはiframeで表示できる /preview 形式に変換(Docs・スプシ・スライド・Driveのファイル=PDF/画像/動画など)
@@ -177,6 +295,13 @@ function grouped(){
   DOCS.forEach(d => { const c = d["カテゴリ"] || "その他"; if (!map.has(c)) map.set(c, []); map.get(c).push(d); });
   return map;
 }
+function noteFor(d){
+  const openable = !!d["URL"];
+  if (d["限定"] && !openable) return "🔒 閲覧パスが必要";
+  if (d["本文あり"]) return "本文検索対応 · " + (d["更新日時"] || "");
+  if (d["Docs"]) return "本文未取得";
+  return "資料を開く";
+}
 function render(){
   const g = grouped();
   $("catList").innerHTML = [...g.keys()].map(c => `<option value="${esc(c)}">`).join("");
@@ -188,16 +313,18 @@ function render(){
       <h2><span class="no mono">${pad2(secNo)}</span>${esc(cat)}<span class="cat-count">${items.length}件</span></h2>
       ${items.map((d, i) => {
         const tags = String(d["タグ"] || "").split(/[,、\s]+/).filter(Boolean);
-        const hasCache = !!d["本文キャッシュ"];
+        const locked = !!d["限定"] && !d["URL"];
+        let lockTag = "";
+        if (d["限定"]) lockTag = locked ? `<span class="tag lock">🔒 限定</span>` : `<span class="tag unlocked">🔓 限定・解除済</span>`;
         return `
-        <div class="row" tabindex="0" data-id="${esc(d["ID"])}" onclick="openDoc('${esc(d["ID"])}')">
+        <div class="row${locked ? " locked" : ""}" tabindex="0" data-id="${esc(d["ID"])}" onclick="openDoc('${esc(d["ID"])}')">
           <div class="idx mono">${pad2(i + 1)}</div>
           <div>
-            <div class="name">${esc(d["タイトル"])}</div><div class="tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+            <div class="name">${esc(d["タイトル"])}</div><div class="tags">${lockTag}${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
             <div class="desc" id="snip-${esc(d["ID"])}"></div>
-            <div class="cache-note mono">${hasCache ? "本文検索対応 · " + esc(d["更新日時"] || "") : (/\/document\/d\//.test(d["URL"]) ? "本文未取得" : "資料を開く")}</div>
+            <div class="cache-note mono">${esc(noteFor(d))}</div>
           </div>
-          <div class="go">→</div>
+          <div class="go">${locked ? "🔒" : "→"}</div>
           <div class="tools">
             <button type="button" onclick="event.stopPropagation();openForm('${esc(d["ID"])}')">編集</button>
             <button type="button" onclick="event.stopPropagation();refreshOne('${esc(d["ID"])}')">本文</button>
@@ -246,13 +373,13 @@ function filter(){
   $("empty").classList.toggle("show", shown === 0);
   $("empty").textContent = DOCS.length ? "一致するマニュアルがありません。別のキーワードで検索してください。" : "マニュアルはまだありません。編集モードの「＋ 追加」から登録できます。";
   $("resultCount").textContent = q ? `${DOCS.length}件中 ${shown}件を表示` : `すべてのマニュアル · ${shown}件`;
-
 }
 
 // ---------- ビューア ----------
 function openDoc(id){
-  if (document.body.classList.contains("edit")) return;
-  const d = DOCS.find(x => x["ID"] === id); if (!d || !d["URL"]) return;
+  if (isEdit()) return;
+  const d = DOCS.find(x => x["ID"] === id); if (!d) return;
+  if (!d["URL"]) { if (d["限定"]) showUnlock(d); return; }
   $("vCat").textContent = d["カテゴリ"] || "";
   $("vName").textContent = d["タイトル"] || "";
   $("vOpen").href = d["URL"];
@@ -267,7 +394,7 @@ function closeViewer(){
 }
 window.addEventListener("popstate", () => { if ($("viewer").classList.contains("show")) { $("viewer").classList.remove("show"); $("vFrame").src = "about:blank"; } });
 
-// ---------- 合言葉 ----------
+// ---------- 合言葉(編集) ----------
 function withPass(fn){
   if (PASS) { fn(); return; }
   afterPass = fn;
@@ -292,8 +419,8 @@ $("passInput").addEventListener("keydown", e => { if (e.key === "Enter") submitP
 function openModal(id){ $(id).classList.add("show"); }
 function closeModal(id){ $(id).classList.remove("show"); }
 $("editBtn").addEventListener("click", () => {
-  if (document.body.classList.contains("edit")) { document.body.classList.remove("edit"); $("editBtn").textContent = "編集"; return; }
-  withPass(() => { document.body.classList.add("edit"); $("editBtn").textContent = "完了"; });
+  if (isEdit()) { document.body.classList.remove("edit"); $("editBtn").textContent = "編集"; load(); return; }
+  withPass(() => { document.body.classList.add("edit"); $("editBtn").textContent = "完了"; load(); });
 });
 $("addBtn").addEventListener("click", () => openForm(""));
 $("refreshBtn").addEventListener("click", () => {
@@ -320,6 +447,7 @@ function openForm(id){
   $("fTitle").value = d["タイトル"] || "";
   $("fTag").value = d["タグ"] || "";
   $("fUrl").value = d["URL"] || "";
+  $("fLock").value = d["閲覧パス"] || "";
   setMsg("formMsg", "");
   openModal("formModal");
 }
@@ -330,6 +458,7 @@ function submitForm(){
     "タイトル": $("fTitle").value.trim(),
     "タグ": $("fTag").value.trim(),
     "URL": $("fUrl").value.trim(),
+    "閲覧パス": $("fLock").value.trim(),
   };
   if (!data["タイトル"]) { setMsg("formMsg", "タイトルは必須", "ng"); return; }
   if (!/^https?:\/\//.test(data["URL"])) { setMsg("formMsg", "URLを入れてね", "ng"); return; }
@@ -382,7 +511,8 @@ function tick(){
 }
 $("q").addEventListener("input", filter);
 $("clear").addEventListener("click", () => { $("q").value = ""; filter(); $("q").focus(); });
-document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("show"); }));
+// 背景タップで閉じる(ログイン画面だけは閉じない)
+document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m && !m.dataset.sticky) m.classList.remove("show"); }));
 
 $("sections").addEventListener("keydown", e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("row")){e.preventDefault();openDoc(e.target.dataset.id);}});
 document.addEventListener("keydown", e=>{if(e.key==="Escape"&&$("viewer").classList.contains("show"))closeViewer();});
