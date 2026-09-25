@@ -20,6 +20,13 @@
     @media(min-width:760px){#sec-contact,#sec-rules{max-width:800px;margin:auto}}
     @media(max-width:650px){header{padding:22px 20px}header .brand{margin-bottom:12px}main{padding:18px 14px 0}#sec-home.on{grid-template-columns:minmax(0,1fr);gap:14px}.card{padding:20px 18px;border-radius:16px}.hero{height:180px;margin-top:16px}.kv{grid-template-columns:76px minmax(0,1fr);gap:12px}.contact{gap:12px}.contact-actions{width:100%}.contact-actions a.tel{flex:1}.toolbar{margin-bottom:14px}.card h2{font-size:16px}.news{font-size:16px}}
     @media(prefers-reduced-motion:no-preference){button,a{transition:background .15s,color .15s}}
+    nav.tabs button{display:flex;flex-direction:column;align-items:center;gap:4px;min-height:68px;padding:5px 8px;font-weight:600;letter-spacing:.03em}
+    nav.tabs .ic{display:flex;align-items:center;justify-content:center;width:54px;height:34px;margin:0;border-radius:12px}
+    nav.tabs .ic svg{display:block;width:24px;height:24px}
+    nav.tabs button.on{background:transparent;color:#116775}
+    nav.tabs button.on .ic{background:#d9eeeb;box-shadow:inset 0 0 0 1px #c9e5e1}
+    nav.tabs button.on .ic svg{stroke-width:2}
+    @media(hover:hover){nav.tabs button:hover .ic{background:#edf4f6}nav.tabs button.on:hover .ic{background:#cfe9e4}}
   </style>
 </head>
 <body>
@@ -66,9 +73,9 @@
   </main>
 
   <nav aria-label="メインメニュー" class="tabs" id="tabs" style="display:none">
-    <button class="on" onclick="showTab('home')"><span class="ic">🏗</span>ホーム</button>
-    <button onclick="showTab('contact')"><span class="ic">📞</span>連絡先</button>
-    <button onclick="showTab('rules')"><span class="ic">📋</span>ルール</button>
+    <button class="on" onclick="showTab('home')"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m3 10 9-7 9 7"/><path d="M5 9v11h5v-6h4v6h5V9"/></svg></span>ホーム</button>
+    <button onclick="showTab('contact')"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="5" y="3" width="15" height="18" rx="3"/><path d="M3 7h4M3 12h4M3 17h4"/><circle cx="12.5" cy="9" r="2.5"/><path d="M9 17v-1a3.5 3.5 0 0 1 7 0v1"/></svg></span>連絡先</button>
+    <button onclick="showTab('rules')"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="5" y="5" width="14" height="16" rx="3"/><rect x="9" y="3" width="6" height="4" rx="1.5"/><path d="m9 13 2 2 4-4M9 18h6"/></svg></span>ルール</button>
   </nav>
 
   <script>
