@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>原価管理システム 検索</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF0F1; --paper:#FFFFFF; --ink:#17232E; --sub:#566674; --line:#CBD3D8;
+  --steel:#2E5A73; --steel-soft:#DDE8EE; --yellow:#F5C400; --mark:#FFE36B; --warn:#B3261E;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#101719; --paper:#19232A; --ink:#E6ECEF; --sub:#9AA9B4; --line:#2E3C45;
+    --steel:#7FB2CF; --steel-soft:#1F3440; --yellow:#E8BA00; --mark:#6B5A00; --warn:#FF8A80;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101719; --paper:#19232A; --ink:#E6ECEF; --sub:#9AA9B4; --line:#2E3C45;
+  --steel:#7FB2CF; --steel-soft:#1F3440; --yellow:#E8BA00; --mark:#6B5A00; --warn:#FF8A80;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 150px)}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;
+  font-size:16px;line-height:1.7;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:0 14px 60px}
+
+/* ヘッダー */
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--paper);
+  border-bottom:1px solid var(--line)}
+.stripe{height:6px;background:repeating-linear-gradient(-45deg,var(--yellow) 0 10px,var(--ink) 10px 20px)}
+.head-in{max-width:760px;margin:0 auto;padding:10px 14px 4px}
+h1{font-size:1.1rem;margin:0 0 8px;letter-spacing:.02em}
+h1 small{font-weight:400;color:var(--sub);font-size:.8rem;margin-left:6px}
+.tabs{display:flex;gap:4px}
+.tab{flex:1;padding:10px 0;border:0;background:none;border-bottom:3px solid transparent;
+  font-weight:700;color:var(--sub);cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--yellow)}
+.tab:focus-visible,.chip:focus-visible,input:focus-visible,select:focus-visible,.q:focus-visible{outline:3px solid var(--steel);outline-offset:2px}
+
+/* 検索 */
+.searchbar{padding:10px 0 12px}
+.sbox{display:flex;align-items:center;gap:8px;background:var(--bg);border:2px solid var(--ink);
+  border-radius:6px;padding:0 10px}
+.sbox input{flex:1;min-width:0;border:0;background:none;padding:12px 0;font:inherit;font-size:1.05rem;color:var(--ink)}
+.sbox input:focus{outline:none}
+.clear{border:0;background:none;font-size:1.3rem;line-height:1;color:var(--sub);cursor:pointer;padding:6px}
+.filters{display:flex;gap:8px;margin-top:8px}
+.filters select{flex:1;min-width:0;padding:9px 8px;border:1px solid var(--line);border-radius:6px;
+  background:var(--paper);color:var(--ink);font:inherit;font-size:.9rem}
+.quick{display:flex;gap:6px;overflow-x:auto;padding:12px 0 2px;scrollbar-width:none}
+.quick::-webkit-scrollbar{display:none}
+.q{flex:none;border:1px solid var(--line);background:var(--paper);border-radius:999px;
+  padding:6px 12px;font-size:.85rem;cursor:pointer;white-space:nowrap}
+.count{color:var(--sub);font-size:.85rem;margin:14px 0 8px}
+
+.card{background:var(--paper);border:1px solid var(--line);border-left:5px solid var(--steel);
+  border-radius:4px;padding:12px 14px;margin-bottom:10px}
+.card h3{margin:0;font-size:1rem;line-height:1.5}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px;font-size:.75rem}
+.tag{padding:1px 8px;border-radius:3px;background:var(--steel-soft);color:var(--steel);font-weight:700}
+.tag.pg{background:none;border:1px solid var(--line);color:var(--sub);font-weight:400}
+.tag.role{background:var(--ink);color:var(--paper)}
+.card ul{margin:0;padding-left:1.2em}
+.card li{margin:2px 0}
+mark{background:var(--mark);color:inherit;padding:0 1px;border-radius:2px}
+.empty{background:var(--paper);border:1px dashed var(--line);border-radius:4px;padding:18px;color:var(--sub)}
+
+/* まとめ */
+.sum h2{font-size:1.15rem;margin:32px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+.sum h2:first-child{margin-top:18px}
+.sum p{margin:6px 0}
+.lead{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px;font-size:1.02rem}
+.tl{list-style:none;margin:0;padding:0;counter-reset:s}
+.tl li{position:relative;padding:0 0 16px 44px;counter-increment:s}
+.tl li::before{content:counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;
+  background:var(--yellow);color:#17232E;font-weight:700;display:grid;place-items:center;font-size:.9rem}
+.tl li::after{content:"";position:absolute;left:14px;top:32px;bottom:2px;width:2px;background:var(--line)}
+.tl li:last-child::after{display:none}
+.tl .when{font-weight:700;display:block}
+.tl .what{color:var(--sub);font-size:.92rem}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;background:var(--paper);font-size:.9rem;min-width:420px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--steel-soft);white-space:nowrap}
+.roles{display:grid;gap:10px}
+.role-box{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+.role-box h3{margin:0 0 6px;font-size:1rem}
+.role-box ul{margin:0;padding-left:1.2em}
+.warn{border-left:5px solid var(--warn)}
+.warn h3{color:var(--warn)}
+.jump{border:0;background:none;color:var(--steel);text-decoration:underline;cursor:pointer;padding:0;font-size:.85rem}
+.note{font-size:.85rem;color:var(--sub)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="stripe"></div>
+  <div class="head-in">
+    <h1>作業所原価管理システム 検索<small>マニュアル56ページ分</small></h1>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- 検索 -->
+  <section id="pane-search">
+    <div class="searchbar">
+      <div class="sbox">
+        <input id="q" type="search" placeholder="例：パスワード 忘れた／請求書 申請" autocomplete="off" aria-label="キーワード">
+        <button class="clear" id="clear" aria-label="入力を消す" hidden>×</button>
+      </div>
+      <div class="filters">
+        <select id="ch" aria-label="章で絞る"></select>
+        <select id="role" aria-label="担当で絞る">
+          <option value="">担当：すべて</option>
+          <option>作業所</option><option>工事部長</option><option>施工事務</option><option>工務</option>
+        </select>
+      </div>
+      <div class="quick" id="quick"></div>
+    </div>
+    <div class="count" id="count" aria-live="polite"></div>
+    <div id="results"></div>
+  </section>
+</div>
+
+<script>
+const CHAPTERS = {
+  "1":"ログイン","2":"基本操作","3":"実施予算","4":"要望明細・追加減額届",
+  "5":"請求書","6":"原価報告","7":"決算未払金","8":"帳票出力"
+};
+
+// ch:章 / t:見出し / p:ページ / r:担当(空=全員) / b:本文 / k:言い換えキーワード
+const DATA = [
+  {ch:"1",t:"新作業所OAの開き方",p:"4",r:[],b:["先にVPNにつながっているか確認","イントラ →［社内システム］→［新作業所OA（仮）］"],k:"起動 開けない 入り方 アクセス URL"},
+  {ch:"1",t:"初回ログイン・パスワード再設定",p:"5",r:[],b:["最初はパスワードがランダムなので再設定が必要。パスワードを忘れたときも同じ手順","① イントラ［社内システム］→［作業所OA（試用）］","②［パスワード再設定］をクリック","③ 自分のメールアドレスを入れて［送信］","④ sender@mail.faws0024.aws.fastapp.info から届くメールのURLで再設定","⑤ 再設定されたパスワードがメールで届く","⑥ ログインID＝職員コード、パスワード＝届いたもので入る。ログイン後にパスワード変更必須"],k:"忘れた ログインできない 初めて 初期 ID 職員コード リセット"},
+  {ch:"1",t:"パスワードのルール",p:"5",r:[],b:["10文字以上","英大文字・英小文字・数字・記号を全部使う","連続した3文字以上は入れない","前回・前々回と同じものは使えない"],k:"パスワード変更 条件 文字数 記号"},
+
+  {ch:"2",t:"トップページの見方",p:"6",r:[],b:["お知らせ欄と未処理件数欄がある","メニューは画面の左","作業所の切り替えは［設定］から"],k:"ホーム 未処理 作業所切替 変更"},
+  {ch:"2",t:"メニューの開き方・トップへの戻り方",p:"7",r:[],b:["左のメニューは折りたたみ・展開ができる","ロゴをクリックするとトップページへ"],k:"メニュー 折りたたみ ホーム"},
+  {ch:"2",t:"キーボード操作（右クリック不可）",p:"7",r:[],b:["右クリックは使えない","コピー：Ctrl＋C／貼り付け：Ctrl＋V／全選択：Ctrl＋A","セル内の改行：Alt＋Enter"],k:"右クリック コピー 貼り付け ペースト 全選択 改行 ショートカット"},
+  {ch:"2",t:"前の画面への戻り方",p:"7",r:[],b:["ブラウザの「←」は使わない（ログアウトすることがある）","画面上の［戻る］ボタンを使う"],k:"戻る ログアウト 勝手に 落ちる ブラウザバック"},
+  {ch:"2",t:"画面の拡大・縮小",p:"7",r:[],b:["Ctrl＋マウスホイール上で拡大","Ctrl＋マウスホイール下で縮小"],k:"ズーム 大きく 小さく 文字サイズ"},
+  {ch:"2",t:"画面上部のボタンと［一時保存］",p:"8",r:[],b:["操作ボタンは画面上部。濃い緑のタブをクリックで折りたたみ・展開","［一時保存］：細かいチェックを飛ばして今の状態を保存（実施予算・要望明細・原価報告書）。少し席を外すときなどに","［保存］：申請できる状態か細かくチェックして保存"],k:"途中保存 保存できない 一時保存 ヘッダー"},
+  {ch:"2",t:"作業所マスタの確認",p:"9",r:[],b:["作業所情報は自動で連携される。所長の設定は施工事務が行う","工期変更は原価報告書Aで登録 → 施工事務が未成現況表で登録するとマスタに反映","手順：メニュー［作業所マスタ］→［作業所コード］","入力できるのは主任、施工・納入先、電話番号、FAX、メールアドレス","選んだ作業所に対する自分の権限も表示される"],k:"工期変更 工事情報 マスタ 主任 電話 FAX"},
+  {ch:"2",t:"作業所メンバーの設定と権限",p:"10",r:["作業所","施工事務"],b:["①［作業所メンバー管理］→ ②［行追加］→ ③ 職員コードを入力（または検索して職員コードを押す）→ ④［保存］","権限を外すときは行の削除アイコン","所長：申請も含めて全部できる","高権限：申請以外は全部","低権限：原価報告書が見られない","参照：低権限の内容を見るだけ"],k:"メンバー追加 権限 高権限 低権限 参照 共有 見られない"},
+  {ch:"2",t:"一覧画面の検索のしかた",p:"11",r:[],b:["条件を入れて［検索］を押すと表示される","空欄のままなら見られる範囲で全件検索（必須項目は除く）"],k:"一覧 表示されない 出てこない 検索"},
+  {ch:"2",t:"エラーの見方",p:"12",r:[],b:["エラーは画面上部にメッセージが出る","「複数件メッセージが存在します」はクリックで展開","エラーの箇所は赤くなる","Excelのような画面では、赤い箇所にマウスを合わせるとメッセージが出る"],k:"エラー 赤 保存できない メッセージ"},
+  {ch:"2",t:"職責（ロール）の切り替え",p:"13",r:[],b:["職責を複数持っている場合だけ","自分の名前をクリック → 切り替えられるロールが出るので選ぶ"],k:"ロール 役割 切替 権限変更"},
+  {ch:"2",t:"申請のしかた・引き戻し",p:"14",r:["作業所"],b:["画面上部の［申請］から","実施予算は単票（1件ずつ）で申請、ほかは一覧でチェックを入れて申請","未承認のうちは［引き戻し］で取り下げできる","承認状況はステータス欄で確認"],k:"申請 取り消し 取下げ 引き戻し ステータス"},
+  {ch:"2",t:"承認のしかた（工事部長）",p:"15",r:["工事部長"],b:["1件ずつ開いて承認：実施予算集計表、注文要望明細詳細","一覧でチェックしてまとめて承認：請求書承認一覧、原価報告一覧、決算未払金一覧"],k:"承認 一括承認 部長"},
+  {ch:"2",t:"承認と確認（施工事務）",p:"16",r:["施工事務"],b:["各画面で内容を確定 → システム事業推進部が連携処理","未成工事-原価比較表：［施工事務確認］で確認済みに","請求書承認一覧：［確認］で確認済みに（必須ではないが、部長が承認していいかの目安になる）","各店請求確定：工事部長の承認後に［確定］","各店決算未払金確定：［確定］"],k:"確定 確認 施工事務確認 連携"},
+  {ch:"2",t:"承認・確認の流れまとめ",p:"17",r:[],b:["実施予算：工事部長が承認","要望明細：工事部長 → 購買が承認 → 発注","請求書：工事部長承認（毎月10〜20日）→ 施工事務が確定（20日頃）→ システム連携","原価報告書：施工事務確認（月末〜翌月の未成締めまで）→ 工事部長承認（未成締め時）","決算未払金：4月と10月の請求書締めのあと"],k:"フロー 流れ いつ 締め 期限 スケジュール"},
+  {ch:"2",t:"Excel取込のしかた",p:"18",r:[],b:["① 必要な分だけ［行追加］しておく","②［Excel出力（入力用）］→ 好きな場所に保存","入力用Excelは書式を変えない・枠の外に入力しない（行追加はOK）","③［ファイルを選択］で編集したファイルを指定","④［Excel取込］"],k:"エクセル インポート アップロード 取り込み 一括入力"},
+  {ch:"2",t:"タイムアウト・メンテナンス時間・通知メール",p:"19",r:[],b:["60分操作しないと自動ログアウト。こまめに保存・一時保存","メンテナンスで止まる時間：夜0〜1時、朝5〜6時30分","通知メールの送信元：sender@mail.faws0024.aws.fastapp.info"],k:"ログアウト 落ちた 使えない 時間 夜中 朝 メール 届かない 迷惑メール"},
+  {ch:"2",t:"所長の設定",p:"20",r:["施工事務"],b:["現行データは移行済み。施工事務が設定・変更できる","左メニュー［作業所マスタ］","「所長未設定」のチェックを外す（最初はチェックが入っている）→ ①［検索］","② 作業所を選ぶ → 所長を入力 →［保存］"],k:"所長 設定 変更 作業所マスタ"},
+  {ch:"2",t:"地区と工事部長の確認",p:"21",r:["施工事務"],b:["メニュー［地区マスタ］→ ① 地区コードをクリック","② 内容を確認して必要なら修正 → ③［保存］"],k:"地区 工事部長 設定 マスタ"},
+  {ch:"2",t:"全体の業務フロー",p:"22",r:[],b:["契約〜準備：所長設定（施工事務）、実施予算作成、要望明細作成","着工後いつでも：追加予算作成、追加減額届作成","毎月第4営業日（本決算は第5営業日）：帳簿・原価報告のデータ更新","〜15日：請求書処理","請求書が終わったら〜月末：原価報告の申請（前月データ確定。請負情報は常に更新）","4月と10月のみ、請求書が終わったら〜20日：決算未払金（竣工した作業所も竣工年度の4月・10月は必要）"],k:"フロー 流れ 月次 スケジュール いつ 締め"},
+
+  {ch:"3",t:"実施予算の流れ",p:"23",r:[],b:["実施予算データ登録（工務・予算G・所長）→ 実施予算保守（必要に応じて工種修正）→ 実施予算集計表一覧 → 内勤で修正・承認","実施予算保守・集計表一覧はExcel出力できる"],k:"予算 フロー 流れ"},
+  {ch:"3",t:"実施予算データの取込（作業所）",p:"24",r:["作業所"],b:["工務の積算担当者もアップロードできるようになった","①［ファイル取込］→ ② 予算区分を選ぶ → ③［反映］","④［ファイルを選択］で実施予算データを選ぶ → ⑤［アップロード］"],k:"予算 取込 アップロード インポート"},
+  {ch:"3",t:"実施予算の登録（工務の積算担当者）",p:"25",r:["工務"],b:["①［ファイル取込］","② 作業所：予算を登録する作業所／予算区分：仮予算か本予算／予算作成者：工種振分をする人（通常は所長）／メール：登録通知を送るならチェック","③［反映］→ ④［ファイルを選択］→ ⑤［アップロード］"],k:"積算 予算 取込 アップロード 仮予算 本予算"},
+  {ch:"3",t:"工種振分（実施予算詳細）",p:"26",r:["作業所"],b:["予算データなしで新規作成もできる","行数を指定して［行追加］→ カーソルのある行の下に追加される","［枝番選択］で枝番をひもづける"],k:"工種 振分 枝番 行追加"},
+  {ch:"3",t:"実施予算の申請",p:"27",r:["作業所"],b:["［実施予算集計表一覧］→ 該当の［枝番］→［実施予算集計表］から申請"],k:"予算 申請 集計表"},
+  {ch:"3",t:"実施予算の承認",p:"28",r:["工事部長"],b:["単票から承認する","［実施予算作業所別承認状況］→［実施予算集計表一覧］→［実施予算集計表］"],k:"予算 承認"},
+
+  {ch:"4",t:"要望明細の流れ",p:"29",r:[],b:["実施予算の工種振分が済んでいる → 工種を選んで作成／実施予算がない → 新規作成","注文要望明細書・発注条件書・見積書を作る（Excel出力・印刷可）","工事部長承認 → 購買システム BEStPRO → 発注"],k:"発注 購買 BEStPRO フロー 流れ"},
+  {ch:"4",t:"要望明細書の作り方（手順）",p:"30",r:["作業所"],b:["1 注文要望明細書 → 2 発注（見積）条件書 → 3 見積書 → 4 業者打合せ → 5 伝送データ作成 → 6 申請","発注（見積）条件書を作って［格納］すると、注文要望明細書を［格納］できる","入口は［注文要望明細一覧］"],k:"作成 格納 条件書 見積書 伝送"},
+  {ch:"4",t:"注文要望明細一覧の見方",p:"31",r:[],b:["要望明細と追加減額が同じ画面にまとまった","検索条件で「要望明細のみ／追加減額のみ／全部」を絞り込める","2行で1件の注文要望明細","追加減額を作った場合は［追加減額］ボタンで明細が見られる。下の数字は追加減額の回数","作業所コードをクリックすると請書が見られる"],k:"一覧 請書 追加減額 回数"},
+  {ch:"4",t:"要望明細の帳票出力",p:"32",r:[],b:["出せる帳票：注文要望明細書、見積比較表、見積書、出来高調査書","画面上部でExcelかPDFの帳票を選んで［帳票出力］","［検索］で実施予算を表示、［実行］で予算行の選択画面へ"],k:"印刷 PDF エクセル 見積比較表 出来高調査書"},
+  {ch:"4",t:"追加されたチェック機能",p:"33",r:[],b:["申請時と購買承認時の比較チェック","実施予算との工種ごとの金額チェック"],k:"チェック エラー 金額 超過"},
+  {ch:"4",t:"追加減額届の作り方",p:"34-35",r:["作業所"],b:["要望明細または注文情報を選んで［追加減額届］","［主な変更理由］を選ぶ →［行追加］して明細を入力","消費税だけの変更も可能。その場合は消費税額の欄に入力","「変更に対する予算額」も入れられる（任意。利益を正確に出すため）"],k:"追加 減額 変更 消費税 増額"},
+  {ch:"4",t:"要望明細・追加減額届の申請",p:"36",r:["作業所"],b:["要望明細一覧で、申請するデータにチェック →［申請］"],k:"申請"},
+  {ch:"4",t:"要望明細・追加減額届の承認",p:"37",r:["工事部長"],b:["注文要望明細詳細を開いて［承認］"],k:"承認"},
+
+  {ch:"5",t:"請求書の流れ",p:"38",r:[],b:["請求書入力（毎月15日まで）→ 所長が申請（15日）→ 工事部長が承認 → 集計表を印刷して施工事務へ原本送付 → 施工事務が確定（20日頃）","請求書A：契約している請求","請求書B：契約なしで50万円以下"],k:"請求 締め 期限 15日 20日 原本 フロー A B"},
+  {ch:"5",t:"請求書一覧",p:"39",r:[],b:["請求書AとBが1つの一覧になった","検索条件で「Aのみ／Bのみ／全部」を絞り込める","工事部長と施工事務の承認機能がついた"],k:"一覧 A B 絞り込み"},
+  {ch:"5",t:"請求書の入力",p:"40",r:["作業所"],b:["請求書Aは区分（労務・資材・経費）の入力不要","消費税額を修正できる（端数は明細内で調整）","仕入税額が表示される（インボイス対応）","完成雑損の元作業所の入力欄を追加","画面上部のボタンで続けて新規作成できる"],k:"入力 消費税 インボイス 仕入税額 完成雑損 区分 労務 資材 経費"},
+  {ch:"5",t:"請求書の集計表",p:"41",r:[],b:["申請したあとに出力する","画面上部の［集計表A］［集計表B］でそれぞれ出す","承認されると承認者と承認日時が入る。紙での再出力は不要"],k:"集計表 印刷 出力 再出力"},
+  {ch:"5",t:"請求書の申請（所長のみ）",p:"42",r:["作業所"],b:["当月分がそろったら［所長承認(申請)］→ 全部の請求書が申請される","申請すると「未」が「済」になる","あとから追加した分は、もう一度押せば追加で申請される"],k:"所長 申請 未 済 追加"},
+  {ch:"5",t:"請求書の承認（工事部長のみ）",p:"43",r:["工事部長"],b:["承認するデータにチェック（［全選択］も可）→ 上部のボタンで承認","※マニュアル上は［申請］と書かれているので、実際のボタン名は画面で確認"],k:"承認 全選択 部長"},
+
+  {ch:"6",t:"原価報告の流れ",p:"44",r:[],b:["月末にアップロード","原価報告書B → 支払予測入力 → 原価報告書A → 申請 → 施工事務確認 → 工事部長承認","Excel出力・印刷可"],k:"原価 フロー 流れ 月末"},
+  {ch:"6",t:"原価報告の入力ポイント",p:"45",r:["作業所"],b:["毎月第4営業日に原価報告書データが更新される（掲示板でお知らせ）","原価報告書Bを保存するとAの金額が正しく計算される","請負金などの工事情報は最新になる。営業が追加工事の決定を入れると翌日反映。提出すると更新は止まる","閉所日・ノー残業デーの入力欄あり（建築は閉所日必須）。「1,8,15」のように半角数字をカンマ区切り","［提出］すると工事部長と施工事務が見られるようになる"],k:"閉所日 ノー残業デー 請負金 追加工事 B A 計算 おかしい"},
+  {ch:"6",t:"支払予測入力",p:"46-47",r:["作業所"],b:["［支払予測入力］から。原価報告書Bの各工種からも行ける","工種をクリックすると、その工種の支払予測を表示・編集","要望番号を入れると既発注の金額が出る（決定が入れば翌月の支払予測に反映）"],k:"支払予測 要望番号 発注金額"},
+  {ch:"6",t:"原価報告の提出（申請）",p:"48",r:["作業所"],b:["原価報告書Aから提出","原価報告書Bと支払予測の入力が終わってから［提出］","提出すると工事部長・施工事務が確認できるようになる"],k:"提出 申請"},
+  {ch:"6",t:"原価報告一覧（承認）",p:"49",r:["工事部長","施工事務"],b:["承認する原価報告書にチェック（全選択可）→［承認］","施工事務の確認前なら［承認取消］できる"],k:"承認 取消 一覧"},
+  {ch:"6",t:"未成工事-原価比較表",p:"50",r:["施工事務"],b:["施工事務が原価報告書と未成現況表を見比べてチェック","［施工事務確認］→ 未成現況表入力 → 工事部長承認","未成現況表の入力が終わって原価報告書を締めるときに［施工事務確認］","他システムへの連携前なら取消できる"],k:"未成 未成現況表 比較 締め 確認"},
+
+  {ch:"7",t:"決算未払金の流れ",p:"51",r:[],b:["決算未払金入力 → 25日頃：請求書処理 → 決算未払金計上 → 申請 → 施工事務が確定","Excel出力・印刷可","※このページは「10、3月のみ」、p.17・p.22は「4月と10月」と書かれていて食い違っている"],k:"決算 未払 4月 10月 3月"},
+  {ch:"7",t:"決算未払金の画面",p:"52",r:[],b:["［契約情報更新］を押すと画面が最新になる"],k:"契約情報更新 反映されない"},
+  {ch:"7",t:"決算未払金の確定",p:"53",r:["施工事務"],b:["［確定/取消］で確定・取消を切り替え","システム連携までは取り消せる"],k:"確定 取消"},
+
+  {ch:"8",t:"帳票のしくみ",p:"54",r:[],b:["期間を指定して最新の帳票が出せる","過去データも見られる"],k:"帳票 過去 印刷"},
+  {ch:"8",t:"帳簿の出力",p:"55",r:[],b:["前月分が更新されたら掲示板でお知らせ","帳簿を出すときは ① 単月指定 → ② 出す月を入力"],k:"帳簿 単月 出力 印刷"},
+  {ch:"8",t:"帳票出力（工事部長・施工事務）",p:"56",r:["工事部長","施工事務"],b:["作業所を検索して帳簿を出力","検索結果のチェックボックスか［全選択］で複数まとめて出せる","検索する期間は必ず選ぶ"],k:"まとめて 複数 全選択 期間"}
+];
+
+const QUICK = ["パスワード 忘れた","右クリック","勝手にログアウト","請求書 締め","所長 申請","一時保存","引き戻し","閉所日","Excel取込","決算未払金"];
+
+// 文字の正規化：全角半角・大文字小文字・カタカナ→ひらがな
+function norm(s){
+  return (s||"").normalize("NFKC").toLowerCase()
+    .replace(/[\u30a1-\u30f6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60))
+    .replace(/[［］\[\]()（）「」、。・:：\s]+/g," ");
+}
+function esc(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function reEsc(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}
+
+DATA.forEach(d=>{
+  d.nt = norm(d.t);
+  d.all = norm([d.t,d.b.join(" "),d.k,CHAPTERS[d.ch],d.r.join(" ")].join(" "));
+});
+
+const $ = id=>document.getElementById(id);
+const qEl=$("q"), chEl=$("ch"), roleEl=$("role"), res=$("results"), cnt=$("count");
+
+chEl.innerHTML = '<option value="">章：すべて</option>' +
+  Object.entries(CHAPTERS).map(([k,v])=>`<option value="${k}">${k}. ${v}</option>`).join("");
+$("quick").innerHTML = QUICK.map(w=>`<button class="q" data-q="${esc(w)}">${esc(w)}</button>`).join("");
+
+function hl(text, re){
+  if(!re) return esc(text);
+  return text.split(re).map((part,i)=> i%2 ? `<mark>${esc(part)}</mark>` : esc(part)).join("");
+}
+
+function render(){
+  const raw = qEl.value.trim();
+  $("clear").hidden = !raw;
+  const terms = raw ? norm(raw).split(" ").filter(Boolean) : [];
+  const rawTerms = raw.split(/[\s　]+/).filter(Boolean);
+  const re = rawTerms.length ? new RegExp("("+rawTerms.map(reEsc).join("|")+")","gi") : null;
+  const ch = chEl.value, role = roleEl.value;
+
+  let list = DATA.filter(d=>{
+    if(ch && d.ch!==ch) return false;
+    if(role && d.r.length && !d.r.includes(role)) return false;
+    return terms.every(t=>d.all.includes(t));
+  });
+  if(terms.length){
+    list = list.map(d=>({d,s:terms.reduce((a,t)=>a+(d.nt.includes(t)?3:0)+(norm(d.k).includes(t)?1:0),0)}))
+               .sort((a,b)=>b.s-a.s).map(x=>x.d);
+  }
+
+  cnt.textContent = raw||ch||role ? `${list.length}件見つかりました` : `全${DATA.length}項目`;
+  if(!list.length){
+    res.innerHTML = `<div class="empty">当てはまる項目がありません。言葉を短くするか、章・担当の絞り込みを「すべて」に戻してください。</div>`;
+    return;
+  }
+  res.innerHTML = list.map(d=>`
+    <article class="card">
+      <h3>${hl(d.t,re)}</h3>
+      <div class="meta">
+        <span class="tag">${d.ch}. ${CHAPTERS[d.ch]}</span>
+        <span class="tag pg">p.${d.p}</span>
+        ${(d.r.length?d.r:["全員"]).map(r=>`<span class="tag role">${r}</span>`).join("")}
+      </div>
+      <ul>${d.b.map(x=>`<li>${hl(x,re)}</li>`).join("")}</ul>
+    </article>`).join("");
+}
+
+let timer;
+qEl.addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(()=>{render();syncURL();},120)});
+chEl.addEventListener("change",render);
+roleEl.addEventListener("change",render);
+$("clear").addEventListener("click",()=>{qEl.value="";render();syncURL();qEl.focus()});
+
+document.addEventListener("click",e=>{
+  const b = e.target.closest("[data-q]");
+  if(!b) return;
+  qEl.value = b.dataset.q;
+  chEl.value=""; roleEl.value="";
+  render(); syncURL();
+  window.scrollTo({top:0});
+});
+
+
+function syncURL(){
+  try{
+    const u = new URL(location.href);
+    qEl.value ? u.searchParams.set("q",qEl.value) : u.searchParams.delete("q");
+    history.replaceState(null,"",u);
+  }catch(e){}
+}
+
+// ?q=キーワード で開いたときはその検索結果から
+try{
+  const p = new URLSearchParams(location.search);
+  if(p.get("q")) qEl.value = p.get("q");
+}catch(e){}
+render();
+</script>
+</body>
+</html>
