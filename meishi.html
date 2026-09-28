@@ -21,7 +21,7 @@
     .chips{display:flex;gap:8px;overflow-x:auto;padding:3px 2px 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.chips::-webkit-scrollbar{display:none}.chips button{flex:none;min-height:42px;padding:0 15px;border:1px solid var(--line);border-radius:100px;background:var(--surface);color:var(--muted);white-space:nowrap;font-size:13px;font-weight:700}.chips button.on{background:var(--ink);border-color:var(--ink);color:white}
     #list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:19px;box-shadow:var(--shadow)}
     .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.company{font-size:13px;color:var(--muted);font-weight:700;overflow-wrap:anywhere}.gyoshu{flex:none;font-size:11px;padding:3px 9px;border-radius:100px;background:var(--pale);color:var(--primary);font-weight:700}
-    .name{font-size:21px;font-weight:800;margin:8px 0 0;overflow-wrap:anywhere}.kana{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:1px}.pos{font-size:13px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
+    .warn{margin-top:12px;padding:10px 12px;border-radius:10px;background:#fff4e8;color:#9b4e13;font-size:12px;line-height:1.5;overflow-wrap:anywhere}.name{font-size:21px;font-weight:800;margin:8px 0 0;overflow-wrap:anywhere}.kana{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:1px}.pos{font-size:13px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
     .info{display:grid;gap:7px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}.info-row{display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px}.info b{color:var(--muted);font-weight:500}
     .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.btns a,.btns button{display:inline-flex;justify-content:center;align-items:center;flex:1 1 calc(50% - 8px);min-height:44px;padding:9px 10px;text-align:center;border:1px solid #d6e5f8;border-radius:11px;background:var(--pale);color:var(--primary);font-size:13px;font-weight:800;text-decoration:none}.btns button{cursor:pointer}
     #status,#upStatus{font-size:14px;text-align:center;line-height:1.6}#status{padding:18px;color:var(--muted)}#status:empty{display:none}#upStatus{margin:0 0 12px}#upStatus:empty{display:none}.ng{color:var(--danger)!important}.ok{color:var(--success)!important}
@@ -83,17 +83,17 @@
     function render(){
       const q=document.getElementById('q'),raw=q.value.trim(),words=raw.split(/[\s　]+/).map(norm).filter(Boolean);
       document.getElementById('clearBtn').style.display=raw?'block':'none';
-      const hit=cards.filter(c=>(!gyoshuSel||(c['業種']||'未分類')===gyoshuSel)&&words.every(w=>c._hay.includes(w)));
+      const hit=cards.filter(c=>(!gyoshuSel||(gyoshuSel==='__check'?!!c['要確認']:(c['業種']||'未分類')===gyoshuSel))&&words.every(w=>c._hay.includes(w)));
       document.getElementById('count').textContent=hit.length+'件 / 全'+cards.length+'件'+(hit.length>MAX_SHOW?'（先頭'+MAX_SHOW+'件を表示）':'');
       document.getElementById('list').innerHTML=hit.slice(0,MAX_SHOW).map(cardHtml).join('')||'<div class="empty"><strong>名刺が見つかりませんでした</strong>検索語や業種を変えてお試しください</div>';
     }
     function clearSearch(){const q=document.getElementById('q');q.value='';render();q.focus()}
     function renderChips(){
       const count={};cards.forEach(c=>{const g=c['業種']||'未分類';count[g]=(count[g]||0)+1});
-      if(gyoshuSel&&!count[gyoshuSel])gyoshuSel='';
+      const nCheck=cards.filter(c=>c['要確認']).length;if(gyoshuSel==='__check'&&!nCheck)gyoshuSel='';else if(gyoshuSel&&gyoshuSel!=='__check'&&!count[gyoshuSel])gyoshuSel='';
       const chips=document.getElementById('chips');chips.replaceChildren();
       const add=(g,label)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.className=gyoshuSel===g?'on':'';b.setAttribute('aria-pressed',String(gyoshuSel===g));b.addEventListener('click',()=>pickGyoshu(g));chips.appendChild(b)};
-      add('','すべて '+cards.length);
+      add('','すべて '+cards.length);if(nCheck)add('__check','⚠ 要確認 '+nCheck);
       Object.keys(count).sort((a,b)=>count[b]-count[a]).forEach(g=>add(g,g+' '+count[g]));
     }
     function pickGyoshu(g){gyoshuSel=gyoshuSel===g?'':g;renderChips();render()}
@@ -106,7 +106,7 @@
       if(c['メール']){const mail=String(c['メール']).split('/')[0].trim();btns.push('<a href="mailto:'+esc(mail)+'">✉ メール</a>')}
       if(c['住所'])btns.push('<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query='+encodeURIComponent(c['住所'])+'">地図を見る</a>');
       if(c['fileId'])btns.push('<button type="button" class="fileBtn" data-file-id="'+esc(c['fileId'])+'">名刺を見る</button>');
-      return '<article class="card"><div class="card-top"><div class="company">'+esc(c['会社名']||'会社名なし')+'</div>'+(c['業種']?'<span class="gyoshu">'+esc(c['業種'])+'</span>':'')+'</div><div class="name">'+esc(c['氏名']||'（氏名なし）')+(c['ふりがな']?'<span class="kana">'+esc(c['ふりがな'])+'</span>':'')+'</div>'+(pos?'<div class="pos">'+esc(pos)+'</div>':'')+(info?'<div class="info">'+info+'</div>':'')+(btns.length?'<div class="btns">'+btns.join('')+'</div>':'')+'</article>';
+      return '<article class="card"><div class="card-top"><div class="company">'+esc(c['会社名']||'会社名なし')+'</div>'+(c['業種']?'<span class="gyoshu">'+esc(c['業種'])+'</span>':'')+'</div><div class="name">'+esc(c['氏名']||'（氏名なし）')+(c['ふりがな']?'<span class="kana">'+esc(c['ふりがな'])+'</span>':'')+'</div>'+(pos?'<div class="pos">'+esc(pos)+'</div>':'')+(c['要確認']?'<div class="warn">⚠ 要確認: '+esc(c['要確認'])+'（名刺を見て確認）</div>':'')+(info?'<div class="info">'+info+'</div>':'')+(btns.length?'<div class="btns">'+btns.join('')+'</div>':'')+'</article>';
     }
     document.getElementById('list').addEventListener('click',e=>{const btn=e.target.closest('button[data-file-id]');if(btn)openFile(btn.dataset.fileId)});
     function splitNums(s){return String(s||'').split('/').map(x=>x.replace(/[^\d+]/g,'')).filter(x=>x.length>=6)}
@@ -116,19 +116,19 @@
     async function uploadPhotos(input){
       const files=Array.from(input.files||[]);input.value='';if(!files.length)return;
       const btn=document.getElementById('addBtn'),st=document.getElementById('upStatus');btn.disabled=true;
-      const added=[],errors=[];let next=0,done=0;
+      const added=[],dups=[],errors=[];let next=0,done=0;
       const show=()=>{st.className='';st.textContent='読み取り中… '+done+'/'+files.length+'ファイル 完了'+(added.length?'（'+added.length+'件追加済み）':'')};
       show();
       async function worker(){while(next<files.length){const i=next++;
         try{let r;if(isPdf(files[i])){if(files[i].size>PDF_MAX_MB*1024*1024)throw new Error('PDFは'+PDF_MAX_MB+'MBまでです');r=await api({action:'upload',mimeType:'application/pdf',data:await readBase64(files[i])})}
           else{r=await api({action:'upload',mimeType:'image/jpeg',data:await shrink(files[i])})}
-          if(r.count)added.push(...r.names);else errors.push(files[i].name+': 名刺が見つかりませんでした')}
+          added.push(...(r.names||[]));dups.push(...(r.dupNames||[]));if(!r.count&&!(r.dupNames||[]).length)errors.push(files[i].name+': 名刺が見つかりませんでした')}
         catch(err){errors.push(files[i].name+': '+err.message)}done++;show();
       }}
       try{await Promise.all(Array.from({length:Math.min(PARALLEL,files.length)},worker))}
       finally{btn.disabled=false}
       st.className=errors.length?'ng':'ok';
-      st.textContent=(added.length?'✓ '+added.length+'件追加: '+added.join('、'):'')+(errors.length?(added.length?' / ':'')+errors.join(' / '):'');
+      st.textContent=[added.length?'✓ '+added.length+'件追加: '+added.join('、'):'',dups.length?'登録済みのためスキップ: '+dups.join('、'):'',errors.length?'エラー: '+errors.join(' / '):''].filter(Boolean).join(' / ');
       if(added.length)load();
     }
     async function openFile(fileId){
