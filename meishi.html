@@ -59,6 +59,17 @@
       border-radius: 10px; text-decoration: none;
       background: var(--chip); color: var(--chipText); border: none;
     }
+    .chips { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+    .chips button {
+      flex: 0 0 auto; width: auto; padding: 8px 12px; font-size: 14px; font-weight: normal;
+      border-radius: 999px; background: var(--card); color: var(--text); border: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .chips button.on { background: var(--main); color: var(--mainText); border-color: var(--main); }
+    .gyoshu {
+      display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+      background: var(--chip); color: var(--chipText); margin-left: 6px; vertical-align: middle;
+    }
     mark { background: #ffe58a; color: #222; border-radius: 3px; }
   </style>
 </head>
@@ -67,7 +78,8 @@
 
   <div id="main" style="display:none">
     <div class="search">
-      <input id="q" type="search" placeholder="会社・名前・ふりがな・電話番号など" oninput="render()">
+      <input id="q" type="search" placeholder="会社・名前・業種・電話番号など" oninput="render()">
+      <div class="chips" id="chips"></div>
       <div id="count"></div>
     </div>
     <div id="list"></div>
@@ -83,6 +95,7 @@
     const MAX_SHOW = 200;
 
     let cards = [];
+    let gyoshuSel = ''; // 選択中の業種（空なら全部）
 
     load();
 
@@ -104,11 +117,12 @@
       try {
         cards = (await api({ action: 'list' })).reverse(); // 新しい順
         cards.forEach(c => c._hay = norm([
-          c['会社名'], c['部署'], c['役職'], c['氏名'], c['ふりがな'], c['電話'], c['携帯'],
+          c['会社名'], c['業種'], c['部署'], c['役職'], c['氏名'], c['ふりがな'], c['電話'], c['携帯'],
           c['FAX'], c['メール'], c['住所'], c['URL'], c['メモ'], c['ファイル名'],
         ].join(' ')));
         document.getElementById('main').style.display = 'block';
         setStatus('');
+        renderChips();
         render();
       } catch (err) {
         setStatus('エラー: ' + err.message, true);
@@ -126,13 +140,33 @@
     function render() {
       const raw = document.getElementById('q').value.trim();
       const words = raw.split(/[\s　]+/).map(norm).filter(Boolean);
-      const hit = words.length ? cards.filter(c => words.every(w => c._hay.includes(w))) : cards;
+      const hit = cards.filter(c =>
+        (!gyoshuSel || (c['業種'] || '未分類') === gyoshuSel) &&
+        words.every(w => c._hay.includes(w)));
 
       document.getElementById('count').textContent =
         `${hit.length}件` + (hit.length > MAX_SHOW ? `（先頭${MAX_SHOW}件を表示）` : '') + ` / 全${cards.length}件`;
 
       document.getElementById('list').innerHTML = hit.slice(0, MAX_SHOW).map(cardHtml).join('')
         || '<div id="status">見つからなかった</div>';
+    }
+
+    // 業種ボタン（多い順）
+    function renderChips() {
+      const count = {};
+      cards.forEach(c => { const g = c['業種'] || '未分類'; count[g] = (count[g] || 0) + 1; });
+      const list = Object.keys(count).sort((a, b) => count[b] - count[a]);
+      if (gyoshuSel && !count[gyoshuSel]) gyoshuSel = '';
+      const btn = (g, label) =>
+        `<button class="${gyoshuSel === g ? 'on' : ''}" onclick="pickGyoshu('${esc(g)}')">${esc(label)}</button>`;
+      document.getElementById('chips').innerHTML =
+        btn('', `すべて ${cards.length}`) + list.map(g => btn(g, `${g} ${count[g]}`)).join('');
+    }
+
+    function pickGyoshu(g) {
+      gyoshuSel = (gyoshuSel === g) ? '' : g;
+      renderChips();
+      render();
     }
 
     function cardHtml(c) {
@@ -150,7 +184,7 @@
       if (c['fileId']) btns.push(`<button onclick="openFile('${esc(c['fileId'])}')">📄 名刺を見る</button>`);
 
       return `<div class="card">
-        <div class="company">${esc(c['会社名'])}</div>
+        <div class="company">${esc(c['会社名'])}${c['業種'] ? `<span class="gyoshu">${esc(c['業種'])}</span>` : ''}</div>
         <div class="name">${esc(c['氏名'] || '（氏名なし）')}<span class="kana">${esc(c['ふりがな'])}</span></div>
         ${pos ? `<div class="pos">${esc(pos)}</div>` : ''}
         <div class="info">${info}</div>
