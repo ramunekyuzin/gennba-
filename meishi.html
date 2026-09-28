@@ -6,79 +6,35 @@
   <meta name="color-scheme" content="light dark">
   <title>名刺検索</title>
   <style>
-    :root {
-      --bg: #f5f6f8; --card: #fff; --text: #222; --sub: #666; --line: #ddd;
-      --main: #1e5aa8; --mainText: #fff; --chip: #eef3fb; --chipText: #1e5aa8;
-      --ng: #c0392b; --ok: #1a8a3c;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #111418; --card: #1c2128; --text: #e8e8e8; --sub: #9aa4b0; --line: #333b45;
-        --main: #4a8ae0; --mainText: #fff; --chip: #243246; --chipText: #9cc2ff;
-        --ng: #ff7b6b; --ok: #5fd08a;
-      }
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
-      background: var(--bg); color: var(--text);
-      padding: 16px; max-width: 640px; margin: 0 auto;
-    }
-    h1 { font-size: 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    h1 button { width: auto; padding: 8px 12px; font-size: 14px; background: transparent; color: var(--sub); border: 1px solid var(--line); }
-    .search {
-      position: sticky; top: 0; background: var(--bg); padding: 4px 0 10px; z-index: 5;
-    }
-    input {
-      width: 100%; padding: 14px; font-size: 16px;
-      border: 1px solid var(--line); border-radius: 10px;
-      background: var(--card); color: var(--text);
-    }
-    button {
-      width: 100%; padding: 14px; font-size: 16px; font-weight: bold;
-      border: none; border-radius: 10px; background: var(--main); color: var(--mainText);
-    }
-    button:active { opacity: .8; }
-    #count { font-size: 13px; color: var(--sub); margin-top: 8px; }
-    #status { text-align: center; font-size: 14px; margin: 16px 0; color: var(--sub); }
-    #status.ng { color: var(--ng); }
-    .card {
-      background: var(--card); border-radius: 12px; padding: 14px;
-      margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
-    }
-    .company { font-size: 13px; color: var(--sub); }
-    .name { font-size: 19px; font-weight: bold; margin: 2px 0; }
-    .kana { font-size: 12px; color: var(--sub); font-weight: normal; margin-left: 6px; }
-    .pos { font-size: 13px; color: var(--sub); }
-    .info { font-size: 13px; margin-top: 8px; line-height: 1.6; word-break: break-all; }
-    .info b { color: var(--sub); font-weight: normal; display: inline-block; min-width: 3em; }
-    .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    .btns a, .btns button {
-      flex: 1 1 auto; width: auto; min-width: 44%;
-      padding: 12px 10px; font-size: 15px; font-weight: bold; text-align: center;
-      border-radius: 10px; text-decoration: none;
-      background: var(--chip); color: var(--chipText); border: none;
-    }
-    .chips { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
-    .chips button {
-      flex: 0 0 auto; width: auto; padding: 8px 12px; font-size: 14px; font-weight: normal;
-      border-radius: 999px; background: var(--card); color: var(--text); border: 1px solid var(--line);
-      white-space: nowrap;
-    }
-    .chips button.on { background: var(--main); color: var(--mainText); border-color: var(--main); }
-    .gyoshu {
-      display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px;
-      background: var(--chip); color: var(--chipText); margin-left: 6px; vertical-align: middle;
-    }
-    .addBtn { margin-bottom: 10px; background: var(--ok); }
-    #upStatus { font-size: 14px; text-align: center; margin: -4px 0 10px; line-height: 1.5; }
-    #upStatus.ng { color: var(--ng); }
-    #upStatus.ok { color: var(--ok); }
-    mark { background: #ffe58a; color: #222; border-radius: 3px; }
+    :root{--bg:#f3f6fb;--card:#fff;--text:#172033;--sub:#687386;--line:#e2e8f0;--main:#1769e0;--main2:#0e4fb7;--soft:#eaf2ff;--ok:#15945d;--ng:#d84b4b;--shadow:0 8px 28px rgba(25,45,80,.08)}
+    @media(prefers-color-scheme:dark){:root{--bg:#0e131b;--card:#171e29;--text:#eef3fb;--sub:#9da9ba;--line:#293445;--main:#5b9cff;--main2:#79adff;--soft:#202e44;--ok:#54cf91;--ng:#ff7979;--shadow:0 8px 28px rgba(0,0,0,.22)}}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent}
+    body{padding:0 14px 40px;max-width:760px;margin:auto}
+    h1{position:sticky;top:0;z-index:20;margin:0 -14px 14px;padding:14px max(14px,env(safe-area-inset-right)) 12px max(14px,env(safe-area-inset-left));font-size:20px;display:flex;justify-content:space-between;align-items:center;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+    h1:before{content:"▣";color:var(--main);margin-right:8px}h1 button{margin-left:auto;width:auto;padding:8px 11px;font-size:13px;background:var(--card);color:var(--sub);border:1px solid var(--line);border-radius:10px}
+    button,a{touch-action:manipulation}button{font-family:inherit;cursor:pointer}button:disabled{opacity:.55;cursor:wait}
+    .addBtn{width:100%;border:0;border-radius:14px;padding:14px 16px;font-size:15px;font-weight:800;background:linear-gradient(135deg,var(--ok),color-mix(in srgb,var(--ok) 75%,#000));color:#fff;box-shadow:var(--shadow);margin:0 0 10px}
+    #upStatus{font-size:13px;text-align:center;margin:0 2px 10px;line-height:1.55}.ng{color:var(--ng)!important}.ok{color:var(--ok)!important}
+    .search{position:sticky;top:61px;z-index:15;margin:0 -4px 14px;padding:8px 4px 10px;background:linear-gradient(var(--bg) 82%,transparent)}
+    .search:before{content:"⌕";position:absolute;left:19px;top:21px;font-size:22px;color:var(--sub);z-index:1}
+    input[type=search]{appearance:none;width:100%;height:50px;padding:0 44px 0 46px;font-size:16px;border:1px solid var(--line);border-radius:15px;background:var(--card);color:var(--text);outline:none;box-shadow:0 3px 14px rgba(20,40,70,.06)}
+    input[type=search]:focus{border-color:var(--main);box-shadow:0 0 0 3px color-mix(in srgb,var(--main) 16%,transparent)}
+    .chips{display:flex;gap:7px;overflow-x:auto;margin-top:9px;padding:1px 1px 5px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.chips::-webkit-scrollbar{display:none}
+    .chips button{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;padding:8px 12px;background:var(--card);color:var(--text);font-size:13px;white-space:nowrap}.chips button.on{background:var(--main);border-color:var(--main);color:#fff;font-weight:700}
+    #count{font-size:12px;color:var(--sub);padding:5px 3px 0}#status{text-align:center;font-size:14px;margin:24px 0;color:var(--sub)}
+    .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}.card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--main)}
+    .company{font-size:13px;color:var(--sub);font-weight:650;display:flex;align-items:center;gap:6px;flex-wrap:wrap}.gyoshu{display:inline-flex;font-size:11px;padding:4px 8px;border-radius:999px;background:var(--soft);color:var(--main);font-weight:750}
+    .name{font-size:21px;font-weight:850;letter-spacing:.01em;margin:5px 0 2px}.kana{display:block;font-size:11px;color:var(--sub);font-weight:500;margin:3px 0 0}.pos{font-size:13px;color:var(--sub);margin-top:4px}
+    .info{margin-top:13px;border-top:1px solid var(--line);padding-top:10px;font-size:13px;line-height:1.55}.info>div{display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px;padding:5px 0;word-break:break-word}.info b{color:var(--sub);font-weight:600;font-size:12px}
+    .btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:13px}.btns a,.btns button{width:100%;min-height:44px;padding:10px 8px;border:0;border-radius:11px;text-decoration:none;text-align:center;font-size:14px;font-weight:750;background:var(--soft);color:var(--main);display:flex;align-items:center;justify-content:center}.btns a:active,.btns button:active,.addBtn:active{transform:scale(.98)}
+    mark{background:#ffe17a;color:#172033;border-radius:3px;padding:0 1px}
+    @media(min-width:620px){body{padding-left:20px;padding-right:20px}.card{padding:19px}.kana{display:inline;margin-left:8px}.btns{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:380px){body{padding-left:10px;padding-right:10px}.name{font-size:19px}.btns{grid-template-columns:1fr 1fr}.btns a,.btns button{font-size:13px;padding:9px 5px}}
+    @media(prefers-reduced-motion:no-preference){.card{animation:rise .18s ease both}@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}}
   </style>
 </head>
 <body>
-  <h1>名刺検索 <button id="reloadBtn" onclick="load(true)">↻ 更新</button></h1>
+  <h1><span>名刺検索</span><button id="reloadBtn" onclick="load(true)">↻ 更新</button></h1>
 
   <div id="main" style="display:none">
     <button class="addBtn" id="addBtn" onclick="document.getElementById('photo').click()">📷 名刺を撮って追加</button>
@@ -86,7 +42,7 @@
     <div id="upStatus"></div>
 
     <div class="search">
-      <input id="q" type="search" placeholder="会社・名前・業種・電話番号など" oninput="render()">
+      <input id="q" type="search" placeholder="名前・会社・業種・電話で検索" oninput="render()">
       <div class="chips" id="chips"></div>
       <div id="count"></div>
     </div>
