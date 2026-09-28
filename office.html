@@ -376,6 +376,24 @@ html[data-mode="dark"][data-look="eva"][data-unit="eto"] header h1{font-style:it
 html[data-mode="dark"][data-look="eva"][data-unit="arima"] .unit-mark{border-radius:0;border-width:1px;outline-offset:7px;background:transparent}html[data-mode="dark"][data-look="eva"][data-unit="arima"] .hero::after{transform:none;width:160px;border-left:1px solid var(--line);box-shadow:none}html[data-mode="dark"][data-look="eva"][data-unit="arima"] header h1{font-weight:500;letter-spacing:.22em}html[data-mode="dark"][data-look="eva"][data-unit="arima"] .icon{border-radius:0}
 html[data-mode="dark"][data-look="eva"][data-unit="touka"] .unit-mark{border-radius:50% 8px 50% 8px;transform:rotate(-6deg)}html[data-mode="dark"][data-look="eva"][data-unit="touka"] .hero::after{width:170px;height:220px;border:1px solid var(--purple);border-radius:70% 0 70% 0;box-shadow:-16px 12px 0 color-mix(in srgb,var(--purple) 12%,transparent);transform:rotate(28deg)}html[data-mode="dark"][data-look="eva"][data-unit="touka"] .icon{border-radius:13px 2px 13px 2px}
 html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .unit-mark{border:2px dashed var(--accent);border-radius:9px;outline:none;transform:rotate(6deg)}html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .unit-mark strong{font-family:monospace;font-weight:500}html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .hero::after{border-left:2px dashed var(--accent);box-shadow:none}html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] section h2::after{background:none;border-top:1px dashed var(--accent)}
+
+/* ===== ログイン・権限 ===== */
+.summary-item[hidden]{display:none!important}
+button.summary-item{font:inherit;font-size:13px;cursor:pointer}
+body:not(.can-edit) #editBtn,body:not(.can-edit) .fab button.add{display:none!important}
+body:not(.can-del) .tools .del{display:none}
+body:not(.can-vis) .vis-box{display:none}
+#loginModal{z-index:20}
+.login-note{font-size:13px;color:var(--ink-2);margin:0 0 4px;line-height:1.7}
+.vis-box{margin-top:6px}
+.vis-picker{display:flex;flex-wrap:wrap;gap:7px}
+.vis-chip{border:1px solid var(--line);background:var(--bg);color:var(--ink-2);border-radius:999px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
+.vis-chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+html[data-look="eva"] .vis-chip{border-radius:0}
+.tool-id{display:flex;align-items:center;gap:8px;margin:-6px 0 8px;font-size:12px;color:var(--ink-2)}
+.tool-id[hidden]{display:none!important}
+.tool-id code{padding:4px 8px;border-radius:6px;background:var(--muted);color:var(--ink);font-size:13px}
+.tool-id button{border:1px solid var(--line);background:var(--bg);color:var(--ink-2);border-radius:6px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -390,6 +408,9 @@ html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .unit-mark{border:2p
     <div class="summary" aria-live="polite">
       <div class="summary-item"><span>利用できるツール</span><strong id="toolCount">—</strong></div>
       <div class="summary-item"><span>カテゴリ</span><strong id="catCount">—</strong></div>
+      <div class="summary-item" id="meBox" hidden><span id="meName"></span><strong id="meRole"></strong></div>
+      <button class="summary-item" id="inviteBtn" type="button" hidden>👤 招待</button>
+      <button class="summary-item" id="logoutBtn" type="button" hidden>ログアウト</button>
       <span class="edit-status">編集モード中</span>
     </div>
   </div>
@@ -426,16 +447,60 @@ html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .unit-mark{border:2p
   <button id="editBtn">編集</button>
 </div>
 
-<!-- 合言葉 -->
-<div class="modal-bg" id="passModal">
+<!-- ログイン -->
+<div class="modal-bg" id="loginModal">
   <div class="modal">
-    <h3>編集モード</h3>
-    <label>合言葉</label>
-    <input id="passInput" type="password" autocomplete="off" enterkeyhint="done">
-    <div class="msg" id="passMsg"></div>
+    <h3>ログイン</h3>
+    <p class="login-note">登録したIDを入れてください。まだの人は、届いた招待メールのURLから登録してね。</p>
+    <label for="loginId">ID</label>
+    <input id="loginId" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="例: tanaka01">
+    <div class="msg" id="loginMsg"></div>
     <div class="btns">
-      <button class="cancel" onclick="closeModal('passModal')">やめる</button>
-      <button class="ok" id="passOk" onclick="submitPass()">OK</button>
+      <button class="ok" id="loginOk" type="button" onclick="submitLogin()">ログイン</button>
+    </div>
+  </div>
+</div>
+
+<!-- はじめての登録(招待URLから) -->
+<div class="modal-bg" id="registerModal">
+  <div class="modal">
+    <h3>はじめての登録</h3>
+    <p class="login-note" id="regInfo"></p>
+    <label for="regId">ID(半角英数字 3〜20文字)</label>
+    <input id="regId" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="例: tanaka01">
+    <p class="icon-help" id="regHelp"></p>
+    <div class="msg" id="regMsg"></div>
+    <div class="btns">
+      <button class="cancel" id="regToLogin" type="button" hidden>ログイン画面へ</button>
+      <button class="ok" id="regOk" type="button" onclick="submitRegister()">登録して使いはじめる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 招待(所長・オーナー) -->
+<div class="modal-bg" id="inviteModal">
+  <div class="modal">
+    <h3>メンバーを招待</h3>
+    <p class="login-note">メールアドレスに登録用のURLを送ります。IDは受け取った人が自分で決めます。</p>
+    <label for="invEmail">メールアドレス</label>
+    <input id="invEmail" type="email" inputmode="email" autocomplete="off" autocapitalize="off" placeholder="example@mail.com">
+    <div class="row">
+      <div>
+        <label for="invName">名前</label>
+        <input id="invName" autocomplete="off" placeholder="例: 田中">
+      </div>
+      <div>
+        <label for="invRole">権限</label>
+        <select id="invRole"></select>
+      </div>
+    </div>
+    <label for="invGroup">グループ(任意)</label>
+    <input id="invGroup" list="groupList" autocomplete="off" placeholder="例: 現場A">
+    <datalist id="groupList"></datalist>
+    <div class="msg" id="invMsg"></div>
+    <div class="btns">
+      <button class="cancel" type="button" onclick="closeModal('inviteModal')">閉じる</button>
+      <button class="ok" id="invOk" type="button" onclick="submitInvite()">URLを送る</button>
     </div>
   </div>
 </div>
@@ -444,6 +509,7 @@ html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .unit-mark{border:2p
 <div class="modal-bg" id="formModal">
   <div class="modal">
     <h3 id="formTitle">ツールを追加</h3>
+    <div class="tool-id" id="toolIdBox" hidden><span>ツールID</span><code id="toolIdText"></code><button type="button" id="copyToolId">コピー</button></div>
     <input type="hidden" id="fId">
     <div class="row">
       <div>
@@ -465,6 +531,11 @@ html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .unit-mark{border:2p
     <input id="fUrl" type="url" placeholder="https://…" inputmode="url">
     <label>タグ(任意)</label>
     <input id="fTag" placeholder="例: PC内 / 準備中">
+    <div class="vis-box">
+      <label>使える人</label>
+      <div class="vis-picker" id="visPicker" role="group" aria-label="使える人"></div>
+      <p class="icon-help" id="visNote"></p>
+    </div>
     <div class="msg" id="formMsg"></div>
     <div class="btns">
       <button class="cancel" onclick="closeModal('formModal')">やめる</button>
@@ -479,10 +550,28 @@ html[data-mode="dark"][data-look="eva"][data-unit="juuzou"] .unit-mark{border:2p
 // ============================================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxKW8JNfxJs2HLOGGRZVWvSgUhsDG-oLFT0Bw0osTJy6wqtc4Ngtg9s_36py_Ae39_J/exec";
 
-let TOOLS = [];      // シートから取ったフラットな配列
-let PASS = localStorage.getItem("officePass") || sessionStorage.getItem("officePass") || "";
-function savePass(p){ PASS = p; localStorage.setItem("officePass", p); }
-function clearPass(){ PASS = ""; localStorage.removeItem("officePass"); sessionStorage.removeItem("officePass"); }
+let TOOLS = [];      // 自分が使えるツールだけ
+let ME = null;       // ログイン中の人 {name, role, level, owner, canEdit, canDelete, canSetVisibility}
+let USERS = [], GROUPS = [], ROLES = [], OWNER_ONLY = "";
+
+// ツールを開くときにログイン情報(lt)を渡す先。自分のサイト以外には絶対に付けない
+const TOKEN_HOSTS = [location.host, "miyao130414harumi-commits.github.io", "ramunekyuzin.github.io", "script.google.com"];
+function withToken(url){
+  try {
+    const u = new URL(url, location.href);
+    if (!TOKEN || !TOKEN_HOSTS.includes(u.host)) return url;
+    u.searchParams.set("lt", TOKEN);
+    return u.toString();
+  } catch (e) { return url; }
+}
+let TOKEN = localStorage.getItem("officeToken") || "";
+localStorage.removeItem("officePass"); sessionStorage.removeItem("officePass"); localStorage.removeItem("officeLastId");   // 旧データの掃除
+let INVITE_ROLES = [];
+// 招待URL(?invite=)・ログイン用URL(?login=)で開かれたとき
+const URLP = new URLSearchParams(location.search);
+const INVITE_PARAM = URLP.get("invite") || "";
+const LOGIN_PARAM  = URLP.get("login") || "";
+if (INVITE_PARAM || LOGIN_PARAM) history.replaceState(null, "", location.pathname);
 
 const sectionsEl = document.getElementById("sections");
 const emptyEl    = document.getElementById("empty");
@@ -535,27 +624,180 @@ systemDark.addEventListener('change',()=>{if(modeChoice==='auto')refreshAppearan
 setMode(modeChoice);
 
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function splitList(v){ return String(v || "").split(/[,、，\s]+/).map(s => s.trim()).filter(Boolean); }
 
 async function api(body){
-  const r = await fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body) });
+  const r = await fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(Object.assign({ token: TOKEN }, body)) });
   const j = await r.json();
-  if (!j.ok) throw new Error(j.error || "エラー");
+  if (!j.ok) { const err = new Error(j.error || "エラー"); err.auth = j.code === "AUTH"; throw err; }
   return j.result;
 }
 
 async function load(){
   if (!GAS_URL) { loadingEl.textContent = "GAS_URL が未設定"; return; }
+  if (!TOKEN) { showLogin(""); return; }
+  loadingEl.style.display = ""; loadingEl.textContent = "読み込み中…";
   try {
-    const r = await fetch(GAS_URL + "?t=" + Date.now());
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error);
-    TOOLS = j.result;
+    const r = await api({ action: "list" });
+    TOOLS = r.tools || []; ME = r.me;
+    USERS = r.users || []; GROUPS = r.groups || []; ROLES = r.roles || []; OWNER_ONLY = r.ownerOnly || "";
+    INVITE_ROLES = r.inviteRoles || [];
+    applyMe();
     loadingEl.style.display = "none";
     render(); filter();
   } catch (e) {
+    if (e.auth) { logoutLocal(e.message); return; }
     loadingEl.textContent = "読み込み失敗: " + e.message;
   }
 }
+
+// ---------- ログイン ----------
+function applyMe(){
+  const b = document.body;
+  b.classList.toggle("can-edit", !!ME.canEdit);
+  b.classList.toggle("can-del", !!ME.canDelete);
+  b.classList.toggle("can-vis", !!ME.canSetVisibility);
+  b.classList.toggle("owner", !!ME.owner);
+  if (!ME.canEdit) { b.classList.remove("edit"); document.getElementById("editBtn").textContent = "編集"; }
+  document.getElementById("meName").textContent = ME.name;
+  document.getElementById("meRole").textContent = ME.owner ? "👑 オーナー Lv.MAX" : ME.role + " Lv." + ME.level;
+  document.getElementById("meBox").hidden = false;
+  document.getElementById("logoutBtn").hidden = false;
+  document.getElementById("inviteBtn").hidden = !ME.canInvite;
+}
+
+function showLogin(msg){
+  loadingEl.style.display = "none";
+  const m = document.getElementById("loginMsg");
+  m.textContent = msg || ""; m.className = "msg" + (msg ? " ng" : "");
+  document.getElementById("loginId").value = "";
+  openModal("loginModal");
+  setTimeout(() => document.getElementById("loginId").focus(), 50);
+}
+
+async function submitLogin(){
+  const id = document.getElementById("loginId").value.trim();
+  const msg = document.getElementById("loginMsg");
+  const btn = document.getElementById("loginOk");
+  if (!id) { msg.textContent = "IDを入れてください"; msg.className = "msg ng"; return; }
+  btn.disabled = true; msg.textContent = "確認中…"; msg.className = "msg";
+  try {
+    const r = await api({ action: "login", id: id, pageUrl: pageUrl() });
+    if (r.mailed) {
+      msg.textContent = r.to + " にログイン用のURLを送りました。メールを開いてね";
+      msg.className = "msg";
+    } else {
+      setToken(r.token);
+      document.getElementById("loginId").value = "";
+      closeModal("loginModal");
+      await load();
+    }
+  } catch (e) {
+    msg.textContent = e.message; msg.className = "msg ng";
+  }
+  btn.disabled = false;
+}
+
+function setToken(t){ TOKEN = t; localStorage.setItem("officeToken", t); }
+function pageUrl(){ return location.origin + location.pathname; }
+
+// ---------- はじめての登録 ----------
+async function openRegister(t){
+  loadingEl.style.display = "none";
+  const info = document.getElementById("regInfo"), msg = document.getElementById("regMsg"), ok = document.getElementById("regOk");
+  msg.textContent = ""; msg.className = "msg";
+  info.textContent = "招待を確認しています…";
+  document.getElementById("regHelp").textContent = "";
+  document.getElementById("regToLogin").hidden = true;
+  ok.disabled = true;
+  openModal("registerModal");
+  try {
+    const r = await api({ action: "inviteInfo", invite: t });
+    info.textContent = r.name + " さんを「" + r.role + "」として登録します。ログインに使うIDを自分で決めてください。";
+    document.getElementById("regHelp").textContent = r.mailMode
+      ? "次からはIDを入れると、" + r.email + " にログイン用URLが届きます。"
+      : "次からはこのIDを入れるだけでログインできます。人に教えないでね。";
+    ok.disabled = false;
+    setTimeout(() => document.getElementById("regId").focus(), 50);
+  } catch (e) {
+    info.textContent = e.message;
+    document.getElementById("regToLogin").hidden = false;
+  }
+}
+
+async function submitRegister(){
+  const id = document.getElementById("regId").value.trim();
+  const msg = document.getElementById("regMsg"), btn = document.getElementById("regOk");
+  if (!/^[A-Za-z0-9_.\-]{3,20}$/.test(id)) { msg.textContent = "IDは半角英数字(と _ . -)で3〜20文字にしてね"; msg.className = "msg ng"; return; }
+  btn.disabled = true; msg.textContent = "登録中…"; msg.className = "msg";
+  try {
+    const r = await api({ action: "register", invite: INVITE_PARAM, id: id });
+    setToken(r.token);
+    closeModal("registerModal");
+    await load();
+  } catch (e) {
+    msg.textContent = e.message; msg.className = "msg ng";
+    btn.disabled = false;
+  }
+}
+document.getElementById("regId").addEventListener("keydown", e => { if (e.key === "Enter") submitRegister(); });
+document.getElementById("regToLogin").addEventListener("click", () => { closeModal("registerModal"); showLogin(""); });
+
+// ---------- 招待(所長・オーナー) ----------
+function openInvite(){
+  if (!ME || !ME.canInvite) return;
+  document.getElementById("invRole").innerHTML = INVITE_ROLES.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+  document.getElementById("groupList").innerHTML = GROUPS.map(g => `<option value="${esc(g)}">`).join("");
+  ["invEmail", "invName", "invGroup"].forEach(id => document.getElementById(id).value = "");
+  const msg = document.getElementById("invMsg"); msg.textContent = ""; msg.className = "msg";
+  openModal("inviteModal");
+  setTimeout(() => document.getElementById("invEmail").focus(), 50);
+}
+
+async function submitInvite(){
+  const email = document.getElementById("invEmail").value.trim();
+  const name  = document.getElementById("invName").value.trim();
+  const role  = document.getElementById("invRole").value;
+  const group = document.getElementById("invGroup").value.trim();
+  const msg = document.getElementById("invMsg"), btn = document.getElementById("invOk");
+  if (!email || !name) { msg.textContent = "メールアドレスと名前を入れてね"; msg.className = "msg ng"; return; }
+  btn.disabled = true; msg.textContent = "送信中…"; msg.className = "msg";
+  try {
+    await api({ action: "invite", email: email, name: name, role: role, group: group, pageUrl: pageUrl() });
+    msg.textContent = "✅ " + name + " さん(" + role + ")に招待URLを送りました";
+    msg.className = "msg";
+    ["invEmail", "invName", "invGroup"].forEach(id => document.getElementById(id).value = "");
+  } catch (e) {
+    if (e.auth) { btn.disabled = false; logoutLocal(e.message); return; }
+    msg.textContent = e.message; msg.className = "msg ng";
+  }
+  btn.disabled = false;
+}
+document.getElementById("inviteBtn").addEventListener("click", openInvite);
+
+function logoutLocal(msg){
+  TOKEN = ""; localStorage.removeItem("officeToken");
+  ME = null; TOOLS = []; USERS = []; GROUPS = []; ROLES = []; OWNER_ONLY = "";
+  sectionsEl.innerHTML = "";
+  document.body.classList.remove("edit", "can-edit", "can-del", "can-vis", "owner");
+  document.getElementById("editBtn").textContent = "編集";
+  document.getElementById("meBox").hidden = true;
+  document.getElementById("logoutBtn").hidden = true;
+  document.getElementById("inviteBtn").hidden = true;
+  INVITE_ROLES = [];
+  document.getElementById("toolCount").textContent = "—";
+  document.getElementById("catCount").textContent = "—";
+  emptyEl.classList.remove("show");
+  document.querySelectorAll(".modal-bg").forEach(m => m.classList.remove("show"));
+  showLogin(msg);
+}
+
+document.getElementById("loginId").addEventListener("keydown", e => { if (e.key === "Enter") submitLogin(); });
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  if (!confirm("ログアウトする？")) return;
+  try { await api({ action: "logout" }); } catch (e) {}
+  logoutLocal("");
+});
 
 function grouped(){
   const map = new Map();
@@ -631,6 +873,33 @@ async function importIconImage(file){
 }
 document.getElementById('iconImageFile').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';importIconImage(file);});
 
+// ---------- 使える人の選択 ----------
+let VIS = new Set();
+function visOptions(){
+  const o = [];
+  if (ME && ME.owner && OWNER_ONLY) o.push({ v: OWNER_ONLY, l: "👑 オーナーのみ" });
+  ROLES.forEach(r => o.push({ v: r, l: "⭐ " + r + "以上" }));
+  GROUPS.forEach(g => o.push({ v: g, l: "👥 " + g }));
+  USERS.forEach(u => o.push({ v: u.id, l: "👤 " + (u.name && u.name !== u.id ? u.name + "（" + u.id + "）" : u.id) }));
+  VIS.forEach(v => { if (!o.some(x => x.v === v)) o.push({ v: v, l: "❔ " + v }); });
+  return o;
+}
+function renderVisPicker(){
+  document.getElementById("visPicker").innerHTML = visOptions().map(x =>
+    `<button type="button" class="vis-chip" data-vis="${esc(x.v)}" aria-pressed="${VIS.has(x.v)}">${esc(x.l)}</button>`).join("");
+  document.getElementById("visNote").textContent =
+    (OWNER_ONLY && VIS.has(OWNER_ONLY)) ? "オーナーだけが使える（他の人には存在ごと見えません）"
+    : VIS.size ? "選んだ権限・グループ・人だけが使える（所長は全部使えます）"
+    : "何も選ばない＝全員が使える";
+}
+document.getElementById("visPicker").addEventListener("click", e => {
+  const b = e.target.closest("[data-vis]"); if (!b) return;
+  const v = b.dataset.vis;
+  if (VIS.has(v)) VIS.delete(v);
+  else { if (v === OWNER_ONLY) VIS.clear(); else VIS.delete(OWNER_ONLY); VIS.add(v); }
+  renderVisPicker();
+});
+
 function render(){
   const g = grouped();
   document.getElementById("catList").innerHTML = [...g.keys()].map(c => `<option value="${esc(c)}">`).join("");
@@ -641,18 +910,23 @@ function render(){
         ${items.map(t => {
           const soon = !t["URL"];
           const tag  = t["タグ"] ? `<span class="tag">${esc(t["タグ"])}</span>` : "";
+          let lock = "";
+          if (ME && ME.canSetVisibility && t["使える人"]) {
+            lock = splitList(t["使える人"]).includes(OWNER_ONLY) && OWNER_ONLY
+              ? `<span class="tag">👑 オーナーのみ</span>` : `<span class="tag">🔒 限定</span>`;
+          }
           const key  = esc((t["名前"] || "") + " " + (t["説明"] || ""));
           const tools = `<div class="tools">
               <button type="button" onclick="openForm('${esc(t["ID"])}');return false;">編集</button>
               <button type="button" class="del" onclick="delTool('${esc(t["ID"])}','${esc(t["名前"])}');return false;">削除</button>
             </div>`;
           const open  = soon ? `<div class="card soon" data-key="${key}">`
-                             : `<a class="card" href="${esc(t["URL"])}" target="_blank" rel="noopener" data-key="${key}">`;
+                             : `<a class="card" href="${esc(withToken(t["URL"]))}" target="_blank" rel="noopener" data-key="${key}">`;
           const close = soon ? `</div>` : `</a>`;
           return `${open}
             <div class="icon">${toolIcon(t["アイコン"],t["名前"])}</div>
             <div class="body">
-              <div class="name">${esc(t["名前"])}${tag}</div>
+              <div class="name">${esc(t["名前"])}${tag}${lock}</div>
               <div class="desc">${esc(t["説明"])}</div>
             </div>
             <div class="arrow">${soon ? "" : "›"}</div>
@@ -687,42 +961,17 @@ function openModal(id){ document.getElementById(id).classList.add("show"); }
 function closeModal(id){ if(id==="formModal")cancelIconImport();document.getElementById(id).classList.remove("show"); }
 
 document.getElementById("editBtn").addEventListener("click", () => {
-  if (document.body.classList.contains("edit")) {
-    document.body.classList.remove("edit");
-    document.getElementById("editBtn").textContent = "編集";
-    return;
-  }
-  if (PASS) { enterEdit(); return; }
-  document.getElementById("passMsg").textContent = "";
-  document.getElementById("passInput").value = "";
-  openModal("passModal");
-  setTimeout(() => document.getElementById("passInput").focus(), 50);
+  if (!ME || !ME.canEdit) return;
+  const on = document.body.classList.toggle("edit");
+  document.getElementById("editBtn").textContent = on ? "完了" : "編集";
 });
-document.getElementById("passInput").addEventListener("keydown", e => { if (e.key === "Enter") submitPass(); });
-
-async function submitPass(){
-  const p = document.getElementById("passInput").value;
-  if (!p) return;
-  // 先に編集モードへ入って、合言葉の確認は裏で行う(体感を速くする)
-  savePass(p);
-  closeModal("passModal");
-  enterEdit();
-  try {
-    await api({ action: "checkPass", pass: p });
-  } catch (e) {
-    clearPass();
-    document.body.classList.remove("edit");
-    document.getElementById("editBtn").textContent = "編集";
-    alert(e.message);
-  }
-}
-
-function enterEdit(){
-  document.body.classList.add("edit");
-  document.getElementById("editBtn").textContent = "完了";
-}
 
 document.getElementById("addBtn").addEventListener("click", () => openForm(""));
+document.getElementById("copyToolId").addEventListener("click", async () => {
+  const b = document.getElementById("copyToolId");
+  try { await navigator.clipboard.writeText(document.getElementById("toolIdText").textContent); b.textContent = "コピーした！"; }
+  catch (e) { b.textContent = "長押しでコピーしてね"; }
+});
 
 function openForm(id){
   cancelIconImport();
@@ -736,6 +985,11 @@ function openForm(id){
   document.getElementById("fUrl").value  = t["URL"] || "";
   document.getElementById("fTag").value  = t["タグ"] || "";
   document.getElementById("formMsg").textContent = "";
+  document.getElementById("toolIdBox").hidden = !id;
+  document.getElementById("toolIdText").textContent = id;
+  document.getElementById("copyToolId").textContent = "コピー";
+  VIS = new Set(splitList(t["使える人"]));
+  renderVisPicker();
   refreshIconPicker();
   openModal("formModal");
 }
@@ -750,18 +1004,19 @@ async function submitForm(){
     "URL":      document.getElementById("fUrl").value.trim(),
     "タグ":     document.getElementById("fTag").value.trim(),
   };
+  if (ME && ME.canSetVisibility) data["使える人"] = [...VIS].join(",");
   const msg = document.getElementById("formMsg");
   if (!data["名前"]) { msg.textContent = "名前は必須"; msg.className = "msg ng"; return; }
   const btn = document.getElementById("formOk");
   btn.disabled = true; msg.textContent = "保存中…"; msg.className = "msg";
   try {
-    if (id) await api({ action: "update", pass: PASS, id: id, data: data });
-    else    await api({ action: "add",    pass: PASS, data: data });
+    if (id) await api({ action: "update", id: id, data: data });
+    else    await api({ action: "add", data: data });
     closeModal("formModal");
     await load();
   } catch (e) {
+    if (e.auth) { btn.disabled = false; logoutLocal(e.message); return; }
     msg.textContent = e.message; msg.className = "msg ng";
-    if (/合言葉/.test(e.message)) clearPass();
   }
   btn.disabled = false;
 }
@@ -769,11 +1024,11 @@ async function submitForm(){
 async function delTool(id, name){
   if (!confirm(`「${name}」を削除する？`)) return;
   try {
-    await api({ action: "delete", pass: PASS, id: id });
+    await api({ action: "delete", id: id });
     await load();
   } catch (e) {
+    if (e.auth) { logoutLocal(e.message); return; }
     alert(e.message);
-    if (/合言葉/.test(e.message)) clearPass();
   }
 }
 
@@ -786,10 +1041,25 @@ function tick(){
 }
 qEl.addEventListener("input", filter);
 clearEl.addEventListener("click", () => { qEl.value = ""; filter(); qEl.focus(); });
-document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("show"); }));
+document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => {
+  if (e.target === m && m.id !== "loginModal" && m.id !== "registerModal") closeModal(m.id);
+}));
+
+// ---------- 起動 ----------
+async function startup(){
+  if (LOGIN_PARAM) {
+    loadingEl.textContent = "ログインしています…";
+    try {
+      const r = await api({ action: "redeem", loginToken: LOGIN_PARAM });
+      setToken(r.token);
+    } catch (e) { showLogin(e.message); return; }
+  }
+  if (INVITE_PARAM) { openRegister(INVITE_PARAM); return; }
+  load();
+}
 
 tick(); setInterval(tick, 15000);
-load();
+startup();
 </script>
 </body>
 </html>
