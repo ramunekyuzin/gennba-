@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>名刺検索</title>
+  <style>
+    :root {
+      --bg: #f5f6f8; --card: #fff; --text: #222; --sub: #666; --line: #ddd;
+      --main: #1e5aa8; --mainText: #fff; --chip: #eef3fb; --chipText: #1e5aa8;
+      --ng: #c0392b; --ok: #1a8a3c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111418; --card: #1c2128; --text: #e8e8e8; --sub: #9aa4b0; --line: #333b45;
+        --main: #4a8ae0; --mainText: #fff; --chip: #243246; --chipText: #9cc2ff;
+        --ng: #ff7b6b; --ok: #5fd08a;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg); color: var(--text);
+      padding: 16px; max-width: 640px; margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    h1 button { width: auto; padding: 8px 12px; font-size: 14px; background: transparent; color: var(--sub); border: 1px solid var(--line); }
+    .search {
+      position: sticky; top: 0; background: var(--bg); padding: 4px 0 10px; z-index: 5;
+    }
+    input {
+      width: 100%; padding: 14px; font-size: 16px;
+      border: 1px solid var(--line); border-radius: 10px;
+      background: var(--card); color: var(--text);
+    }
+    button {
+      width: 100%; padding: 14px; font-size: 16px; font-weight: bold;
+      border: none; border-radius: 10px; background: var(--main); color: var(--mainText);
+    }
+    button:active { opacity: .8; }
+    #count { font-size: 13px; color: var(--sub); margin-top: 8px; }
+    #status { text-align: center; font-size: 14px; margin: 16px 0; color: var(--sub); }
+    #status.ng { color: var(--ng); }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 14px;
+      margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    .company { font-size: 13px; color: var(--sub); }
+    .name { font-size: 19px; font-weight: bold; margin: 2px 0; }
+    .kana { font-size: 12px; color: var(--sub); font-weight: normal; margin-left: 6px; }
+    .pos { font-size: 13px; color: var(--sub); }
+    .info { font-size: 13px; margin-top: 8px; line-height: 1.6; word-break: break-all; }
+    .info b { color: var(--sub); font-weight: normal; display: inline-block; min-width: 3em; }
+    .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .btns a, .btns button {
+      flex: 1 1 auto; width: auto; min-width: 44%;
+      padding: 12px 10px; font-size: 15px; font-weight: bold; text-align: center;
+      border-radius: 10px; text-decoration: none;
+      background: var(--chip); color: var(--chipText); border: none;
+    }
+    mark { background: #ffe58a; color: #222; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>名刺検索 <button id="reloadBtn" onclick="load(true)">↻ 更新</button></h1>
+
+  <div id="main" style="display:none">
+    <div class="search">
+      <input id="q" type="search" placeholder="会社・名前・ふりがな・電話番号など" oninput="render()">
+      <div id="count"></div>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div id="status"></div>
+
+  <script>
+    // ============================================
+    // GAS WebアプリのURL（デプロイ後に貼る）
+    // ============================================
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycby0nenuLFaz6xbxueS4FQV2WBR0ur4mqN8oga_BoqwzZc1FMg68pHuN-mBeDD3Z50Rm/exec';
+    const MAX_SHOW = 200;
+
+    let cards = [];
+
+    load();
+
+    // ---------- 通信 ----------
+    async function api(body) {
+      if (!GAS_URL) throw new Error('GAS_URL が未設定');
+      const r = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(body),
+      });
+      const res = await r.json();
+      if (!res.ok) throw new Error(res.error);
+      return res.result;
+    }
+
+    async function load(force) {
+      setStatus('読み込み中...');
+      try {
+        cards = (await api({ action: 'list' })).reverse(); // 新しい順
+        cards.forEach(c => c._hay = norm([
+          c['会社名'], c['部署'], c['役職'], c['氏名'], c['ふりがな'], c['電話'], c['携帯'],
+          c['FAX'], c['メール'], c['住所'], c['URL'], c['メモ'], c['ファイル名'],
+        ].join(' ')));
+        document.getElementById('main').style.display = 'block';
+        setStatus('');
+        render();
+      } catch (err) {
+        setStatus('エラー: ' + err.message, true);
+      }
+    }
+
+    // ---------- 検索 ----------
+    // 全角半角・大小・カタカナひらがな・空白ハイフン括弧をそろえる
+    function norm(s) {
+      return String(s || '').normalize('NFKC').toLowerCase()
+        .replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+        .replace(/[\s\-‐‑–—−ー()（）]/g, '');
+    }
+
+    function render() {
+      const raw = document.getElementById('q').value.trim();
+      const words = raw.split(/[\s　]+/).map(norm).filter(Boolean);
+      const hit = words.length ? cards.filter(c => words.every(w => c._hay.includes(w))) : cards;
+
+      document.getElementById('count').textContent =
+        `${hit.length}件` + (hit.length > MAX_SHOW ? `（先頭${MAX_SHOW}件を表示）` : '') + ` / 全${cards.length}件`;
+
+      document.getElementById('list').innerHTML = hit.slice(0, MAX_SHOW).map(cardHtml).join('')
+        || '<div id="status">見つからなかった</div>';
+    }
+
+    function cardHtml(c) {
+      const pos = [c['部署'], c['役職']].filter(Boolean).join('　');
+      const info = [
+        ['電話', c['電話']], ['携帯', c['携帯']], ['FAX', c['FAX']],
+        ['メール', c['メール']], ['住所', c['住所']], ['URL', c['URL']], ['メモ', c['メモ']],
+      ].filter(x => x[1]).map(x => `<div><b>${x[0]}</b> ${esc(x[1])}</div>`).join('');
+
+      const btns = [];
+      splitNums(c['携帯']).forEach(n => btns.push(`<a href="tel:${n}">📱 携帯</a>`));
+      splitNums(c['電話']).forEach(n => btns.push(`<a href="tel:${n}">📞 電話</a>`));
+      if (c['メール']) btns.push(`<a href="mailto:${esc(c['メール'].split('/')[0].trim())}">✉ メール</a>`);
+      if (c['住所']) btns.push(`<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c['住所'])}">🗺 地図</a>`);
+      if (c['fileId']) btns.push(`<button onclick="openFile('${esc(c['fileId'])}')">📄 名刺を見る</button>`);
+
+      return `<div class="card">
+        <div class="company">${esc(c['会社名'])}</div>
+        <div class="name">${esc(c['氏名'] || '（氏名なし）')}<span class="kana">${esc(c['ふりがな'])}</span></div>
+        ${pos ? `<div class="pos">${esc(pos)}</div>` : ''}
+        <div class="info">${info}</div>
+        <div class="btns">${btns.join('')}</div>
+      </div>`;
+    }
+
+    function splitNums(s) {
+      return String(s || '').split('/').map(x => x.replace(/[^\d+]/g, '')).filter(x => x.length >= 6);
+    }
+
+    // ---------- 名刺ファイル表示 ----------
+    async function openFile(fileId) {
+      const w = window.open('', '_blank'); // iPhoneのポップアップブロック対策で先に開く
+      if (w) w.document.write('<p style="font-family:sans-serif;padding:20px">読み込み中...</p>');
+      try {
+        const f = await api({ action: 'pdf', fileId: fileId });
+        const bin = atob(f.data);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([bytes], { type: f.mimeType }));
+        if (w) w.location.href = url; else location.href = url;
+      } catch (err) {
+        if (w) w.close();
+        alert('開けなかった: ' + err.message);
+      }
+    }
+
+    // ---------- 共通 ----------
+    function setStatus(msg, ng) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = ng ? 'ng' : '';
+    }
+
+    function esc(s) {
+      return String(s || '').replace(/[&<>"']/g, ch =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+  </script>
+</body>
+</html>
