@@ -2,155 +2,526 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#123d3a">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>名刺検索</title>
   <style>
-    :root{--bg:#f3f6fa;--surface:#fff;--ink:#17302e;--muted:#65758a;--line:#dfe7f0;--primary:#0d746e;--pale:#e4f4ef;--success:#167957;--danger:#bd3944;--shadow:0 8px 28px rgba(25,49,80,.07)}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;line-height:1.55}
-    button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.55;cursor:wait}a{color:inherit}
-    .shell{max-width:1120px;margin:auto;padding:0 22px 70px}
-    .top{background:linear-gradient(125deg,#123d3a,#176c68);color:white}.top-inner{max-width:1120px;margin:auto;padding:25px 22px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-    .eyebrow{color:#98bde6;font-size:11px;font-weight:800;letter-spacing:.15em}.top h1{font-size:26px;line-height:1.25;margin:5px 0 3px}.top p{margin:0;color:#bdccdc;font-size:13px}
-    .refresh{flex:none;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.25);color:white;border-radius:12px;min-height:44px;padding:0 17px;font-weight:700}
-    .toolbar{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin:22px 0 16px}.searchbox{position:relative}.searchbox svg{position:absolute;left:17px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
-    #q{width:100%;height:54px;padding:0 48px 0 47px;border:1px solid var(--line);border-radius:15px;background:var(--surface);color:var(--ink);outline:none;box-shadow:var(--shadow);font-size:16px}#q:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,90,168,.13)}#q::placeholder{color:#8996a8}
-    #clearBtn{position:absolute;right:9px;top:8px;width:38px;height:38px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:22px;display:none}
-    .addBtn{height:54px;padding:0 22px;border:0;border-radius:15px;background:var(--primary);color:white;font-weight:800;white-space:nowrap;box-shadow:0 6px 16px rgba(24,90,168,.2)}
-    .meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}.meta strong{font-size:16px}.meta small{color:var(--muted)}
-    .chips{display:flex;gap:8px;overflow-x:auto;padding:3px 2px 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.chips::-webkit-scrollbar{display:none}.chips button{flex:none;min-height:42px;padding:0 15px;border:1px solid var(--line);border-radius:100px;background:var(--surface);color:var(--muted);white-space:nowrap;font-size:13px;font-weight:700}.chips button.on{background:var(--ink);border-color:var(--ink);color:white}
-    #list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:19px;box-shadow:var(--shadow)}
-    .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.company{font-size:13px;color:var(--muted);font-weight:700;overflow-wrap:anywhere}.gyoshu{flex:none;font-size:11px;padding:3px 9px;border-radius:100px;background:var(--pale);color:var(--primary);font-weight:700}
-    .warn{margin-top:12px;padding:10px 12px;border-radius:10px;background:#fff4e8;color:#9b4e13;font-size:12px;line-height:1.5;overflow-wrap:anywhere}.name{font-size:21px;font-weight:800;margin:8px 0 0;overflow-wrap:anywhere}.kana{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:1px}.pos{font-size:13px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
-    .info{display:grid;gap:7px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}.info-row{display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px}.info b{color:var(--muted);font-weight:500}
-    .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.btns a,.btns button{display:inline-flex;justify-content:center;align-items:center;flex:1 1 calc(50% - 8px);min-height:44px;padding:9px 10px;text-align:center;border:1px solid #d6e5f8;border-radius:11px;background:var(--pale);color:var(--primary);font-size:13px;font-weight:800;text-decoration:none}.btns button{cursor:pointer}.btns .rereadBtn{background:#f7faf9;color:#456361;border-color:#dbe8e5}.btns .rereadBtn:disabled{opacity:.55}
-    #status,#upStatus{font-size:14px;text-align:center;line-height:1.6}#status{padding:18px;color:var(--muted)}#status:empty{display:none}#upStatus{margin:0 0 12px}#upStatus:empty{display:none}.ng{color:var(--danger)!important}.ok{color:var(--success)!important}
-    .empty{grid-column:1/-1;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:42px 20px;color:var(--muted)}.empty strong{display:block;color:var(--ink);margin-bottom:4px}
-    :focus-visible{outline:3px solid #72aaf2;outline-offset:2px}
-    @media(max-width:700px){.shell{padding:0 15px 95px}.top-inner{padding:21px 16px 23px}.top h1{font-size:23px}.top p{font-size:12px}.refresh{padding:0 13px}.toolbar{grid-template-columns:1fr;margin:16px 0 13px;gap:10px}.addBtn{width:100%}.meta{margin-bottom:7px}#list{grid-template-columns:1fr;gap:10px}.card{padding:17px}.info{gap:9px}.chips{margin:0 -15px;padding:3px 15px 13px}.btns a,.btns button{min-height:46px}}
-    @media(max-width:360px){.top p{max-width:215px}.card-top{flex-wrap:wrap}.btns a,.btns button{flex-basis:100%}}
-    @media(prefers-reduced-motion:no-preference){button,a{transition:filter .15s,transform .15s}button:active,a:active{transform:scale(.98)}}
+    :root {
+      --bg: #f5f6f8; --card: #fff; --text: #222; --sub: #666; --line: #ddd;
+      --main: #1e5aa8; --mainText: #fff; --chip: #eef3fb; --chipText: #1e5aa8;
+      --ng: #c0392b; --ok: #1a8a3c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111418; --card: #1c2128; --text: #e8e8e8; --sub: #9aa4b0; --line: #333b45;
+        --main: #4a8ae0; --mainText: #fff; --chip: #243246; --chipText: #9cc2ff;
+        --ng: #ff7b6b; --ok: #5fd08a;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg); color: var(--text);
+      padding: 16px; max-width: 640px; margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    h1 button { width: auto; padding: 8px 12px; font-size: 14px; background: transparent; color: var(--sub); border: 1px solid var(--line); }
+    .search {
+      position: sticky; top: 0; background: var(--bg); padding: 4px 0 10px; z-index: 5;
+    }
+    input {
+      width: 100%; padding: 14px; font-size: 16px;
+      border: 1px solid var(--line); border-radius: 10px;
+      background: var(--card); color: var(--text);
+    }
+    button {
+      width: 100%; padding: 14px; font-size: 16px; font-weight: bold;
+      border: none; border-radius: 10px; background: var(--main); color: var(--mainText);
+    }
+    button:active { opacity: .8; }
+    #count { font-size: 13px; color: var(--sub); margin-top: 8px; }
+    #status { text-align: center; font-size: 14px; margin: 16px 0; color: var(--sub); }
+    #status.ng { color: var(--ng); }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 14px;
+      margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    .company { font-size: 13px; color: var(--sub); }
+    .name { font-size: 19px; font-weight: bold; margin: 2px 0; }
+    .kana { font-size: 12px; color: var(--sub); font-weight: normal; margin-left: 6px; }
+    .pos { font-size: 13px; color: var(--sub); }
+    .info { font-size: 13px; margin-top: 8px; line-height: 1.6; word-break: break-all; }
+    .info b { color: var(--sub); font-weight: normal; display: inline-block; min-width: 3em; }
+    .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .btns a, .btns button {
+      flex: 1 1 auto; width: auto; min-width: 44%;
+      padding: 12px 10px; font-size: 15px; font-weight: bold; text-align: center;
+      border-radius: 10px; text-decoration: none;
+      background: var(--chip); color: var(--chipText); border: none;
+    }
+    .chips { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+    .chips button {
+      flex: 0 0 auto; width: auto; padding: 8px 12px; font-size: 14px; font-weight: normal;
+      border-radius: 999px; background: var(--card); color: var(--text); border: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .chips button.on { background: var(--main); color: var(--mainText); border-color: var(--main); }
+    #editBg {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20;
+      overflow-y: auto; padding: 16px;
+    }
+    #editBox { background: var(--card); border-radius: 12px; padding: 16px; max-width: 560px; margin: 0 auto; }
+    #editBox h2 { font-size: 18px; margin-bottom: 12px; }
+    #editBox label { display: block; font-size: 13px; color: var(--sub); margin: 10px 0 4px; }
+    #editBox textarea {
+      width: 100%; padding: 12px; font-size: 16px; font-family: inherit;
+      border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text);
+    }
+    #editBox input { background: var(--bg); }
+    .editBtns { display: flex; gap: 8px; margin-top: 16px; }
+    .editBtns button.cancel { background: transparent; color: var(--text); border: 1px solid var(--line); }
+    #editMsg { font-size: 14px; margin-top: 10px; color: var(--ng); }
+    .warn { font-size: 12px; color: var(--ng); margin-top: 4px; }
+    .gyoshu {
+      display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+      background: var(--chip); color: var(--chipText); margin-left: 6px; vertical-align: middle;
+    }
+    .addBtn { margin-bottom: 10px; background: var(--ok); }
+    #upStatus { font-size: 14px; text-align: center; margin: -4px 0 10px; line-height: 1.5; }
+    #upStatus.ng { color: var(--ng); }
+    #upStatus.ok { color: var(--ok); }
+    mark { background: #ffe58a; color: #222; border-radius: 3px; }
+
+    :root { color-scheme:light; --bg:#f3f5f8; --card:#fff; --text:#182b43; --sub:#64748b; --line:#e1e7ef; --main:#234e75; --mainText:#fff; --chip:#edf3f8; --chipText:#305675; --ok:#257967; --ng:#bc4545; }
+    body { max-width:1120px; padding:38px 32px 60px; line-height:1.6; background:var(--bg); }
+    button,input,textarea,a { -webkit-tap-highlight-color:transparent; }
+    button,a { touch-action:manipulation; }
+    button { cursor:pointer; transition:background .18s,box-shadow .18s,transform .18s; font-family:inherit; }
+    button:disabled { opacity:.5; cursor:wait; }
+    button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible { outline:3px solid #70b6da; outline-offset:3px; }
+    .appHeader { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; }
+    .brand { display:flex; gap:14px; align-items:center; }
+    .brandIcon { width:48px; height:48px; display:grid; place-items:center; border-radius:15px; background:var(--main); color:white; box-shadow:0 6px 18px #234e751c; }
+    svg { width:22px; height:22px; flex-shrink:0; vertical-align:middle; }
+    .eyebrow { font-size:10px; letter-spacing:.18em; color:var(--sub); font-weight:700; }
+    h1 { font-size:25px; letter-spacing:.04em; margin:0; line-height:1.4; }
+    .headerActions { display:flex; gap:8px; }
+    .headerActions button { width:auto; display:flex; align-items:center; gap:6px; min-height:44px; padding:9px 14px; font-size:13px; background:var(--card); color:var(--text); border:1px solid var(--line); }
+    .intro { display:flex; align-items:center; justify-content:space-between; gap:22px; background:var(--card); border:1px solid var(--line); border-radius:20px; padding:24px 26px; margin-bottom:20px; }
+    .intro h2 { font-size:19px; margin-bottom:4px; }
+    .intro p { font-size:13px; color:var(--sub); }
+    .addBtn { width:auto; flex-shrink:0; margin:0; display:flex; align-items:center; justify-content:center; gap:10px; background:var(--main); padding:14px 20px; border-radius:12px; font-size:14px; box-shadow:0 4px 10px #234e751a; }
+    .addBtn small { display:block; font-size:10px; font-weight:400; opacity:.8; text-align:left; }
+    .search { top:0; padding:16px 0 14px; background:var(--bg); }
+    .searchField { position:relative; }
+    .searchField>svg { position:absolute; top:18px; left:18px; color:var(--sub); pointer-events:none; }
+    #q { height:58px; padding:16px 50px; border-radius:14px; box-shadow:0 3px 12px #182b4304; }
+    #q::placeholder { color:var(--sub); font-size:14px; }
+    .clearSearch { position:absolute; right:9px; top:8px; height:42px; width:36px; padding:0; background:transparent; color:var(--sub); font-size:23px; }
+    #q::-webkit-search-cancel-button { display:none; }
+    .chips { gap:8px; margin-top:14px; padding:2px 1px 8px; scrollbar-width:thin; }
+    .chips button { min-height:42px; padding:8px 15px; font-size:12px; font-weight:600; }
+    .chips button.on { box-shadow:0 3px 8px #234e7520; }
+    .resultsBar { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:8px; }
+    #count { margin:0; font-size:12px; font-variant-numeric:tabular-nums; }
+    .resultsBar span { font-size:11px; color:var(--sub); }
+    #list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .card { border:1px solid var(--line); border-radius:18px; padding:23px; margin:0; box-shadow:0 4px 20px #182b4304; min-width:0; display:flex; flex-direction:column; }
+    .cardTop { display:flex; gap:14px; align-items:flex-start; margin-bottom:8px; }
+    .avatar { display:grid; place-items:center; width:48px; height:48px; flex-shrink:0; border-radius:14px; color:var(--chipText); background:var(--chip); font-size:21px; font-weight:700; }
+    .identity { min-width:0; flex:1; }
+    .company { font-size:12px; overflow-wrap:anywhere; }
+    .name { font-size:21px; letter-spacing:.04em; line-height:1.6; overflow-wrap:anywhere; }
+    .kana { display:block; margin:0; font-size:11px; letter-spacing:.02em; }
+    .pos { font-size:12px; }
+    .gyoshu { margin:0 0 6px 6px; font-size:10px; padding:3px 9px; font-weight:600; }
+    .info { border-top:1px solid var(--line); margin:14px 0 0; padding:13px 0; font-size:12px; word-break:normal; overflow-wrap:anywhere; }
+    .info>div { display:grid; grid-template-columns:48px minmax(0,1fr); gap:8px; padding:3px 0; }
+    .info b { font-size:11px; }
+    .btns { gap:7px; margin-top:auto; padding-top:9px; }
+    .btns a,.btns button { flex:1 1 calc(33.333% - 8px); min-width:0; display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:10px 7px; font-size:12px; border-radius:9px; }
+    .btns svg { width:16px; height:16px; }
+    .btns a:hover,.btns button:hover { background:var(--line); }
+    .warn { background:#fff5e9; color:#976023; padding:9px 12px; border-radius:9px; font-size:11px; margin:10px 0 0; }
+    #status:not(:empty),.empty { border:1px dashed var(--line); border-radius:16px; padding:32px 20px; background:var(--card); }
+    #status:empty,#upStatus:empty { display:none; }
+    .empty { grid-column:1/-1; text-align:center; color:var(--sub); }
+    .empty strong { color:var(--text); display:block; margin-bottom:5px; }
+    .empty p { font-size:13px; }
+    #upStatus:not(:empty) { margin:0 0 16px; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; font-size:13px; overflow-wrap:anywhere; }
+    #editBg { background:#101e35a6; backdrop-filter:blur(5px); padding:32px 16px; }
+    #editBox { padding:26px; border:1px solid var(--line); border-radius:20px; box-shadow:0 24px 80px #0003; }
+    #editBox h2 { border-bottom:1px solid var(--line); padding-bottom:16px; }
+    #editBox label { font-weight:600; font-size:12px; margin-top:16px; }
+    .editBtns { position:sticky; bottom:-1px; padding:16px 0 6px; background:var(--card); }
+    @media(min-width:800px) { .card:hover { box-shadow:0 8px 28px #182b430b; } }
+    @media(max-width:640px) {
+      body { padding:22px 16px calc(28px + env(safe-area-inset-bottom)); }
+      .appHeader { margin-bottom:22px; gap:10px; }.brand { gap:10px; }.brandIcon { width:42px;height:42px;border-radius:12px; }
+      h1 { font-size:22px; }.headerActions button { padding:8px 10px; }.eyebrow { font-size:9px; }
+      .intro { padding:19px; gap:15px; align-items:stretch; flex-direction:column; margin-bottom:7px; border-radius:16px; }.intro h2 { font-size:17px; }.intro p { font-size:12px; }.addBtn { width:100%; }
+      .addBtn small { display:inline; margin-left:8px; }.search { padding-top:12px; } #q { padding-left:46px; } #q::placeholder { font-size:12px; }
+      #list { grid-template-columns:1fr; gap:13px; }.card { padding:20px; }.name { font-size:21px; }.resultsBar span { font-size:10px; }
+      #editBg { padding:12px 8px; } #editBox { padding:20px; border-radius:16px; }
+    }
+    @media(prefers-color-scheme:dark) { :root { color-scheme:dark; --bg:#111c2b; --card:#1a283a; --text:#e6edf5; --sub:#a0b0c4; --line:#304155; --main:#5084b6; --chip:#273c54; --chipText:#bbd8f4; --ok:#7bd2b5; --ng:#ffa59e; } .warn { background:#433729; color:#f0cb8a; } }
+    @media(prefers-reduced-motion:reduce) { * { transition:none!important; scroll-behavior:auto!important; } }
   </style>
 </head>
 <body>
-  <header class="top"><div class="top-inner"><div><div class="eyebrow">CONTACTS / BUSINESS CARDS</div><h1>名刺検索</h1><p>探す・確認する・連絡するをひとつの画面で</p></div><button type="button" class="refresh" id="reloadBtn" onclick="load(true)">↻ 更新</button></div></header>
-  <main class="shell">
-    <div id="main" style="display:none">
-      <div class="toolbar">
-        <div class="searchbox"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg><input id="q" type="search" autocomplete="off" aria-label="名刺を検索" placeholder="会社名・氏名・電話番号など" oninput="render()"><button type="button" id="clearBtn" aria-label="検索を消去" onclick="clearSearch()">×</button></div>
-        <button type="button" class="addBtn" id="addBtn" onclick="document.getElementById('photo').click()">＋ 写真・PDFを追加</button>
-      </div>
-      <input id="photo" type="file" accept="image/*,application/pdf,.pdf" multiple hidden onchange="uploadPhotos(this)">
-      <div id="upStatus" role="status" aria-live="polite"></div>
-      <div class="meta"><strong>登録した名刺</strong><small id="count"></small></div>
-      <div class="chips" id="chips" aria-label="業種で絞り込み"></div>
-      <div id="list"></div>
+  <header class="appHeader"><div class="brand"><div class="brandIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5 16c0-3 6-3 6 0m3-6h4m-4 4h4"/></svg></div><div><div class="eyebrow">CONTACT BOOK</div><h1>名刺検索</h1></div></div><div class="headerActions"><button id="reloadBtn" onclick="load(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg>更新</button></div></header>
+
+  <div id="main" style="display:none">
+    <section class="intro"><div><h2>つながりを、すぐ手元に。</h2><p>会社名や名前から、必要な連絡先をすばやく検索。</p></div><button class="addBtn" id="addBtn" onclick="document.getElementById('photo').click()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>名刺を追加<small>写真・PDFに対応</small></span></button></section>
+    <input id="photo" type="file" accept="image/*,application/pdf,.pdf" multiple style="display:none" onchange="uploadPhotos(this)">
+    <div id="upStatus" role="status" aria-live="polite"></div>
+
+    <div class="search">
+      <div class="searchField"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input id="q" aria-label="名刺を検索" type="search" placeholder="会社・名前・業種・電話番号で検索" oninput="render()"><button class="clearSearch" id="clearSearch" aria-label="検索文字をクリア" hidden onclick="document.getElementById('q').value='';render();document.getElementById('q').focus()">×</button></div>
+      <div class="chips" id="chips"></div>
+      <div class="resultsBar"><div id="count" role="status"></div><span>新しく登録した順</span></div>
     </div>
-    <div id="status" role="status" aria-live="polite"></div>
-  </main>
+    <div id="list"></div>
+  </div>
+
+  <div id="status" role="status" aria-live="polite"></div>
+
+  <div id="editBg">
+    <div id="editBox" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <h2 id="editTitle">名刺を編集</h2>
+      <div id="editFields"></div>
+      <div id="editMsg"></div>
+      <div class="editBtns">
+        <button class="cancel" onclick="closeEdit()">キャンセル</button>
+        <button id="editSave" onclick="saveEdit()">保存</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // ============================================
+    // GAS WebアプリのURL（デプロイ後に貼る）
+    // ============================================
     const GAS_URL = 'https://script.google.com/macros/s/AKfycby0nenuLFaz6xbxueS4FQV2WBR0ur4mqN8oga_BoqwzZc1FMg68pHuN-mBeDD3Z50Rm/exec';
     const MAX_SHOW = 200;
-    const PARALLEL = 3;
-    const PDF_MAX_MB = 20;
-    let cards = [], gyoshuSel = '', loading = false;
+
+    let cards = [];
+    let gyoshuSel = ''; // 選択中の業種（空なら全部）
+
     load();
+
+    // ---------- 通信 ----------
     async function api(body) {
       if (!GAS_URL) throw new Error('GAS_URL が未設定');
-      const r = await fetch(GAS_URL, {method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)});
-      if (!r.ok) throw new Error('通信に失敗しました (' + r.status + ')');
+      const r = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(body),
+      });
       const res = await r.json();
-      if (!res.ok) throw new Error(res.error || '処理に失敗しました');
+      if (!res.ok) throw new Error(res.error);
       return res.result;
     }
-    async function load() {
-      if (loading) return;
-      loading = true;
-      const btn = document.getElementById('reloadBtn');
-      btn.disabled = true;
-      setStatus(cards.length ? '更新中…' : '名刺を読み込み中…');
+
+    async function load(force) {
+      const reload = document.getElementById("reloadBtn");
+      if (reload.disabled) return;
+      reload.disabled = true;
+      setStatus('読み込み中...');
       try {
-        const next = (await api({action:'list'})).reverse();
-        next.forEach(c => c._hay = norm([c['会社名'],c['業種'],c['部署'],c['役職'],c['氏名'],c['ふりがな'],c['電話'],c['携帯'],c['FAX'],c['メール'],c['住所'],c['URL'],c['メモ'],c['ファイル名']].join(' ')));
-        cards = next;
+        cards = (await api({ action: 'list' })).reverse(); // 新しい順
+        cards.forEach(c => c._hay = norm([
+          c['会社名'], c['業種'], c['部署'], c['役職'], c['氏名'], c['ふりがな'], c['電話'], c['携帯'],
+          c['FAX'], c['メール'], c['住所'], c['URL'], c['メモ'], c['ファイル名'],
+        ].join(' ')));
         document.getElementById('main').style.display = 'block';
         setStatus('');
-        renderChips();render();
-      } catch(err) {setStatus('読み込めませんでした。更新を押して再試行してください。' + (err.message ? ' (' + err.message + ')' : ''),true)}
-      finally {loading=false;btn.disabled=false}
+        renderChips();
+        render();
+      } catch (err) {
+        setStatus('読み込めませんでした。更新ボタンで再試行してください。' + err.message, true);
+      } finally { reload.disabled = false; }
     }
-    function norm(s){return String(s||'').normalize('NFKC').toLowerCase().replace(/[\u30a1-\u30f6]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60)).replace(/[\s\-‐‑–—−ー()（）]/g,'')}
-    function render(){
-      const q=document.getElementById('q'),raw=q.value.trim(),words=raw.split(/[\s　]+/).map(norm).filter(Boolean);
-      document.getElementById('clearBtn').style.display=raw?'block':'none';
-      const hit=cards.filter(c=>(!gyoshuSel||(gyoshuSel==='__check'?!!c['要確認']:(c['業種']||'未分類')===gyoshuSel))&&words.every(w=>c._hay.includes(w)));
-      document.getElementById('count').textContent=hit.length+'件 / 全'+cards.length+'件'+(hit.length>MAX_SHOW?'（先頭'+MAX_SHOW+'件を表示）':'');
-      document.getElementById('list').innerHTML=hit.slice(0,MAX_SHOW).map(cardHtml).join('')||'<div class="empty"><strong>名刺が見つかりませんでした</strong>検索語や業種を変えてお試しください</div>';
+
+    // ---------- 検索 ----------
+    // 全角半角・大小・カタカナひらがな・空白ハイフン括弧をそろえる
+    function norm(s) {
+      return String(s || '').normalize('NFKC').toLowerCase()
+        .replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+        .replace(/[\s\-‐‑–—−ー()（）]/g, '');
     }
-    function clearSearch(){const q=document.getElementById('q');q.value='';render();q.focus()}
-    function renderChips(){
-      const count={};cards.forEach(c=>{const g=c['業種']||'未分類';count[g]=(count[g]||0)+1});
-      const nCheck=cards.filter(c=>c['要確認']).length;if(gyoshuSel==='__check'&&!nCheck)gyoshuSel='';else if(gyoshuSel&&gyoshuSel!=='__check'&&!count[gyoshuSel])gyoshuSel='';
-      const chips=document.getElementById('chips');chips.replaceChildren();
-      const add=(g,label)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.className=gyoshuSel===g?'on':'';b.setAttribute('aria-pressed',String(gyoshuSel===g));b.addEventListener('click',()=>pickGyoshu(g));chips.appendChild(b)};
-      add('','すべて '+cards.length);if(nCheck)add('__check','⚠ 要確認 '+nCheck);
-      Object.keys(count).sort((a,b)=>count[b]-count[a]).forEach(g=>add(g,g+' '+count[g]));
+
+    function render() {
+      const raw = document.getElementById('q').value.trim();
+      document.getElementById('clearSearch').hidden = !raw;
+      const words = raw.split(/[\s　]+/).map(norm).filter(Boolean);
+      const hit = cards.filter(c =>
+        (!gyoshuSel || (gyoshuSel === '__check' ? !!c['要確認'] : (c['業種'] || '未分類') === gyoshuSel)) &&
+        words.every(w => c._hay.includes(w)));
+
+      document.getElementById('count').textContent =
+        `${hit.length}件` + (hit.length > MAX_SHOW ? `（先頭${MAX_SHOW}件を表示）` : '') + ` / 全${cards.length}件`;
+
+      document.getElementById('list').innerHTML = hit.slice(0, MAX_SHOW).map(cardHtml).join('')
+        || (cards.length ? '<div class="empty"><strong>一致する名刺がありません</strong><p>キーワードや業種を変えて検索してください。</p></div>' : '<div class="empty"><strong>最初の名刺を追加しましょう</strong><p>写真やPDFから名刺を登録できます。</p></div>');
     }
-    function pickGyoshu(g){gyoshuSel=gyoshuSel===g?'':g;renderChips();render()}
-    function cardHtml(c){
-      const pos=[c['部署'],c['役職']].filter(Boolean).join('　');
-      const info=[['電話',c['電話']],['携帯',c['携帯']],['FAX',c['FAX']],['メール',c['メール']],['住所',c['住所']],['URL',c['URL']],['メモ',c['メモ']]].filter(x=>x[1]).map(x=>'<div class="info-row"><b>'+x[0]+'</b><span>'+esc(x[1])+'</span></div>').join('');
-      const btns=[];
-      splitNums(c['携帯']).forEach(n=>btns.push('<a href="tel:'+n+'">📱 携帯に電話</a>'));
-      splitNums(c['電話']).forEach(n=>btns.push('<a href="tel:'+n+'">📞 電話する</a>'));
-      if(c['メール']){const mail=String(c['メール']).split('/')[0].trim();btns.push('<a href="mailto:'+esc(mail)+'">✉ メール</a>')}
-      if(c['住所'])btns.push('<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query='+encodeURIComponent(c['住所'])+'">地図を見る</a>');
-      if(c['fileId']){btns.push('<button type="button" data-file-id="'+esc(c['fileId'])+'">名刺を見る</button>');btns.push('<button type="button" class="rereadBtn" data-reread-id="'+esc(c['fileId'])+'">↻ 読み直す</button>')}
-      return '<article class="card"><div class="card-top"><div class="company">'+esc(c['会社名']||'会社名なし')+'</div>'+(c['業種']?'<span class="gyoshu">'+esc(c['業種'])+'</span>':'')+'</div><div class="name">'+esc(c['氏名']||'（氏名なし）')+(c['ふりがな']?'<span class="kana">'+esc(c['ふりがな'])+'</span>':'')+'</div>'+(pos?'<div class="pos">'+esc(pos)+'</div>':'')+(c['要確認']?'<div class="warn">⚠ 要確認: '+esc(c['要確認'])+'（名刺を見て確認）</div>':'')+(info?'<div class="info">'+info+'</div>':'')+(btns.length?'<div class="btns">'+btns.join('')+'</div>':'')+'</article>';
+
+    // 業種ボタン（多い順）
+    function renderChips() {
+      const count = {};
+      cards.forEach(c => { const g = c['業種'] || '未分類'; count[g] = (count[g] || 0) + 1; });
+      const list = Object.keys(count).sort((a, b) => count[b] - count[a]);
+      if (gyoshuSel && gyoshuSel !== '__check' && !count[gyoshuSel]) gyoshuSel = '';
+      const btn = (g, label) =>
+        `<button class="${gyoshuSel === g ? 'on' : ''}" aria-pressed="${gyoshuSel === g}" data-gyoshu="${esc(g)}" onclick="pickGyoshu(this.dataset.gyoshu)">${esc(label)}</button>`;
+      const nCheck = cards.filter(c => c['要確認']).length;
+      if (gyoshuSel === '__check' && !nCheck) gyoshuSel = '';
+      document.getElementById('chips').innerHTML =
+        btn('', `すべて ${cards.length}`)
+        + (nCheck ? btn('__check', `⚠要確認 ${nCheck}`) : '')
+        + list.map(g => btn(g, `${g} ${count[g]}`)).join('');
     }
-    document.getElementById('list').addEventListener('click',e=>{const view=e.target.closest('button[data-file-id]');if(view){openFile(view.dataset.fileId);return}const redo=e.target.closest('button[data-reread-id]');if(redo)reread(redo.dataset.rereadId,redo)});
-    function splitNums(s){return String(s||'').split('/').map(x=>x.replace(/[^\d+]/g,'')).filter(x=>x.length>=6)}
-    function shrink(file){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{try{const scale=Math.min(1,2400/Math.max(img.width,img.height)),cv=document.createElement('canvas');cv.width=Math.round(img.width*scale);cv.height=Math.round(img.height*scale);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);resolve(cv.toDataURL('image/jpeg',.85).split(',')[1])}catch(err){reject(err)}finally{URL.revokeObjectURL(url)}};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('画像を開けませんでした'))};img.src=url})}
-    function readBase64(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('ファイルを読み込めませんでした'));reader.readAsDataURL(file)})}
-    function isPdf(file){return file.type==='application/pdf'||/\.pdf$/i.test(file.name)}
-    async function uploadPhotos(input){
-      const files=Array.from(input.files||[]);input.value='';if(!files.length)return;
-      const btn=document.getElementById('addBtn'),st=document.getElementById('upStatus');btn.disabled=true;
-      const added=[],dups=[],errors=[];let next=0,done=0;
-      const show=()=>{st.className='';st.textContent='読み取り中… '+done+'/'+files.length+'ファイル 完了'+(added.length?'（'+added.length+'件追加済み）':'')};
+
+    function pickGyoshu(g) {
+      gyoshuSel = (gyoshuSel === g) ? '' : g;
+      renderChips();
+      render();
+    }
+
+    function cardHtml(c) {
+      const pos = [c['部署'], c['役職']].filter(Boolean).join('　');
+      const info = [
+        ['電話', c['電話']], ['携帯', c['携帯']], ['FAX', c['FAX']],
+        ['メール', c['メール']], ['住所', c['住所']], ['URL', c['URL']], ['メモ', c['メモ']],
+      ].filter(x => x[1]).map(x => `<div><b>${x[0]}</b><span>${esc(x[1])}</span></div>`).join('');
+
+      const btns = [];
+      splitNums(c['携帯']).forEach(n => btns.push(`<a href="tel:${n}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 3 4 1 1 5-3 2a15 15 0 0 0 6 6l2-3 5 1 1 4c-1 5-9 1-13-3S0 4 5 3Z"/></svg>携帯</a>`));
+      splitNums(c['電話']).forEach(n => btns.push(`<a href="tel:${n}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 3 4 1 1 5-3 2a15 15 0 0 0 6 6l2-3 5 1 1 4c-1 5-9 1-13-3S0 4 5 3Z"/></svg>電話</a>`));
+      if (c['メール']) btns.push(`<a href="mailto:${esc(c['メール'].split('/')[0].trim())}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>メール</a>`);
+      if (c['住所']) btns.push(`<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c['住所'])}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></svg>地図</a>`);
+      btns.push(`<button onclick="openEdit(${Number(c['_row'])})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></svg>編集</button>`);
+      if (c['fileId']) {
+        btns.push(`<button data-file-id="${esc(c['fileId'])}" onclick="openFile(this.dataset.fileId)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H5v18h14V8Zm0 0v5h5M8 13h8m-8 4h6"/></svg>名刺を見る</button>`);
+        btns.push(`<button data-file-id="${esc(c['fileId'])}" onclick="reread(this.dataset.fileId, this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg>読み直す</button>`);
+      }
+
+      return `<div class="card">
+        <div class="cardTop"><div class="avatar" aria-hidden="true">${esc(Array.from(c['氏名'] || c['会社名'] || '名')[0])}</div><div class="identity"><div class="company">${esc(c['会社名'])}${c['業種'] ? `<span class="gyoshu">${esc(c['業種'])}</span>` : ''}</div>
+        <div class="name">${esc(c['氏名'] || '（氏名なし）')}<span class="kana">${esc(c['ふりがな'])}</span></div>
+        ${pos ? `<div class="pos">${esc(pos)}</div>` : ''}</div></div>
+        ${c['要確認'] ? `<div class="warn">⚠ 要確認: ${esc(c['要確認'])}（名刺を見て確かめてね）</div>` : ''}
+        <div class="info">${info}</div>
+        <div class="btns">${btns.join('')}</div>
+      </div>`;
+    }
+
+    function splitNums(s) {
+      return String(s || '').split('/').map(x => x.replace(/[^\d+]/g, '')).filter(x => x.length >= 6);
+    }
+
+    // ---------- 写真で追加 ----------
+    // スマホ写真は大きいので長辺2400pxのJPEGに縮めて送る（iPhoneのHEICもここでJPEGになる）
+    function shrink(file) {
+      // 並べて撮った写真でも文字が潰れないよう少し大きめ
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const max = 2400;
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const cv = document.createElement('canvas');
+          cv.width = Math.round(img.width * scale);
+          cv.height = Math.round(img.height * scale);
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          URL.revokeObjectURL(url);
+          resolve(cv.toDataURL('image/jpeg', 0.85).split(',')[1]);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('画像を開けなかった')); };
+        img.src = url;
+      });
+    }
+
+    const PARALLEL = 3; // 同時に読み取る枚数
+    const PDF_MAX_MB = 20; // これより大きいPDFは送らない
+
+    // PDFは縮めずそのまま送る
+    function readBase64(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).split(',')[1]);
+        r.onerror = () => reject(new Error('ファイルを読めなかった'));
+        r.readAsDataURL(file);
+      });
+    }
+
+    function isPdf(file) {
+      return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    }
+
+    async function uploadPhotos(input) {
+      const files = Array.from(input.files || []);
+      input.value = '';
+      if (!files.length) return;
+      const btn = document.getElementById('addBtn');
+      const st = document.getElementById('upStatus');
+      btn.disabled = true;
+      st.className = '';
+
+      const added = [], dups = [], errors = [];
+      let next = 0, done = 0;
+      const show = () => {
+        st.textContent = `読み取り中… ${done}/${files.length}ファイル 完了` + (added.length ? `（${added.length}件 追加済み）` : '');
+      };
       show();
-      async function worker(){while(next<files.length){const i=next++;
-        try{let r;if(isPdf(files[i])){if(files[i].size>PDF_MAX_MB*1024*1024)throw new Error('PDFは'+PDF_MAX_MB+'MBまでです');r=await api({action:'upload',mimeType:'application/pdf',data:await readBase64(files[i])})}
-          else{r=await api({action:'upload',mimeType:'image/jpeg',data:await shrink(files[i])})}
-          added.push(...(r.names||[]));dups.push(...(r.dupNames||[]));if(!r.count&&!(r.dupNames||[]).length)errors.push(files[i].name+': 名刺が見つかりませんでした')}
-        catch(err){errors.push(files[i].name+': '+err.message)}done++;show();
-      }}
-      try{await Promise.all(Array.from({length:Math.min(PARALLEL,files.length)},worker))}
-      finally{btn.disabled=false}
-      st.className=errors.length?'ng':'ok';
-      st.textContent=[added.length?'✓ '+added.length+'件追加: '+added.join('、'):'',dups.length?'登録済みのためスキップ: '+dups.join('、'):'',errors.length?'エラー: '+errors.join(' / '):''].filter(Boolean).join(' / ');
-      if(added.length)load();
+
+      async function worker() {
+        while (next < files.length) {
+          const i = next++;
+          try {
+            let r;
+            if (isPdf(files[i])) {
+              if (files[i].size > PDF_MAX_MB * 1024 * 1024) throw new Error(`PDFが大きすぎ（${PDF_MAX_MB}MBまで）`);
+              r = await api({ action: 'upload', mimeType: 'application/pdf', data: await readBase64(files[i]) });
+            } else {
+              r = await api({ action: 'upload', mimeType: 'image/jpeg', data: await shrink(files[i]) });
+            }
+            added.push(...r.names);
+            dups.push(...(r.dupNames || []));
+            if (!r.count && !(r.dupNames || []).length) errors.push(`${files[i].name}: 名刺が見つからなかった`);
+          } catch (err) {
+            errors.push(`${files[i].name}: ${err.message}`);
+          }
+          done++;
+          show();
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(PARALLEL, files.length) }, worker));
+
+      btn.disabled = false;
+      st.className = errors.length ? 'ng' : 'ok';
+      st.innerHTML = (added.length ? `✅ ${added.length}件 追加: ${added.map(esc).join('、')}` : '')
+        + (dups.length ? `<br>⏭ 登録済みなのでスキップ: ${dups.map(esc).join('、')}` : '')
+        + (errors.length ? `<br>⚠ ${errors.map(esc).join('<br>')}` : '');
+      if (added.length) load();
     }
-    async function reread(fileId,btn){
-      const same=cards.filter(c=>c['fileId']===fileId);
-      const names=same.map(c=>c['氏名']||c['会社名']).join('、');
-      const msg=same.length>1
-        ?'このファイルから登録した'+same.length+'人（'+names+'）を一度消して読み直します。\nシートで手直しした内容も消えます。続けますか？'
-        :'この名刺を読み直します。\nシートで手直しした内容も消えます。続けますか？';
-      if(!confirm(msg))return;
-      const st=document.getElementById('upStatus');btn.disabled=true;btn.textContent='読み直し中…';st.className='';st.textContent='読み直し中…（20〜60秒ほど）';
-      window.scrollTo({top:0,behavior:'smooth'});
-      try{const r=await api({action:'reread',fileId});st.className='ok';st.textContent='↻ 読み直した: '+r.count+'件'+(r.names?.length?'（'+r.names.join('、')+'）':'')+(r.dupNames?.length?' / 登録済みのためスキップ: '+r.dupNames.join('、'):'')}
-      catch(err){st.className='ng';st.textContent='読み直しに失敗しました: '+err.message}
-      finally{btn.disabled=false;btn.textContent='↻ 読み直す';await load()}
+
+    // ---------- 編集 ----------
+    const EDIT_FIELDS = ['会社名', '業種', '部署', '役職', '氏名', 'ふりがな', '電話', '携帯', 'FAX', 'メール', '住所', 'URL', 'メモ', '要確認'];
+    const EDIT_TYPE = { '電話': 'tel', '携帯': 'tel', 'FAX': 'tel', 'メール': 'email', 'URL': 'url' };
+    let editing = null;
+    let editOpener = null;
+
+    function openEdit(row) {
+      editOpener = document.activeElement;
+      editing = cards.find(c => Number(c['_row']) === row);
+      if (!editing) return;
+      document.getElementById('editFields').innerHTML = EDIT_FIELDS.map((h, i) => {
+        const v = esc(editing[h] || '');
+        const input = (h === '住所' || h === 'メモ')
+          ? `<textarea id="ef${i}" rows="2">${v}</textarea>`
+          : `<input id="ef${i}" type="${EDIT_TYPE[h] || 'text'}" value="${v}">`;
+        return `<label for="ef${i}">${h}${h === '要確認' ? '（直し終わったら消してOK）' : ''}</label>${input}`;
+      }).join('');
+      document.getElementById('editMsg').textContent = '';
+      document.getElementById('editSave').disabled = false;
+      document.getElementById('editBg').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      document.getElementById('ef0').focus();
     }
-    async function openFile(fileId){
-      const w=window.open('','_blank');if(w)w.document.write('<p style="font-family:sans-serif;padding:20px">読み込み中...</p>');
-      try{const f=await api({action:'pdf',fileId}),bin=atob(f.data),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);const url=URL.createObjectURL(new Blob([bytes],{type:f.mimeType}));if(w)w.location.href=url;else location.href=url;setTimeout(()=>URL.revokeObjectURL(url),60000)}
-      catch(err){if(w)w.close();alert('名刺を開けませんでした: '+err.message)}
+
+    function closeEdit() {
+      document.getElementById('editBg').style.display = 'none';
+      editing = null;
+      document.body.style.overflow = '';
+      if (editOpener) editOpener.focus();
     }
-    function setStatus(msg,ng){const el=document.getElementById('status');el.textContent=msg;el.className=ng?'ng':''}
-    function esc(s){return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+
+    async function saveEdit() {
+      if (!editing) return;
+      const data = {};
+      EDIT_FIELDS.forEach((h, i) => data[h] = document.getElementById('ef' + i).value.trim());
+      const btn = document.getElementById('editSave');
+      const msg = document.getElementById('editMsg');
+      btn.disabled = true;
+      msg.textContent = '保存中…';
+      try {
+        await api({
+          action: 'update', row: editing['_row'], fileId: editing['fileId'],
+          origName: editing['氏名'], origCompany: editing['会社名'], data: data,
+        });
+        closeEdit();
+        load();
+      } catch (err) {
+        btn.disabled = false;
+        msg.textContent = 'エラー: ' + err.message;
+      }
+    }
+
+    // ---------- 読み直し ----------
+    async function reread(fileId, btn) {
+      const same = cards.filter(c => c['fileId'] === fileId);
+      const names = same.map(c => c['氏名'] || c['会社名']).join('、');
+      const msg = same.length > 1
+        ? `このファイルから入った ${same.length}人（${names}）をいったん消して読み直すよ。\nシートで手直しした内容も消えるけどOK？`
+        : `この名刺を読み直すよ。\nシートで手直しした内容は消えるけどOK？`;
+      if (!confirm(msg)) return;
+
+      const st = document.getElementById('upStatus');
+      btn.disabled = true;
+      btn.textContent = '読み直し中…';
+      st.className = '';
+      st.textContent = '読み直し中…（20〜60秒くらい）';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      try {
+        const r = await api({ action: 'reread', fileId: fileId });
+        st.className = 'ok';
+        st.innerHTML = `🔄 読み直した: ${r.count}件`
+          + (r.names.length ? `（${r.names.map(esc).join('、')}）` : '')
+          + (r.dupNames && r.dupNames.length ? `<br>⏭ 登録済みなのでスキップ: ${r.dupNames.map(esc).join('、')}` : '');
+      } catch (err) {
+        st.className = 'ng';
+        st.textContent = 'エラー: ' + err.message;
+      }
+      load();
+    }
+
+    // ---------- 名刺ファイル表示 ----------
+    async function openFile(fileId) {
+      const w = window.open('', '_blank'); // iPhoneのポップアップブロック対策で先に開く
+      if (w) w.document.write('<p style="font-family:sans-serif;padding:20px">読み込み中...</p>');
+      try {
+        const f = await api({ action: 'pdf', fileId: fileId });
+        const bin = atob(f.data);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([bytes], { type: f.mimeType }));
+        if (w) w.location.href = url; else location.href = url;
+      } catch (err) {
+        if (w) w.close();
+        alert('開けなかった: ' + err.message);
+      }
+    }
+
+    document.getElementById('editBg').addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !document.getElementById('editSave').disabled) closeEdit();
+      if (e.key !== 'Tab') return;
+      const nodes = [...document.querySelectorAll('#editBox input, #editBox textarea, #editBox button:not(:disabled)')];
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+    // ---------- 共通 ----------
+    function setStatus(msg, ng) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = ng ? 'ng' : '';
+    }
+
+    function esc(s) {
+      return String(s || '').replace(/[&<>"']/g, ch =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
   </script>
 </body>
 </html>
