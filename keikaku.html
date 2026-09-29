@@ -8,21 +8,21 @@
   <style>
     html, body { margin: 0; height: 100%; background: #f5f6f8; }
     iframe { border: 0; width: 100%; height: 100%; display: block; }
-    p { font-family: -apple-system, "Hiragino Sans", sans-serif; padding: 40px 20px; text-align: center; color: #555; }
   </style>
 </head>
 <body>
   <iframe id="f" title="作業計画書"></iframe>
   <script>
-    // 職人用GASのURL（アクセス「全員」でデプロイしたほう）を入れる
+    // 職人用GASのURL（アクセス「全員」でデプロイしたもの）
     const GAS_URL = 'https://script.google.com/macros/s/AKfycby2UOL9qnGPzx0VASPk35n14eOU_xGhwwlhOUwTfJR_v4ljq8ZOkOIZTIEYF0ORPfd7/exec';
 
-    const k = new URLSearchParams(location.search).get('k') || '';
-    if (!/^K[0-9a-f]{32}$/.test(k)) {
-      document.body.innerHTML = '<p>QRコードから開いてください。</p>';
-    } else {
-      document.getElementById('f').src = GAS_URL + '?k=' + encodeURIComponent(k);
-    }
+    // ?k=キー → QRから / ?m=admin → 管理用 / なし → メールでログイン
+    const q = new URLSearchParams(location.search);
+    const k = q.get('k') || '';
+    let src = GAS_URL;
+    if (/^K[0-9a-f]{32}$/.test(k)) src += '?k=' + encodeURIComponent(k);
+    else if (q.get('m') === 'admin') src += '?m=admin';
+    document.getElementById('f').src = src;
   </script>
 </body>
 </html>
