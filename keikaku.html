@@ -16,13 +16,17 @@
     // 職人用GASのURL（アクセス「全員」でデプロイしたもの）
     const GAS_URL = 'https://script.google.com/macros/s/AKfycby2UOL9qnGPzx0VASPk35n14eOU_xGhwwlhOUwTfJR_v4ljq8ZOkOIZTIEYF0ORPfd7/exec';
 
-    // ?k=キー → QRから / ?m=admin → 管理用 / なし → メールでログイン
+    // ?k=キー → 職人（QR・メールのリンク） / ?m=admin&a=管理キー → 管理用
     const q = new URLSearchParams(location.search);
     const k = q.get('k') || '';
-    let src = GAS_URL;
-    if (/^K[0-9a-f]{32}$/.test(k)) src += '?k=' + encodeURIComponent(k);
-    else if (q.get('m') === 'admin') src += '?m=admin';
-    document.getElementById('f').src = src;
+    const a = q.get('a') || '';
+    if (/^K[0-9a-f]{32}$/.test(k)) {
+      document.getElementById('f').src = GAS_URL + '?k=' + encodeURIComponent(k);
+    } else if (q.get('m') === 'admin' && /^A[0-9a-f]{48}$/.test(a)) {
+      document.getElementById('f').src = GAS_URL + '?m=admin&a=' + encodeURIComponent(a);
+    } else {
+      document.body.innerHTML = '<p style="font-family:sans-serif;padding:40px 20px;text-align:center;color:#555">QRコードかメールのリンクから開いてください。</p>';
+    }
   </script>
 </body>
 </html>
