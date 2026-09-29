@@ -150,6 +150,19 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
 .item .tags{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .item .toroku{display:inline-flex;align-items:center;font-size:15px;font-weight:700;padding:4px 10px;border-radius:5px;color:#fff;line-height:1.6}
 .item .toroku.none{background:var(--soft);color:var(--sub);border:1px dashed var(--line);font-weight:600}
+.member-toggle{margin-top:12px}
+#memberPanel{margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
+#memberPanel .mrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+#memberPanel .mrow:last-child{border-bottom:none}
+#memberPanel .mdot{width:22px;height:22px;border-radius:50%;flex-shrink:0}
+#memberPanel .mname{flex:1;min-width:0;font-weight:650;overflow-wrap:anywhere}
+#memberPanel .mrow button{width:auto;min-height:40px;padding:6px 12px;font-size:14px}
+#memberPanel .madd{display:flex;gap:8px;align-items:center;margin-top:12px}
+#memberPanel .madd input[type=text]{flex:1;margin-bottom:0}
+#memberPanel .madd input[type=color]{width:52px;height:46px;padding:4px;margin-bottom:0;flex-shrink:0;cursor:pointer}
+#memberPanel .madd button{width:auto;flex-shrink:0;padding:10px 16px}
+#memberPanel .mempty{font-size:14px;color:var(--sub);padding:4px 0}
+#memberPanel .mhelp{font-size:13px;color:var(--sub);margin-top:8px;line-height:1.7}
 
   </style>
 </head>
@@ -201,6 +214,16 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     <div class="toroku-wrap">
       <label for="f_toroku">登録者<span class="required">必須</span></label>
       <select id="f_toroku"></select>
+      <button class="sub member-toggle" onclick="toggleMemberPanel()">登録者を追加・削除</button>
+      <div id="memberPanel" class="hidden">
+        <div id="memberList"></div>
+        <div class="madd">
+          <input type="text" id="m_name" placeholder="名前" aria-label="追加する名前">
+          <input type="color" id="m_color" value="#2359a8" aria-label="色">
+          <button onclick="addMember()">追加</button>
+        </div>
+        <p class="mhelp">同じ名前で追加すると色だけ変わります。</p>
+      </div>
     </div>
   </div>
 
@@ -244,18 +267,11 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     const CHUNK_SIZE = 1.5 * 1024 * 1024; // 分割アップロードの1回分(binary bytes)
     let pendingFiles = [];           // 送信待ちファイル(何回でも追加できる)
 
-    // ============================================
-    // 設定: 登録者の名前と色(ここを書き換える)
-    // 名前を足すときは { name: '名前', color: '#色コード' } を1行追加
-    // ============================================
-    const TOROKUSHA = [
-      { name: 'はるみ', color: '#2359a8' }, // 青
-      { name: '担当B',  color: '#1f8a4c' }, // 緑
-      { name: '担当C',  color: '#c46a12' }, // オレンジ
-      { name: '担当D',  color: '#8a3fb5' }, // 紫
-      { name: '担当E',  color: '#c0394f' }, // 赤
-    ];
+    // 登録者(名前と色)はスプシの「登録者」シートで管理。画面から追加・削除できる
+    let TOROKUSHA = [];
     const TOROKU_NONE_COLOR = '#8a94a3';   // リストにない名前のときの色
+    // 追加するときの色の候補(順番に使う)
+    const MEMBER_PALETTE = ['#2359a8','#1f8a4c','#c46a12','#8a3fb5','#c0394f','#1a8aa8','#c2477f','#7a5230'];
 
     const params = new URLSearchParams(location.search);
     const VIEW_GYOSHA = params.get('gyosha') || '';   // ?gyosha=○○ なら業者閲覧モード
@@ -278,9 +294,12 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     // ---------- 読み込み ----------
     function load() {
       setStatus('読み込み中...');
-      return api({ action: 'list' }).then(r => {
+      return Promise.all([api({ action: 'list' }), api({ action: 'members' })]).then(([r, m]) => {
         rows = r;
+        TOROKUSHA = m;
         buildGyosha();
+        refreshTorokuSelect();
+        renderMembers();
         render();
         setStatus('');
       }).catch(e => setStatus('エラー: ' + e, 'ng'));
@@ -314,6 +333,53 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
         names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
       sel.value = current || '';
     }
+    // 選択中の名前を保ったままプルダウンを作り直す
+    function refreshTorokuSelect() {
+      buildTorokuOptions(document.getElementById('f_toroku').value);
+    }
+
+    // ---------- 登録者の追加・削除 ----------
+    function toggleMemberPanel() {
+      document.getElementById('memberPanel').classList.toggle('hidden');
+      nextMemberColor();
+    }
+    function nextMemberColor() {
+      const used = TOROKUSHA.map(t => t.color.toLowerCase());
+      const c = MEMBER_PALETTE.find(p => used.indexOf(p) === -1) || MEMBER_PALETTE[TOROKUSHA.length % MEMBER_PALETTE.length];
+      document.getElementById('m_color').value = c;
+    }
+    function renderMembers() {
+      const el = document.getElementById('memberList');
+      if (!TOROKUSHA.length) { el.innerHTML = '<div class="mempty">まだ登録者がいないよ。下から追加してね。</div>'; return; }
+      el.innerHTML = TOROKUSHA.map(t => `
+        <div class="mrow">
+          <span class="mdot" style="background:${esc(t.color)}"></span>
+          <span class="mname">${esc(t.name)}</span>
+          <button class="danger" onclick="deleteMember(${esc(JSON.stringify(t.name))})">削除</button>
+        </div>`).join('');
+    }
+    async function addMember() {
+      const name = document.getElementById('m_name').value.trim();
+      const color = document.getElementById('m_color').value;
+      if (!name) { setStatus('名前を入れてね', 'ng'); return; }
+      setStatus('登録者を保存中...');
+      try {
+        TOROKUSHA = await api({ action: 'addMember', name: name, color: color });
+        document.getElementById('m_name').value = '';
+        renderMembers(); refreshTorokuSelect(); render(); nextMemberColor();
+        setStatus(name + ' を登録したよ', 'ok');
+      } catch (e) { setStatus('エラー: ' + e, 'ng'); }
+    }
+    async function deleteMember(name) {
+      if (!confirm(name + ' を登録者から削除する?(登録済みの作業の名前は残るけど、色はグレーになります)')) return;
+      setStatus('削除中...');
+      try {
+        TOROKUSHA = await api({ action: 'deleteMember', name: name });
+        renderMembers(); refreshTorokuSelect(); render(); nextMemberColor();
+        setStatus(name + ' を削除したよ', 'ok');
+      } catch (e) { setStatus('エラー: ' + e, 'ng'); }
+    }
+
     function torokuTag(name) {
       if (VIEW_GYOSHA) return '';   // 業者の閲覧画面には出さない
       if (!name) return '<span class="toroku none">登録者：未選択</span>';
