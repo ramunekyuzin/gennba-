@@ -144,6 +144,13 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
 @media(max-width:760px){body{padding:12px}.app-header{padding:18px;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:14px}h1{font-size:25px}.header-caption{font-size:14px}.header-side{text-align:left;display:flex;gap:12px;align-items:center;flex-wrap:wrap}#todayLabel{margin:0}.overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{padding:12px 14px}.stat-name{font-size:14px}.stat strong{font-size:28px}.workspace{grid-template-columns:minmax(0,1fr);gap:18px}.list-column{grid-row:1}.editor-column{grid-row:2}.list-heading h2{font-size:22px}.card,.filter-panel{padding:18px}.item{padding:18px 16px}.item .work{font-size:21px}.item .date{font-size:16px}.item .gyosha{font-size:16px}.toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.toolbar .small{grid-column:1/-1;width:100%}.toolbar select{font-size:16px;width:100%}.chip{font-size:14px}.jump-nav{position:static;gap:8px}.jump-nav a{flex:1;white-space:nowrap;padding:10px 12px}.item .acts button{font-size:14px;padding:10px 12px}.item .acts button:last-child{margin-left:auto}.header-side #mode{font-size:13px}.list-heading{align-items:flex-start}#status{top:6px}#formCard>.row2:first-of-type{grid-template-columns:1fr}}
 }
 
+/* 登録者(誰が入れたか)と色分け */
+.toroku-wrap{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.toroku-wrap select{margin-bottom:0}
+.item .tags{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.item .toroku{display:inline-flex;align-items:center;font-size:15px;font-weight:700;padding:4px 10px;border-radius:5px;color:#fff;line-height:1.6}
+.item .toroku.none{background:var(--soft);color:var(--sub);border:1px dashed var(--line);font-weight:600}
+
   </style>
 </head>
 <body>
@@ -189,6 +196,12 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
       <button id="submitBtn" onclick="submitData()">登録する</button>
       <button class="sub" id="cancelBtn" onclick="resetForm()">クリア</button>
     </div>
+
+    <!-- 登録者(誰が入れたか) -->
+    <div class="toroku-wrap">
+      <label for="f_toroku">登録者<span class="required">必須</span></label>
+      <select id="f_toroku"></select>
+    </div>
   </div>
 
   <!-- ===== 業者別QR / 印刷(管理側のみ) ===== -->
@@ -230,6 +243,19 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     const MAX_FILE_MB = 40;          // 1ファイルの上限
     const CHUNK_SIZE = 1.5 * 1024 * 1024; // 分割アップロードの1回分(binary bytes)
     let pendingFiles = [];           // 送信待ちファイル(何回でも追加できる)
+
+    // ============================================
+    // 設定: 登録者の名前と色(ここを書き換える)
+    // 名前を足すときは { name: '名前', color: '#色コード' } を1行追加
+    // ============================================
+    const TOROKUSHA = [
+      { name: 'はるみ', color: '#2359a8' }, // 青
+      { name: '担当B',  color: '#1f8a4c' }, // 緑
+      { name: '担当C',  color: '#c46a12' }, // オレンジ
+      { name: '担当D',  color: '#8a3fb5' }, // 紫
+      { name: '担当E',  color: '#c0394f' }, // 赤
+    ];
+    const TOROKU_NONE_COLOR = '#8a94a3';   // リストにない名前のときの色
 
     const params = new URLSearchParams(location.search);
     const VIEW_GYOSHA = params.get('gyosha') || '';   // ?gyosha=○○ なら業者閲覧モード
@@ -274,6 +300,26 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     }
     function setFilter(n) { filterGyosha = n; buildGyosha(); render(); }
 
+    // ---------- 登録者 ----------
+    function torokuColor(name) {
+      const t = TOROKUSHA.find(x => x.name === name);
+      return t ? t.color : TOROKU_NONE_COLOR;
+    }
+    // プルダウンを作る(リストにない名前が入っている古いデータも選べるように残す)
+    function buildTorokuOptions(current) {
+      const sel = document.getElementById('f_toroku');
+      const names = TOROKUSHA.map(t => t.name);
+      if (current && names.indexOf(current) === -1) names.push(current);
+      sel.innerHTML = '<option value="">名前を選んでね</option>' +
+        names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      sel.value = current || '';
+    }
+    function torokuTag(name) {
+      if (VIEW_GYOSHA) return '';   // 業者の閲覧画面には出さない
+      if (!name) return '<span class="toroku none">登録者：未選択</span>';
+      return `<span class="toroku" style="background:${torokuColor(name)}">${esc(name)}</span>`;
+    }
+
     // ---------- 一覧描画 ----------
     function isDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s || ''); }
     function dateKey(s) { return isDate(s) ? s : (s === '未定' ? '9998' : '9999'); } // 未定は末尾
@@ -310,16 +356,18 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
       el.innerHTML = list.map(r => {
         const tbd = r['期限'] === '未定';
         const late = !r['完了'] && isDate(r['期限']) && r['期限'] < today;
+        const who = r['登録者'] || '';
+        const colorStyle = (!VIEW_GYOSHA && who) ? ` style="border-left-color:${torokuColor(who)}"` : '';
         const acts = VIEW_GYOSHA ? '' : `
           <div class="acts">
             <button class="${r['完了'] ? 'sub' : ''}" onclick="toggle('${r['ID']}')">${r['完了'] ? '未完了に戻す' : '完了にする'}</button>
             <button class="sub" onclick="edit('${r['ID']}')">編集</button>
             <button class="danger" onclick="del('${r['ID']}')">削除</button>
           </div>`;
-        return `<div class="item ${r['完了']?'done':''} ${late?'late':''} ${tbd?'tbd':''}">
+        return `<div class="item ${r['完了']?'done':''} ${late?'late':''} ${tbd?'tbd':''}"${colorStyle}>
           <div class="top">
             <span class="date">期限：${esc(isDate(r['期限']) ? r['期限'].slice(0,4)+'年 '+labelDate(r['期限']) : labelDate(r['期限']))}<span class="badge ${r['完了']?'done':late?'late':tbd?'tbd':''}">${r['完了']?'完了':late?'期限超過':tbd?'期限未定':r['期限']===today?'本日期限':'未完了'}</span></span>
-            <span class="gyosha">${esc(r['業者'])}</span>
+            <span class="tags">${torokuTag(who)}<span class="gyosha">${esc(r['業者'])}</span></span>
           </div>
           <div class="work">${esc(r['作業内容'])}</div>
           ${r['備考'] ? `<div class="memo"><span class="memo-caption">備考</span>${esc(r['備考'])}</div>` : ''}
@@ -392,9 +440,11 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
         '作業内容': document.getElementById('f_work').value.trim(),
         '業者': document.getElementById('f_gyosha').value.trim(),
         '備考': document.getElementById('f_memo').value.trim(),
+        '登録者': document.getElementById('f_toroku').value,
       };
       if (!data['作業内容']) { setStatus('作業内容を入れてね', 'ng'); return; }
       if (!data['業者']) { setStatus('業者を入れてね', 'ng'); return; }
+      if (!data['登録者']) { setStatus('登録者を選んでね', 'ng'); return; }
       const isEdit = !!document.getElementById('f_id').value;
       let id = document.getElementById('f_id').value;
       const btn = document.getElementById('submitBtn');
@@ -421,6 +471,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
       document.getElementById('f_tbd').checked = false;
       document.getElementById('f_date').disabled = false;
       document.getElementById('fileList').innerHTML = '';
+      buildTorokuOptions('');
       pendingFiles = []; renderPending();
       document.getElementById('submitBtn').textContent = '登録する';
       document.getElementById('formTitle').textContent = '作業を登録';
@@ -446,6 +497,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
       document.getElementById('f_work').value = r['作業内容'];
       document.getElementById('f_gyosha').value = r['業者'];
       document.getElementById('f_memo').value = r['備考'];
+      buildTorokuOptions(r['登録者'] || '');
       document.getElementById('f_files').value = '';
       pendingFiles = []; renderPending();
       renderFileList(id, r['添付']);
@@ -564,6 +616,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     document.getElementById('todayLabel').textContent = '今日 ' + fmtJp(todayStr());
     // ---------- 初期化 ----------
     (function init() {
+      buildTorokuOptions('');
       if (VIEW_GYOSHA) {
         document.getElementById('contractorCaption').classList.add('hidden');
         document.getElementById('workspace').classList.add('viewer');
