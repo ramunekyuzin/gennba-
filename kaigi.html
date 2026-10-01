@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#142c43">
+<title>会議室予約</title>
+<style>
+:root{color-scheme:light;--ink:#183148;--muted:#627589;--line:#dce5ed;--navy:#142c43;--accent:#b9eddc}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:var(--ink);background:#eef3f7}
+body{height:100vh;height:100dvh;display:flex;flex-direction:column}
+button,a{-webkit-tap-highlight-color:transparent}button{font:inherit;cursor:pointer}a{text-decoration:none;color:inherit}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #4aa9df;outline-offset:4px}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.topbar{background:var(--navy);color:white;padding:23px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.brand{display:flex;align-items:center;gap:14px}.mark{width:48px;height:48px;border:1px solid #ffffff26;border-radius:14px;display:grid;place-items:center;background:#ffffff0a;color:var(--accent)}.mark svg{width:25px;height:25px}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.18em;color:var(--accent);margin-bottom:5px}h1{font-size:23px;letter-spacing:.06em;line-height:1.3;margin:0;font-weight:700}
+.date{text-align:right;font-size:13px;letter-spacing:.04em;color:#d5e1ec}.date small{display:block;color:#9eb0bf;font-size:10px;letter-spacing:.15em;margin-bottom:6px}
+main{padding:22px 28px 12px;flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;width:100%;max-width:1800px;margin:auto}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px}.section-title{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700}.section-title svg{color:#49736e}.sub{font-size:12px;color:var(--muted);margin:5px 0 0 30px}.actions{display:flex;align-items:center;gap:8px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 14px;border:1px solid #d1dce6;background:white;color:var(--ink);border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap;transition:background .15s,box-shadow .15s}.btn:hover{background:#e5edf3;box-shadow:0 2px 7px #142c4310}.btn.primary{background:var(--navy);border-color:var(--navy);color:white}.btn.primary:hover{background:#254962}.btn svg{width:17px;height:17px}
+.frame{flex:1;min-height:260px;border:1px solid var(--line);border-radius:16px;background:white;overflow:hidden;box-shadow:0 6px 24px #1c3a5010;display:flex;flex-direction:column;position:relative}.frame::before{content:"";height:3px;background:linear-gradient(90deg,#70b5a3,#b9eddc 45%,#e4edf4);flex-shrink:0}iframe{display:block;border:0;width:100%;flex:1;min-height:0;background:white}
+footer{display:flex;align-items:center;justify-content:space-between;gap:16px;color:var(--muted);font-size:11px;line-height:1.7;padding:0 2px 2px}.help{position:relative}summary{cursor:pointer;padding:5px 0;list-style:none;display:flex;align-items:center;gap:6px}summary::-webkit-details-marker{display:none}summary svg{width:15px;height:15px}.help-box{position:absolute;bottom:34px;left:0;width:min(350px,calc(100vw - 40px));padding:16px 18px;background:white;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 32px #142c4320;z-index:2;font-size:12px}.help-box p{margin:0}.help-box a{text-decoration:underline;text-underline-offset:3px;color:#236c91}.footer-note{font-size:10px;color:#7b8c9b;letter-spacing:.08em}
+body.focus .topbar,body.focus .intro,body.focus footer{display:none}body.focus main{padding:12px;gap:10px;max-width:none}body.focus .toolbar{justify-content:flex-end}
+@media(min-width:1500px){.topbar{padding-left:max(32px,calc((100vw - 1744px)/2));padding-right:max(32px,calc((100vw - 1744px)/2))}}
+@media(max-width:640px){.topbar{padding:17px 18px;gap:10px}.mark{width:41px;height:41px;border-radius:12px}.brand{gap:11px}h1{font-size:19px}.eyebrow{font-size:8px}.date{font-size:11px}.date small{font-size:8px}main{padding:15px 10px max(8px,env(safe-area-inset-bottom));gap:12px}.toolbar{align-items:flex-start;flex-direction:column;gap:12px;padding:0 4px}.intro{width:100%}.section-title{font-size:14px}.sub{font-size:11px}.actions{width:100%;gap:8px}.btn{flex:1;min-height:44px;padding:10px;font-size:12px}.frame{border-radius:12px}footer{padding:0 5px}.footer-note{display:none}body.focus .toolbar{align-items:stretch}body.focus main{padding:8px}.help-box{bottom:33px}}
+@media(max-height:550px){body{height:auto;min-height:100dvh}.frame{height:70vh;flex:none;min-height:320px}.topbar{padding-top:12px;padding-bottom:12px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 5 3 3 5-5"/></svg></div><div><div class="eyebrow">MEETING ROOM</div><h1>会議室予約</h1></div></div>
+  <div class="date"><small>TODAY</small><time id="today"></time></div>
+</header>
+<main>
+  <div class="toolbar">
+    <div class="intro"><div class="section-title"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M7 2v4m10-4v4M3 10h18m-13 5h3m3 0h3"/></svg>予約・空き状況</div><p class="sub">空き時間を確認して、会議室を予約。</p></div>
+    <div class="actions">
+      <button class="btn" id="focus" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg><span>広く表示</span></button>
+      <a class="btn primary" href="https://script.google.com/macros/s/AKfycbxesGizCuAjimBpRvBOK_7f8rI53MKL7Ua54PED9hNWG21_-_6N_I2inFw4waOWkNn-8w/exec" target="_blank" rel="noopener noreferrer"><span>別タブで開く</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14m0-11H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></a>
+    </div>
+  </div>
+  <section class="frame" aria-label="会議室の予約画面"><iframe src="https://script.google.com/macros/s/AKfycbxesGizCuAjimBpRvBOK_7f8rI53MKL7Ua54PED9hNWG21_-_6N_I2inFw4waOWkNn-8w/exec" title="会議室予約アプリ"></iframe></section>
+  <footer><details class="help"><summary><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4m0 3h.01"/></svg>画面が表示されないとき</summary><div class="help-box"><p>画面が真っ白な場合やログインを求められる場合は、<a href="https://script.google.com/macros/s/AKfycbxesGizCuAjimBpRvBOK_7f8rI53MKL7Ua54PED9hNWG21_-_6N_I2inFw4waOWkNn-8w/exec" target="_blank" rel="noopener noreferrer">別タブで開く</a>をお試しください。</p></div></details><span class="footer-note">MEETING ROOM RESERVATION</span></footer>
+</main>
+<script>
+(function(){
+  const now=new Date();
+  const date=document.getElementById('today');
+  date.textContent=new Intl.DateTimeFormat('ja-JP',{month:'long',day:'numeric',weekday:'short'}).format(now);
+  date.dateTime=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+  const toggle=document.getElementById('focus');
+  function setFocus(active){document.body.classList.toggle('focus',active);toggle.setAttribute('aria-pressed',String(active));toggle.querySelector('span').textContent=active?'通常表示に戻す':'広く表示';}
+  toggle.addEventListener('click',function(){setFocus(!document.body.classList.contains('focus'));});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')setFocus(false);});
+})();
+</script>
+</body>
+</html>
