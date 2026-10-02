@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>水道・下水道料金明細</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+      background: #f5f6f8; color: #222;
+      padding: 16px; max-width: 640px; margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 16px; }
+    h2 { font-size: 16px; margin-bottom: 10px; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 16px;
+      margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    label { display: block; font-size: 14px; margin-bottom: 6px; color: #555; }
+    input {
+      width: 100%; padding: 12px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;
+    }
+    .row2 { display: flex; gap: 12px; }
+    .row2 > div { flex: 1; min-width: 0; }
+    .photo-box {
+      border: 2px dashed #bbb; border-radius: 10px; min-height: 140px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px; overflow: hidden; background: #fafafa; cursor: pointer;
+    }
+    .photo-box img { width: 100%; display: block; }
+    .photo-box span { color: #888; font-size: 14px; padding: 10px; text-align: center; }
+    .note { font-size: 13px; color: #b9770e; min-height: 18px; margin: -6px 0 10px; }
+    button {
+      width: 100%; padding: 16px; font-size: 17px; font-weight: bold;
+      border: none; border-radius: 10px; background: #1e5aa8; color: #fff; cursor: pointer;
+    }
+    button:active { opacity: .8; }
+    button:disabled { background: #aaa; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    td { padding: 8px 4px; border-bottom: 1px solid #eee; }
+    td:last-child { text-align: right; font-weight: bold; }
+    .total td { font-size: 18px; color: #1e5aa8; border-bottom: none; }
+    #status { text-align: center; font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .ok { color: #1a8a3c; } .ng { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <h1>水道・下水道料金明細</h1>
+
+  <div class="card">
+    <h2>① 写真</h2>
+    <div class="row2">
+      <div>
+        <label>前回(使用開始時 / 前回確認時)</label>
+        <div class="photo-box" id="prevBox" onclick="document.getElementById('prevFile').click()">
+          <span>タップして写真を選ぶ</span>
+        </div>
+        <input type="file" id="prevFile" accept="image/*" hidden>
+        <label>前回の日付</label>
+        <input type="date" id="prevDate">
+        <label>前回の指針(㎥)</label>
+        <input type="number" id="prevVal" inputmode="numeric" placeholder="写真から自動で入るよ">
+        <div class="note" id="prevNote"></div>
+      </div>
+      <div>
+        <label>今回</label>
+        <div class="photo-box" id="curBox" onclick="document.getElementById('curFile').click()">
+          <span>タップして写真を選ぶ</span>
+        </div>
+        <input type="file" id="curFile" accept="image/*" hidden>
+        <label>今回の日付</label>
+        <input type="date" id="curDate">
+        <label>今回の指針(㎥)</label>
+        <input type="number" id="curVal" inputmode="numeric" placeholder="写真から自動で入るよ">
+        <div class="note" id="curNote"></div>
+      </div>
+    </div>
+    <label>明細の作成日</label>
+    <input type="date" id="makeDate">
+  </div>
+
+  <div class="card">
+    <h2>② 計算結果(指針の数字を写真と見比べて確認してね)</h2>
+    <table>
+      <tr><td>使用量</td><td id="rUse">-</td></tr>
+      <tr><td>内訳(1か月目 / 2か月目)</td><td id="rSplit">-</td></tr>
+      <tr><td>水道料金(税込)</td><td id="rWater">-</td></tr>
+      <tr><td>下水道料金(税込)</td><td id="rSewer">-</td></tr>
+      <tr class="total"><td>合計</td><td id="rTotal">-</td></tr>
+    </table>
+  </div>
+
+  <button id="dlBtn" onclick="makeExcel()">エクセルを作る</button>
+  <div id="status"></div>
+
+  <script>
+    // ============================================
+    // 設定
+    // ============================================
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxiHVcBqRGNuZHWwPCC6ry2L7hoE-RvNTA59yOFRUe3Ngup2gFXuuYN3KrHhjbtdtspOA/exec';
+
+    // 毎回同じ文言
+    const ATENA1 = '㈱淺沼組';
+    const ATENA2 = 'TOK1＿S＆C＿A　現場代理人　殿';
+    const JUSHO  = '千葉県印西市牧の台2-1';
+    const LEAD   = '事務所にかかる水道・下水道料金(本行立替分)の明細は以下の通りです。';
+
+    // 水道料金(1か月・税込単価) [下限, 上限, 表示, 単価]
+    const WATER = [
+      [1, 10, '1～10', 73.70],
+      [11, 20, '11～20', 192.50],
+      [21, 30, '21～30', 313.50],
+      [31, 40, '31～40', 418.00],
+      [41, 50, '41～50', 518.10],
+      [51, null, '51～', 565.40],
+    ];
+    // 下水道料金(1か月・税抜単価) 1～10は基本料金
+    const SEWER = [
+      [1, 10, '1～10', 900, true],
+      [11, 20, '11～20', 108],
+      [21, 30, '21～30', 120],
+      [31, 50, '31～50', 138],
+      [51, 100, '51～100', 150],
+      [101, 500, '101～500', 176],
+    ];
+
+    const photos = { prev: null, cur: null };
+
+    // ============================================
+    // 初期化
+    // ============================================
+    const todayStr = toInputDate(new Date());
+    document.getElementById('curDate').value = todayStr;
+    document.getElementById('makeDate').value = todayStr;
+    ['prevVal', 'curVal'].forEach(id =>
+      document.getElementById(id).addEventListener('input', render));
+    document.getElementById('prevFile').addEventListener('change', e => onPhoto('prev', e));
+    document.getElementById('curFile').addEventListener('change', e => onPhoto('cur', e));
+
+    function toInputDate(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function fmtSlash(v) {
+      if (!v) return '';
+      const [y, m, d] = v.split('-').map(Number);
+      return y + '/' + m + '/' + d;
+    }
+    function fmtNen(v) {
+      if (!v) return '';
+      const [y, m, d] = v.split('-').map(Number);
+      return y + '年　' + m + '月　' + d + '日';
+    }
+    function yen(n) { return '¥' + Math.round(n).toLocaleString(); }
+    function setStatus(msg, ok) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'ng';
+    }
+
+    // ============================================
+    // 写真 → 縮小 → AI読取
+    // ============================================
+    function onPhoto(which, e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      resizeImage(file, 1600).then(img => {
+        photos[which] = img;
+        const box = document.getElementById(which + 'Box');
+        box.innerHTML = '<img src="' + img.dataUrl + '">';
+        readMeter(which);
+      }).catch(err => setStatus('写真が読み込めなかった: ' + err, false));
+    }
+
+    function resizeImage(file, maxSize) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const im = new Image();
+          im.onload = () => {
+            const scale = Math.min(1, maxSize / Math.max(im.width, im.height));
+            const w = Math.round(im.width * scale);
+            const h = Math.round(im.height * scale);
+            const cv = document.createElement('canvas');
+            cv.width = w; cv.height = h;
+            cv.getContext('2d').drawImage(im, 0, 0, w, h);
+            const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+            resolve({ dataUrl: dataUrl, base64: dataUrl.split(',')[1], w: w, h: h });
+          };
+          im.onerror = () => reject('画像形式が対応してないかも');
+          im.src = reader.result;
+        };
+        reader.onerror = () => reject('ファイルが読めない');
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function readMeter(which) {
+      const note = document.getElementById(which + 'Note');
+      const input = document.getElementById(which + 'Val');
+      if (!GAS_URL) { note.textContent = 'GAS_URLが未設定なので手入力してね'; return; }
+      note.textContent = '読み取り中…';
+      fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'readMeter', image: photos[which].base64, mediaType: 'image/jpeg' })
+      })
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok) { note.textContent = '読取エラー: ' + res.error; return; }
+          const v = res.result.value;
+          if (v === null || v === undefined) {
+            note.textContent = '読めなかった。手入力してね' + (res.result.note ? '(' + res.result.note + ')' : '');
+          } else {
+            input.value = v;
+            note.textContent = res.result.note ? '⚠ ' + res.result.note : '読み取り完了。写真と見比べて確認してね';
+          }
+          render();
+        })
+        .catch(err => { note.textContent = '通信エラー: ' + err; });
+    }
+
+    // ============================================
+    // 計算
+    // ============================================
+    function tierQty(usage, lo, hi) {
+      const top = (hi === null) ? usage : Math.min(usage, hi);
+      return Math.max(0, top - (lo - 1));
+    }
+
+    function calc() {
+      const prev = Number(document.getElementById('prevVal').value);
+      const cur = Number(document.getElementById('curVal').value);
+      if (document.getElementById('prevVal').value === '' || document.getElementById('curVal').value === '') return null;
+      const use = cur - prev;
+      if (use < 0) return { error: '今回の指針が前回より小さいよ' };
+      const m1 = Math.ceil(use / 2);
+      const m2 = Math.floor(use / 2);
+      if (m1 > 500) return { error: '1か月500㎥超えは料金表にないよ' };
+
+      const waterMonth = m => {
+        const rows = WATER.map(t => {
+          const q = tierQty(m, t[0], t[1]);
+          return { q: q, amt: Math.round(t[3] * q * 100) / 100 };
+        });
+        return { rows: rows, total: Math.round(rows.reduce((s, r) => s + r.amt, 0) * 100) / 100 };
+      };
+      const sewerMonth = m => {
+        const rows = SEWER.map(t => {
+          const q = t[4] ? 1 : tierQty(m, t[0], t[1]);
+          return { q: q, amt: t[3] * q };
+        });
+        return { rows: rows, total: rows.reduce((s, r) => s + r.amt, 0) };
+      };
+
+      const w1 = waterMonth(m1), w2 = waterMonth(m2);
+      const s1 = sewerMonth(m1), s2 = sewerMonth(m2);
+      const waterSum = Math.round((w1.total + w2.total) * 100) / 100;
+      const waterBill = Math.floor(waterSum / 10) * 10;
+      const sewerSum = s1.total + s2.total;
+      const sewerTax = sewerSum * 11 / 10;
+      const sewerBill = Math.floor(sewerTax);
+
+      return {
+        prev: prev, cur: cur, use: use, m1: m1, m2: m2,
+        w1: w1, w2: w2, s1: s1, s2: s2,
+        waterSum: waterSum, waterBill: waterBill,
+        sewerSum: sewerSum, sewerTax: sewerTax, sewerBill: sewerBill,
+        total: waterBill + sewerBill
+      };
+    }
+
+    function render() {
+      const r = calc();
+      const ids = ['rUse', 'rSplit', 'rWater', 'rSewer', 'rTotal'];
+      if (!r || r.error) {
+        ids.forEach(id => document.getElementById(id).textContent = '-');
+        if (r && r.error) setStatus(r.error, false); else setStatus('', true);
+        return;
+      }
+      setStatus('', true);
+      document.getElementById('rUse').textContent = r.use + '㎥';
+      document.getElementById('rSplit').textContent = r.m1 + '㎥ / ' + r.m2 + '㎥';
+      document.getElementById('rWater').textContent = yen(r.waterBill);
+      document.getElementById('rSewer').textContent = yen(r.sewerBill);
+      document.getElementById('rTotal').textContent = yen(r.total);
+    }
+
+    // ============================================
+    // エクセル作成
+    // ============================================
+    const FONT = 'MS Pゴシック';
+    const THIN = { style: 'thin' };
+
+    function put(ws, addr, value, opt) {
+      const c = ws.getCell(addr);
+      c.value = value;
+      opt = opt || {};
+      c.font = { name: FONT, size: opt.size || 11, bold: !!opt.bold, color: opt.color ? { argb: opt.color } : undefined };
+      if (opt.fmt) c.numFmt = opt.fmt;
+      c.alignment = { horizontal: opt.align || 'left', vertical: 'middle' };
+      if (opt.border) c.border = { top: THIN, left: THIN, bottom: THIN, right: THIN };
+      return c;
+    }
+
+    // 四角の外枠を引く(r1,c1〜r2,c2 は1始まり)
+    function box(ws, r1, c1, r2, c2) {
+      for (let r = r1; r <= r2; r++) {
+        for (let c = c1; c <= c2; c++) {
+          const cell = ws.getCell(r, c);
+          const b = Object.assign({}, cell.border || {});
+          if (r === r1) b.top = THIN;
+          if (r === r2) b.bottom = THIN;
+          if (c === c1) b.left = THIN;
+          if (c === c2) b.right = THIN;
+          cell.border = b;
+        }
+      }
+    }
+
+    function makeExcel() {
+      const r = calc();
+      if (!r) { setStatus('前回と今回の指針を入れてね', false); return; }
+      if (r.error) { setStatus(r.error, false); return; }
+      if (!photos.prev || !photos.cur) { setStatus('写真を2枚とも入れてね', false); return; }
+      const prevDate = document.getElementById('prevDate').value;
+      const curDate = document.getElementById('curDate').value;
+      const makeDate = document.getElementById('makeDate').value;
+      if (!prevDate || !curDate) { setStatus('前回と今回の日付を入れてね', false); return; }
+
+      const btn = document.getElementById('dlBtn');
+      btn.disabled = true;
+      setStatus('作成中…', true);
+
+      try {
+        const wb = new ExcelJS.Workbook();
+        wb.calcProperties.fullCalcOnLoad = true;
+        const ws = wb.addWorksheet('明細');
+
+        // 列幅 A〜I:明細 / L〜T:計算表
+        for (let c = 1; c <= 9; c++) ws.getColumn(c).width = 9;
+        ws.getColumn(10).width = 3;
+        ws.getColumn(11).width = 3;
+        ws.getColumn(12).width = 10; ws.getColumn(13).width = 11; ws.getColumn(14).width = 6; ws.getColumn(15).width = 13;
+        ws.getColumn(16).width = 10; ws.getColumn(17).width = 11; ws.getColumn(18).width = 6; ws.getColumn(19).width = 13;
+        ws.getColumn(20).width = 16;
+
+        // ---------- ヘッダー ----------
+        put(ws, 'A1', ATENA1);
+        ws.mergeCells('F1:I1'); put(ws, 'F1', fmtNen(makeDate), { align: 'right' });
+        ws.mergeCells('A2:E2'); put(ws, 'A2', ATENA2);
+        ws.mergeCells('F2:I2'); put(ws, 'F2', JUSHO, { align: 'right' });
+        ws.mergeCells('A3:I3'); put(ws, 'A3', '水道・下水道料金使用料金明細', { align: 'center', bold: true, size: 13 });
+        ws.mergeCells('A4:I4'); put(ws, 'A4', LEAD, { align: 'right', size: 9 });
+
+        // ---------- 写真 ----------
+        put(ws, 'A6', fmtSlash(prevDate), { align: 'center' });
+        ws.mergeCells('B6:E6'); put(ws, 'B6', '(使用開始時又は前回確認時)', { size: 9 });
+        ws.mergeCells('F6:I6'); put(ws, 'F6', fmtSlash(curDate), { align: 'center' });
+        for (let row = 7; row <= 18; row++) ws.getRow(row).height = 18;
+        box(ws, 6, 1, 18, 5);
+        box(ws, 6, 6, 18, 9);
+
+        const COLPX = 68, ROWPX = 24;
+        const addPhoto = (img, startCol, nCols) => {
+          const areaW = nCols * COLPX - 16, areaH = 12 * ROWPX - 16;
+          const s = Math.min(areaW / img.w, areaH / img.h);
+          const iw = Math.round(img.w * s), ih = Math.round(img.h * s);
+          const id = wb.addImage({ base64: img.dataUrl, extension: 'jpeg' });
+          ws.addImage(id, {
+            tl: { col: startCol + (nCols * COLPX - iw) / 2 / COLPX, row: 6 + (12 * ROWPX - ih) / 2 / ROWPX },
+            ext: { width: iw, height: ih }
+          });
+        };
+        addPhoto(photos.prev, 0, 5);
+        addPhoto(photos.cur, 5, 4);
+
+        // ---------- 計算表(右側 L〜T) ----------
+        const MON = '0"㎥"';
+        const P2 = '¥#,##0.00';
+        const P0 = '¥#,##0';
+        const colsets = [
+          { lab: 'L', pr: 'M', q: 'N', amt: 'O', name: '1か月目', key: 1 },
+          { lab: 'P', pr: 'Q', q: 'R', amt: 'S', name: '2か月目', key: 2 },
+        ];
+
+        // 水道 8〜18行
+        const W0 = 8;
+        colsets.forEach(cs => {
+          const m = cs.key === 1 ? r.m1 : r.m2;
+          const mon = cs.key === 1 ? r.w1 : r.w2;
+          put(ws, cs.lab + W0, cs.name, { border: true });
+          put(ws, cs.pr + W0, '水道料金', { border: true });
+          put(ws, cs.q + W0, '', { border: true });
+          const mf = cs.key === 1 ? 'ROUNDUP(E24/2,0)' : 'ROUNDDOWN(E24/2,0)';
+          put(ws, cs.amt + W0, { formula: mf, result: m }, { fmt: MON, align: 'right', border: true });
+          WATER.forEach((t, i) => {
+            const row = W0 + 1 + i;
+            const mc = '$' + cs.amt + '$' + W0;
+            const qf = t[1] === null
+              ? 'MAX(0,' + mc + '-' + (t[0] - 1) + ')'
+              : 'MAX(0,MIN(' + mc + ',' + t[1] + ')-' + (t[0] - 1) + ')';
+            put(ws, cs.lab + row, t[2], { border: true });
+            put(ws, cs.pr + row, t[3], { fmt: P2, align: 'right', border: true });
+            put(ws, cs.q + row, { formula: qf, result: mon.rows[i].q }, { align: 'right', border: true });
+            put(ws, cs.amt + row, { formula: cs.pr + row + '*' + cs.q + row, result: mon.rows[i].amt }, { fmt: P2, align: 'right', border: true });
+          });
+          const tr = W0 + 7;
+          put(ws, cs.pr + tr, '合計税込', { border: true });
+          put(ws, cs.lab + tr, '', { border: true });
+          put(ws, cs.q + tr, '', { border: true });
+          put(ws, cs.amt + tr, { formula: 'SUM(' + cs.amt + (W0 + 1) + ':' + cs.amt + (W0 + 6) + ')', result: mon.total }, { fmt: P2, align: 'right', border: true });
+        });
+        put(ws, 'S' + (W0 + 8), { formula: 'O' + (W0 + 7) + '+S' + (W0 + 7), result: r.waterSum }, { fmt: P2, align: 'right' });
+        put(ws, 'T' + (W0 + 8), '10円未満切り捨て', { size: 9 });
+        put(ws, 'R' + (W0 + 9), '請求金額', { align: 'right' });
+        put(ws, 'S' + (W0 + 9), { formula: 'ROUNDDOWN(S' + (W0 + 8) + ',-1)', result: r.waterBill }, { fmt: P0, align: 'right', bold: true });
+        const WATER_BILL = 'S' + (W0 + 9);
+
+        // 下水道 20〜30行
+        const S0 = 20;
+        colsets.forEach(cs => {
+          const m = cs.key === 1 ? r.m1 : r.m2;
+          const mon = cs.key === 1 ? r.s1 : r.s2;
+          put(ws, cs.lab + S0, cs.name, { border: true });
+          put(ws, cs.pr + S0, '下水道料金', { border: true });
+          put(ws, cs.q + S0, '', { border: true });
+          put(ws, cs.amt + S0, { formula: cs.amt + W0, result: m }, { fmt: MON, align: 'right', border: true });
+          SEWER.forEach((t, i) => {
+            const row = S0 + 1 + i;
+            const mc = '$' + cs.amt + '$' + S0;
+            const qv = t[4]
+              ? 1
+              : { formula: 'MAX(0,MIN(' + mc + ',' + t[1] + ')-' + (t[0] - 1) + ')', result: mon.rows[i].q };
+            put(ws, cs.lab + row, t[2] + (t[4] ? '(基本)' : ''), { border: true });
+            put(ws, cs.pr + row, t[3], { fmt: P2, align: 'right', border: true });
+            put(ws, cs.q + row, qv, { align: 'right', border: true });
+            put(ws, cs.amt + row, { formula: cs.pr + row + '*' + cs.q + row, result: mon.rows[i].amt }, { fmt: P2, align: 'right', border: true });
+          });
+          const tr = S0 + 7;
+          put(ws, cs.pr + tr, '合計税抜き', { border: true });
+          put(ws, cs.lab + tr, '', { border: true });
+          put(ws, cs.q + tr, '', { border: true });
+          put(ws, cs.amt + tr, { formula: 'SUM(' + cs.amt + (S0 + 1) + ':' + cs.amt + (S0 + 6) + ')', result: mon.total }, { fmt: P2, align: 'right', border: true });
+        });
+        put(ws, 'S' + (S0 + 8), { formula: 'O' + (S0 + 7) + '+S' + (S0 + 7), result: r.sewerSum }, { fmt: P2, align: 'right' });
+        put(ws, 'T' + (S0 + 8), '税率10%', { size: 9 });
+        put(ws, 'S' + (S0 + 9), { formula: 'S' + (S0 + 8) + '*1.1', result: r.sewerTax }, { fmt: P2, align: 'right' });
+        put(ws, 'T' + (S0 + 9), '小数点切り捨て', { size: 9 });
+        put(ws, 'R' + (S0 + 10), '請求金額', { align: 'right' });
+        put(ws, 'S' + (S0 + 10), { formula: 'ROUNDDOWN(S' + (S0 + 9) + ',0)', result: r.sewerBill }, { fmt: P0, align: 'right', bold: true });
+        const SEWER_BILL = 'S' + (S0 + 10);
+
+        // ---------- 請求金額(左側 20〜27行) ----------
+        put(ws, 'A20', '請求金額');
+        put(ws, 'C20', '使用期間');
+        ws.mergeCells('C21:H21');
+        put(ws, 'C21', fmtSlash(prevDate) + '　～　' + fmtSlash(curDate), { align: 'center' });
+        ws.mergeCells('C22:D22'); put(ws, 'C22', '子今月メーター　淺沼', { size: 10 });
+        put(ws, 'E22', r.cur, { align: 'right' }); put(ws, 'F22', '－', { align: 'center' });
+        ws.mergeCells('C23:D23'); put(ws, 'C23', '子前月メーター　淺沼', { size: 10 });
+        put(ws, 'E23', r.prev, { align: 'right' }); put(ws, 'F23', '＝', { align: 'center' });
+        ws.mergeCells('C24:D24'); put(ws, 'C24', '今月使用量　㈱淺沼組', { size: 10 });
+        put(ws, 'E24', { formula: 'E22-E23', result: r.use }, { align: 'right' });
+
+        ws.mergeCells('C25:D25'); put(ws, 'C25', '水道料金', { border: true });
+        ws.mergeCells('E25:F25'); put(ws, 'E25', '下水道料金', { border: true });
+        ws.mergeCells('G25:H25'); put(ws, 'G25', '合計', { border: true });
+        ws.getRow(26).height = 30;
+        ws.mergeCells('C26:D26'); put(ws, 'C26', { formula: WATER_BILL, result: r.waterBill }, { fmt: P0, align: 'center', size: 13, border: true });
+        ws.mergeCells('E26:F26'); put(ws, 'E26', { formula: SEWER_BILL, result: r.sewerBill }, { fmt: P0, align: 'center', size: 13, border: true });
+        ws.mergeCells('G26:H26'); put(ws, 'G26', { formula: 'C26+E26', result: r.total }, { fmt: P0, align: 'center', size: 13, bold: true, border: true });
+        ws.mergeCells('C27:D27'); put(ws, 'C27', '', { border: true });
+        ws.mergeCells('E27:F27'); put(ws, 'E27', '', { border: true });
+        ws.mergeCells('G27:H27'); put(ws, 'G27', '', { border: true });
+        put(ws, 'I27', '※税込', { color: 'FFFF0000' });
+        box(ws, 20, 1, 28, 9);
+
+        // 印刷設定(A4縦・横1ページ)
+        ws.pageSetup = {
+          paperSize: 9, orientation: 'portrait',
+          fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+          printArea: 'A1:I28',
+          margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }
+        };
+
+        wb.xlsx.writeBuffer().then(buf => {
+          const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = '水道料金明細_' + curDate.replace(/-/g, '') + '.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          btn.disabled = false;
+          setStatus('エクセルを作ったよ!', true);
+        }).catch(err => { btn.disabled = false; setStatus('作成エラー: ' + err, false); });
+      } catch (err) {
+        btn.disabled = false;
+        setStatus('作成エラー: ' + err, false);
+      }
+    }
+  </script>
+</body>
+</html>
