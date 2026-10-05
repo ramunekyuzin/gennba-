@@ -127,6 +127,26 @@
       [101, 500, '101～500', 176],
     ];
 
+    // ---- 2ページ目に載せる料金表(参照用・文字) ----
+    const REF_KIHON = [
+      [13, 517.00], [20, 1213.30], [25, 2167.00], [40, 8652.60], [50, 19620.70], [75, 45101.10],
+      [100, 87068.30], [150, 241992.30], [200, 490525.20], [250, 873407.70], [300, 1399359.50],
+    ];
+    const REF_JURYO = [
+      ['1から10', 73.70], ['11から20', 192.50], ['21から40', 313.50],
+      ['41から100', 418.00], ['101から500', 518.10], ['501から', 565.40],
+    ];
+    const REF_GESUI = [
+      ['基本料金(10立方メートルまで)', 900],
+      ['11立方メートルから20立方メートルまで', 108],
+      ['21立方メートルから30立方メートルまで', 120],
+      ['31立方メートルから50立方メートルまで', 138],
+      ['51立方メートルから100立方メートルまで', 150],
+      ['101立方メートルから500立方メートルまで', 176],
+      ['501立方メートルから1000立方メートルまで', 189],
+      ['1001立方メートル以上', 203],
+    ];
+
     const photos = { prev: null, cur: null };
 
     // ============================================
@@ -478,11 +498,53 @@
         put(ws, 'I27', '※税込', { color: 'FFFF0000' });
         box(ws, 20, 1, 28, 9);
 
-        // 印刷設定(A4縦・横1ページ)
+        // ---------- 2ページ目:料金表(30〜55行) ----------
+        ws.getRow(28).addPageBreak();
+        ws.mergeCells('A30:I30');
+        put(ws, 'A30', '水道料金表(令和8年4月1日から適用)', { bold: true, size: 12 });
+        ws.mergeCells('A32:C32'); put(ws, 'A32', '基本料金(1か月につき・税込)', { bold: true, size: 10 });
+        ws.mergeCells('E32:I32'); put(ws, 'E32', '従量料金(1か月につき)一般用(税込)', { bold: true, size: 10 });
+        put(ws, 'A33', '口径(mm)', { border: true, align: 'center', size: 10 });
+        ws.mergeCells('B33:C33'); put(ws, 'B33', '料金', { border: true, align: 'center', size: 10 });
+        ws.mergeCells('E33:F33'); put(ws, 'E33', '使用水量(㎥)', { border: true, align: 'center', size: 10 });
+        ws.mergeCells('G33:H33'); put(ws, 'G33', '料金(1㎥につき)', { border: true, align: 'center', size: 10 });
+        REF_KIHON.forEach((k, i) => {
+          const row = 34 + i;
+          put(ws, 'A' + row, k[0], { border: true, align: 'right', size: 10 });
+          ws.mergeCells('B' + row + ':C' + row);
+          put(ws, 'B' + row, k[1], { border: true, align: 'right', size: 10, fmt: '#,##0.00"円"' });
+        });
+        REF_JURYO.forEach((j, i) => {
+          const row = 34 + i;
+          ws.mergeCells('E' + row + ':F' + row);
+          put(ws, 'E' + row, j[0], { border: true, align: 'right', size: 10 });
+          ws.mergeCells('G' + row + ':H' + row);
+          put(ws, 'G' + row, j[1], { border: true, align: 'right', size: 10, fmt: '#,##0.00"円"' });
+        });
+        ws.mergeCells('E41:I41'); put(ws, 'E41', '公衆浴場用(税込)', { bold: true, size: 10 });
+        ws.mergeCells('E42:F42'); put(ws, 'E42', '1㎥につき', { border: true, align: 'right', size: 10 });
+        ws.mergeCells('G42:H42'); put(ws, 'G42', 73.70, { border: true, align: 'right', size: 10, fmt: '#,##0.00"円"' });
+        ws.mergeCells('E43:I44');
+        put(ws, 'E43', '※公衆浴場用は物価統制令の適用を受ける公衆浴場(銭湯)に限り適用', { size: 8 });
+        ws.getCell('E43').alignment = { wrapText: true, vertical: 'top' };
+
+        ws.mergeCells('A46:I46');
+        put(ws, 'A46', '下水道使用料(1立方メートルあたり・消費税抜き)', { bold: true, size: 12 });
+        ws.mergeCells('A47:F47'); put(ws, 'A47', '使用水量', { border: true, size: 10 });
+        ws.mergeCells('G47:H47'); put(ws, 'G47', '下水道使用料', { border: true, align: 'center', size: 10 });
+        REF_GESUI.forEach((g, i) => {
+          const row = 48 + i;
+          ws.mergeCells('A' + row + ':F' + row);
+          put(ws, 'A' + row, g[0], { border: true, size: 10 });
+          ws.mergeCells('G' + row + ':H' + row);
+          put(ws, 'G' + row, g[1], { border: true, align: 'right', size: 10, fmt: '#,##0"円"' });
+        });
+
+        // 印刷設定(A4縦・横1ページ、28行目で改ページ)
         ws.pageSetup = {
           paperSize: 9, orientation: 'portrait',
           fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-          printArea: 'A1:I28',
+          printArea: 'A1:I55',
           margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }
         };
 
