@@ -430,6 +430,7 @@ body:not(.can-vis) .vis-box{display:none}
 .vis-picker{display:flex;flex-wrap:wrap;gap:7px}
 .vis-chip{border:1px solid var(--line);background:var(--bg);color:var(--ink-2);border-radius:999px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
 .vis-chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.vis-chip:disabled{opacity:.6;cursor:not-allowed}
 html[data-look="eva"] .vis-chip{border-radius:0}
 .tool-id{display:flex;align-items:center;gap:8px;margin:-6px 0 8px;font-size:12px;color:var(--ink-2)}
 .tool-id[hidden]{display:none!important}
@@ -937,9 +938,11 @@ document.getElementById('iconImageFile').addEventListener('change',e=>{const fil
 
 // ---------- 使える人の選択 ----------
 let VIS = new Set();
+const PAID_PLAN = "有料";   // GASの CONFIG.PAID_PLAN と同じ。付け外しはオーナーだけ
 function visOptions(){
   const o = [];
   if (ME && ME.owner && OWNER_ONLY) o.push({ v: OWNER_ONLY, l: "👑 オーナーのみ" });
+  if ((ME && ME.owner) || VIS.has(PAID_PLAN)) o.push({ v: PAID_PLAN, l: "💰 有料", locked: !(ME && ME.owner) });
   ROLES.forEach(r => o.push({ v: r, l: "⭐ " + r + "以上" }));
   GROUPS.forEach(g => o.push({ v: g, l: "👥 " + g }));
   USERS.forEach(u => o.push({ v: u.id, l: "👤 " + (u.name && u.name !== u.id ? u.name + "（" + u.id + "）" : u.id) }));
@@ -948,9 +951,10 @@ function visOptions(){
 }
 function renderVisPicker(){
   document.getElementById("visPicker").innerHTML = visOptions().map(x =>
-    `<button type="button" class="vis-chip" data-vis="${esc(x.v)}" aria-pressed="${VIS.has(x.v)}">${esc(x.l)}</button>`).join("");
+    `<button type="button" class="vis-chip" data-vis="${esc(x.v)}" aria-pressed="${VIS.has(x.v)}"${x.locked ? " disabled" : ""}>${esc(x.l)}</button>`).join("");
   document.getElementById("visNote").textContent =
     (OWNER_ONLY && VIS.has(OWNER_ONLY)) ? "オーナーだけが使える（他の人には存在ごと見えません）"
+    : VIS.has(PAID_PLAN) ? (VIS.size > 1 ? "有料プランの人のうち、選んだ権限・グループ・人だけが使える" : "有料プランの人だけが使える")
     : VIS.size ? "選んだ権限・グループ・人だけが使える（所長は全部使えます）"
     : "何も選ばない＝全員が使える";
 }
