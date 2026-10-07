@@ -80,6 +80,7 @@
   .card.soon { opacity: .6; cursor: default; }
   .card.soon:hover { border-color: var(--line); }
   .card.soon:active { transform: none; }
+  .card.paid-lock { cursor: pointer; }
 
   /* 編集モード */
   .tools { position: absolute; top: 8px; right: 8px; display: none; gap: 6px; }
@@ -519,6 +520,17 @@ html[data-look="eva"] .design-drawer,html[data-look="eva"] .design-drawer .theme
   </div>
 </div>
 
+<!-- 有料ツールの案内 -->
+<div class="modal-bg" id="paidModal">
+  <div class="modal">
+    <h3>💰 有料プランのツールです</h3>
+    <p class="login-note">このツールは有料プランのツールです。使いたい場合は管理者に連絡してください。</p>
+    <div class="btns">
+      <button class="ok" type="button" onclick="closeModal('paidModal')">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <!-- はじめての登録(招待URLから) -->
 <div class="modal-bg" id="registerModal">
   <div class="modal">
@@ -608,7 +620,7 @@ html[data-look="eva"] .design-drawer,html[data-look="eva"] .design-drawer .theme
 // ============================================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxKW8JNfxJs2HLOGGRZVWvSgUhsDG-oLFT0Bw0osTJy6wqtc4Ngtg9s_36py_Ae39_J/exec";
 
-let TOOLS = [];      // 自分が使えるツールだけ
+let TOOLS = [];      // 自分が使えるツールだけ(＋有料プランなら使えるツールは paidLock 付き・URLなし)
 let ME = null;       // ログイン中の人 {name, role, level, owner, canEdit, canDelete, canSetVisibility}
 let USERS = [], GROUPS = [], ROLES = [], OWNER_ONLY = "";
 
@@ -974,21 +986,24 @@ function render(){
       <h2>${esc(cat)} <span class="section-count">${items.length}</span></h2>
       <div class="grid">
         ${items.map(t => {
-          const soon = !t["URL"];
-          const tag  = t["タグ"] ? `<span class="tag">${esc(t["タグ"])}</span>` : "";
+          const paid = !!t.paidLock;   // 有料プランなら使えるツール(タップで案内を出す)
+          const soon = !t["URL"] && !paid;
+          const tag  = (t["タグ"] ? `<span class="tag">${esc(t["タグ"])}</span>` : "")
+                     + (paid ? `<span class="tag">💰 有料</span>` : "");
           let lock = "";
           if (ME && ME.canSetVisibility && t["使える人"]) {
             lock = splitList(t["使える人"]).includes(OWNER_ONLY) && OWNER_ONLY
               ? `<span class="tag">👑 オーナーのみ</span>` : `<span class="tag">🔒 限定</span>`;
           }
           const key  = esc((t["名前"] || "") + " " + (t["説明"] || ""));
-          const tools = `<div class="tools">
+          const tools = paid ? "" : `<div class="tools">
               <button type="button" onclick="openForm('${esc(t["ID"])}');return false;">編集</button>
               <button type="button" class="del" onclick="delTool('${esc(t["ID"])}','${esc(t["名前"])}');return false;">削除</button>
             </div>`;
-          const open  = soon ? `<div class="card soon" data-key="${key}">`
+          const open  = paid ? `<div class="card paid-lock" role="button" tabindex="0" data-key="${key}" onclick="openModal('paidModal')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openModal('paidModal')}">`
+                      : soon ? `<div class="card soon" data-key="${key}">`
                              : `<a class="card" href="${esc(withToken(t["URL"]))}" target="_blank" rel="noopener" data-key="${key}">`;
-          const close = soon ? `</div>` : `</a>`;
+          const close = (soon || paid) ? `</div>` : `</a>`;
           return `${open}
             <div class="icon">${toolIcon(t["アイコン"],t["名前"])}</div>
             <div class="body">
