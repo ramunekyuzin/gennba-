@@ -6,6 +6,9 @@
 <title>PDF書き換えツール</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Klee+One:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;800&family=Yuji+Syuku&family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { min-height: 100%; }
@@ -124,6 +127,11 @@
       <select id="pFont">
         <option value="gothic">ゴシック</option>
         <option value="mincho">明朝</option>
+        <option value="maru">丸ゴシック</option>
+        <option value="tegaki">手書き風</option>
+        <option value="pop">ポップ</option>
+        <option value="fude">筆文字</option>
+        <option value="ud">UDゴシック</option>
       </select>
     </label>
     <label><input type="checkbox" id="pBold"> 太字</label>
@@ -181,6 +189,11 @@ const STD_FONT_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VER}/stand
 const FONTS = {
   gothic: '"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","YuGothic","Meiryo","Noto Sans JP",sans-serif',
   mincho: '"Hiragino Mincho ProN","Yu Mincho","YuMincho","MS PMincho","Noto Serif JP",serif',
+  maru:   '"Zen Maru Gothic",sans-serif',
+  tegaki: '"Klee One",cursive',
+  pop:    '"M PLUS Rounded 1c",sans-serif',
+  fude:   '"Yuji Syuku",serif',
+  ud:     '"BIZ UDPGothic",sans-serif',
 };
 const HINTS = {
   select:  '項目をタップで選択・ドラッグで移動(PCは矢印キーで微調整)/選択中の文字をもう一度タップで編集',
@@ -796,6 +809,8 @@ async function drawObj(ctx, o) {
   else if (o.type === 'image') { ctx.drawImage(await loadImg(o.src), o.x, o.y, o.w, o.h); }
   else if (o.type === 'text') {
     ctx.font = `${o.bold ? 'bold ' : ''}${o.size}px ${FONTS[o.font]}`;
+    // Webフォントは使う文字だけ後から読み込まれるので、描く前に読み込み完了を待つ
+    try { await document.fonts.load(ctx.font, o.text || 'あ'); } catch (e) {}
     ctx.fillStyle = o.color; ctx.textBaseline = 'middle';
     o.text.split('\n').forEach((line, i) => ctx.fillText(line, o.x, o.y + o.size * 1.2 * (i + 0.5)));
   }
