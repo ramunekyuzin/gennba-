@@ -570,14 +570,10 @@
       }
     }
 
-    // 責任者は1社に1人。押した人を責任者にして、同じ会社のほかの人は外す（もう一度押すと外れる）
+    // 責任者は1社に何人でも。押すたびに付け外しする
     function toggleBoss(row) {
       const p = people.find(x => Number(x._row) === Number(row));
-      if (!p) return;
-      if (p._boss) { save([p], '', '責任者'); return; }
-      const others = people.filter(x => x._boss && x._company === p._company && x !== p);
-      if (others.length) save(others, '', '責任者');
-      save([p], FLAG_ON, '責任者');
+      if (p) save([p], p._boss ? '' : FLAG_ON, '責任者');
     }
 
     function setSaving(d, ngMsg) {
@@ -667,20 +663,23 @@
       koji = input.trim();
       try { localStorage.setItem(KOJI_KEY, koji); } catch (e) { /* なくてもOK */ }
 
-      // 責任者: 選んだ人 → いなければチェックが1人だけならその人 → それ以外は空欄
+      // 責任者: 選んだ人全員（1人1行） → いなければチェックが1人だけならその人 → それ以外は空欄
       // 電話番号は会社の番号（同じ会社の名刺の「電話」から、同じ番号は1つにまとめる）
       const rows = [['工事名', '業種名', '会社名', '責任者名', '電話番号']];
       const noBoss = [];
       order.forEach(g => Object.keys(byGyoshu[g]).sort(cmpCompany).forEach(c => {
         const list = byGyoshu[g][c];
-        const boss = list.find(p => p._boss) || (list.length === 1 ? list[0] : null);
-        if (!boss) noBoss.push(c);
+        let bosses = list.filter(p => p._boss);
+        if (!bosses.length && list.length === 1) bosses = list;
+        if (!bosses.length) noBoss.push(c);
         const seen = new Set();
         const tels = [];
         people.filter(p => p._company === c).forEach(p => splitNums(p['電話']).forEach(n => {
           if (!seen.has(n.tel)) { seen.add(n.tel); tels.push(n.text); }
         }));
-        rows.push([koji, g, c, boss ? boss['氏名'] : '', tels.join(' / ')]);
+        // 責任者が何人かいれば、1人1行で出す
+        (bosses.length ? bosses : [null]).forEach(b =>
+          rows.push([koji, g, c, b ? b['氏名'] : '', tels.join(' / ')]));
       }));
       if (noBoss.length && !confirm(`責任者が決まっていない会社が${noBoss.length}社あります（${noBoss.slice(0, 3).join('、')}${noBoss.length > 3 ? ' など' : ''}）。\n責任者名を空欄のまま出力しますか？`)) return;
 
