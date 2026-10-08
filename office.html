@@ -708,22 +708,49 @@ async function api(body){
   return j.result;
 }
 
+// 前回のツール一覧があれば先に表示して、裏で最新を取ってきて差し替える
+// 保存するのはツール一覧と自分の情報だけ(ユーザー・グループなど管理用の情報は保存しない)
+const TOOLS_CACHE = "officeToolsCache";
 async function load(){
   if (!GAS_URL) { loadingEl.textContent = "GAS_URL が未設定"; return; }
   if (!TOKEN) { showLogin(""); return; }
-  loadingEl.style.display = ""; loadingEl.textContent = "読み込み中…";
+  let shown = false;
+  if (!ME) {
+    const c = readToolsCache();
+    if (c) {
+      TOOLS = c.tools; ME = c.me; OWNER_ONLY = c.ownerOnly || "";
+      applyMe();
+      loadingEl.style.display = "none";
+      render(); filter();
+      shown = true;
+    }
+  }
+  if (!shown && !ME) { loadingEl.style.display = ""; loadingEl.textContent = "読み込み中…"; }
   try {
     const r = await api({ action: "list" });
     TOOLS = r.tools || []; ME = r.me;
     USERS = r.users || []; GROUPS = r.groups || []; ROLES = r.roles || []; OWNER_ONLY = r.ownerOnly || "";
     INVITE_ROLES = r.inviteRoles || [];
+    writeToolsCache();
     applyMe();
     loadingEl.style.display = "none";
     render(); filter();
   } catch (e) {
     if (e.auth) { logoutLocal(e.message); return; }
-    loadingEl.textContent = "読み込み失敗: " + e.message;
+    loadingEl.style.display = "";
+    loadingEl.textContent = (ME ? "最新を読み込めませんでした(前回の一覧を表示中): " : "読み込み失敗: ") + e.message;
   }
+}
+
+function readToolsCache(){
+  try {
+    const c = JSON.parse(localStorage.getItem(TOOLS_CACHE));
+    return c && c.token === TOKEN && Array.isArray(c.tools) && c.me ? c : null;   // 別の人のログインでは使わない
+  } catch (e) { return null; }
+}
+function writeToolsCache(){
+  try { localStorage.setItem(TOOLS_CACHE, JSON.stringify({ token: TOKEN, tools: TOOLS, me: ME, ownerOnly: OWNER_ONLY })); }
+  catch (e) { /* 保存できなくても動作には関係ない */ }
 }
 
 // ---------- ログイン ----------
@@ -851,7 +878,7 @@ async function submitInvite(){
 document.getElementById("inviteBtn").addEventListener("click", openInvite);
 
 function logoutLocal(msg){
-  TOKEN = ""; localStorage.removeItem("officeToken");
+  TOKEN = ""; localStorage.removeItem("officeToken"); localStorage.removeItem(TOOLS_CACHE);
   ME = null; TOOLS = []; USERS = []; GROUPS = []; ROLES = []; OWNER_ONLY = "";
   sectionsEl.innerHTML = "";
   document.body.classList.remove("edit", "can-edit", "can-del", "can-vis", "owner");
