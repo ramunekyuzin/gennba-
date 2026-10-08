@@ -180,6 +180,7 @@
     // ============================================
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbykkzJKHWbnVt4XeR8o9RjlZmfnZM2lW3nOXqoixe4RYFlPRQA_nZ584puN8l30cyUC/exec';
     const FLAG_ON = '○';   // 協力業者だけど業種は名刺のまま
+    const CACHE_KEY = 'kyoryoku-cache';   // 前回のデータの保存名
 
     let people = [];       // 名刺1枚 = 1人
     let customGyoshu = []; // 自分たちで追加した業種
@@ -249,8 +250,6 @@
     }
 
     // ---------- 前回のデータ（この端末のブラウザに保存） ----------
-    const CACHE_KEY = 'kyoryoku-cache';
-
     function readCache() {
       try {
         const c = JSON.parse(localStorage.getItem(CACHE_KEY));
