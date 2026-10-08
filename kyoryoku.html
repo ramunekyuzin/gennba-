@@ -183,7 +183,8 @@
     // 協力業者用GAS WebアプリのURL（デプロイ後に貼る）
     // ============================================
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbykkzJKHWbnVt4XeR8o9RjlZmfnZM2lW3nOXqoixe4RYFlPRQA_nZ584puN8l30cyUC/exec';
-    const FLAG_ON = '○';   // 協力業者だけど業種は名刺のまま
+    const FLAG_ON = '○';   // 協力業者だけど、まだ業種に入れていない
+    const UNSORTED = '未振り分け';
     const CACHE_KEY = 'kyoryoku-cache';   // 前回のデータの保存名
 
     let people = [];       // 名刺1枚 = 1人
@@ -241,7 +242,6 @@
       people = res.people.filter(p => p['会社名'] || p['氏名']);
       people.forEach(p => {
         p._company = String(p['会社名'] || '（会社名なし）').trim();
-        p._meishiGyoshu = p['業種'] || '未分類';
         p._hay = norm([p['会社名'], p['業種'], p['部署'], p['役職'], p['氏名'], p['ふりがな'], p['電話'], p['携帯'], p['メール']].join(' '));
         applyFlag(p, p['協力業者']);
       });
@@ -319,7 +319,7 @@
     function applyFlag(p, v) {
       p._flag = v || '';
       p._on = !!p._flag;
-      p._gyoshu = (p._flag && p._flag !== FLAG_ON) ? p._flag : p._meishiGyoshu;
+      p._gyoshu = (p._flag && p._flag !== FLAG_ON) ? p._flag : UNSORTED;
     }
 
     function setStatus(msg, ng) {
@@ -356,19 +356,19 @@
       render();
     }
 
-    // 振り分けた業種（振り分けていなければ名刺の業種）でまとめる
-    function keyOf(p) { return p._gyoshu; }
+    // 自分たちで振り分けた業種でまとめる（選んでいない人は業種なし）
+    function keyOf(p) { return p._on ? p._gyoshu : ''; }
 
     function render() {
       if (drag) { renderLater = true; return; }
       const isList = mode === 'list';
       const base = isList ? people.filter(p => p._on) : people;
 
-      // 業種の並び（追加した業種が先、そのあと多い順。その他・未分類は後ろ）
+      // 業種の並び（追加した順。未振り分けは最後）
       const count = {};
       base.forEach(p => count[keyOf(p)] = (count[keyOf(p)] || 0) + 1);
       const custom = customGyoshu.slice();
-      const others = Object.keys(count).filter(g => !custom.includes(g))
+      const others = Object.keys(count).filter(g => g && !custom.includes(g))
         .sort((a, b) => gyoshuRank(a) - gyoshuRank(b) || count[b] - count[a]);
       const gyoshuList = custom.concat(others);
       if (gyoshuSel && !gyoshuList.includes(gyoshuSel)) gyoshuSel = '';
@@ -427,7 +427,7 @@
       document.querySelectorAll('input[data-mixed="1"]').forEach(el => el.indeterminate = true);
     }
 
-    function gyoshuRank(g) { return g === '未分類' ? 2 : g === 'その他' ? 1 : 0; }
+    function gyoshuRank(g) { return g === UNSORTED ? 1 : 0; }
 
     function emptyHtml(baseCount) {
       if (mode === 'list' && !people.some(p => p._on)) {
@@ -518,7 +518,7 @@
     // 会社を別の業種へ移す（選ぶ画面ではチェックしていない人もまとめてチェックして入れる）
     function moveCompany(from, company, to) {
       const targets = people.filter(p => p._company === company && (mode === 'pick' || (p._on && p._gyoshu === from)));
-      if (targets.length) save(targets, to);
+      if (targets.length) save(targets, to === UNSORTED ? FLAG_ON : to);
     }
 
     async function save(targets, value) {
@@ -558,6 +558,7 @@
       const input = document.getElementById('newGyoshu');
       const name = input.value.trim();
       if (!name) { input.focus(); return; }
+      if (name === UNSORTED) { setSaving(0, `「${UNSORTED}」は業種名に使えません`); return; }
       const btn = document.getElementById('addGyoshuBtn');
       btn.disabled = true;
       setSaving(+1);
