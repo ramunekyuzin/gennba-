@@ -6,12 +6,22 @@
 (function () {
   var GAS_URL = 'https://script.google.com/macros/s/AKfycbxKW8JNfxJs2HLOGGRZVWvSgUhsDG-oLFT0Bw0osTJy6wqtc4Ngtg9s_36py_Ae39_J/exec';
 
-  // 確認が終わるまでは中身を見せない
+  // 「ロックされていない」と確認できた時刻を全ツール共通で覚えておく
+  // 確認から少しの間は隠さずにすぐ表示して、確認は裏で続ける(ロックされていたらその時点でロック画面にする)
+  var OK_KEY = 'officeLockOkAt';
+  var OK_TTL = 30 * 60 * 1000;   // 30分
+  var recentOk = false;
+  try { recentOk = Date.now() - Number(localStorage.getItem(OK_KEY) || 0) < OK_TTL; } catch (e) { /* 使えなくてもOK */ }
+  function rememberOk(ok) {
+    try { if (ok) localStorage.setItem(OK_KEY, String(Date.now())); else localStorage.removeItem(OK_KEY); } catch (e) { /* 使えなくてもOK */ }
+  }
+
+  // 確認が終わるまでは中身を見せない(最近確認済みなら隠さない)
   var hide = document.createElement('style');
   hide.textContent = 'body{visibility:hidden}';
-  document.head.appendChild(hide);
+  if (!recentOk) document.head.appendChild(hide);
   function show() { if (hide.parentNode) hide.parentNode.removeChild(hide); }
-  var timer = setTimeout(show, 5000);   // 返事が遅いときは先に表示する
+  var timer = recentOk ? null : setTimeout(show, 5000);   // 返事が遅いときは先に表示する
 
   function lock() {
     function run() {
@@ -40,7 +50,9 @@
     .then(function (r) { return r.json(); })
     .then(function (j) {
       clearTimeout(timer);
-      if (j.ok && j.result && j.result.expired) lock();
+      var expired = !!(j.ok && j.result && j.result.expired);
+      if (j.ok) rememberOk(!expired);
+      if (expired) lock();
       else show();
     })
     .catch(function () { clearTimeout(timer); show(); });
