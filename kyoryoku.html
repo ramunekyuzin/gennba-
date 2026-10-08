@@ -132,6 +132,10 @@
     .check.one { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
     .check.one .pos { font-size: 14px; color: var(--sub); }
     .company.picked { border-color: var(--main); }
+    .tag {
+      display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 999px; vertical-align: middle;
+      font-size: 14px; font-weight: normal; background: var(--chip); color: var(--chipText);
+    }
 
     /* PC: 一覧を表っぽく横に並べる */
     @media (min-width: 800px) {
@@ -167,7 +171,7 @@
         <input id="newGyoshu" maxlength="30" aria-label="新しい業種名" placeholder="新しい業種名（例: 鳶・土工）" enterkeyhint="done" onkeydown="if (event.key === 'Enter') addGyoshu()">
         <button id="addGyoshuBtn" onclick="addGyoshu()">＋ 追加</button>
       </div>
-      <p class="dragTip">会社の「⠿」をつまんで、上の業種ボタンか業種の枠へドラッグすると、その業種に入ります（選ぶ画面ではチェックも付きます）。</p>
+      <p class="dragTip">会社の「⠿」をつまんで上の業種ボタンへドラッグすると、その業種に入ります（一覧では業種の枠でもOK。選ぶ画面ではチェックも付きます）。</p>
     </div>
     <div id="list"></div>
   </div>
@@ -241,6 +245,47 @@
         p._hay = norm([p['会社名'], p['業種'], p['部署'], p['役職'], p['氏名'], p['ふりがな'], p['電話'], p['携帯'], p['メール']].join(' '));
         applyFlag(p, p['協力業者']);
       });
+      groupCompanies();
+    }
+
+    // 会社名（株式会社などを無視）か会社の電話番号が同じなら、同じ会社としてまとめる
+    function groupCompanies() {
+      const parent = {};
+      const find = x => parent[x] === x ? x : (parent[x] = find(parent[x]));
+      const union = (a, b) => { parent[find(a)] = find(b); };
+      people.forEach(p => {
+        const nodes = [];
+        const key = companyKey(p['会社名']);
+        if (key) nodes.push('n:' + key);
+        splitNums(p['電話']).forEach(n => nodes.push('t:' + n.tel));
+        if (!nodes.length) nodes.push('r:' + p._row);
+        nodes.forEach(n => { if (!(n in parent)) parent[n] = n; });
+        nodes.slice(1).forEach(n => union(n, nodes[0]));
+        p._node = nodes[0];
+      });
+      const clusters = {};
+      people.forEach(p => {
+        const root = find(p._node);
+        (clusters[root] || (clusters[root] = [])).push(p);
+      });
+      // 表示名は一番多く使われている書き方（同じ数なら長いほう）
+      Object.values(clusters).forEach(list => {
+        const cnt = {};
+        list.forEach(p => { if (p['会社名']) cnt[p._company] = (cnt[p._company] || 0) + 1; });
+        const name = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || b.length - a.length)[0] || list[0]._company;
+        list.forEach(p => p._company = name);
+      });
+    }
+
+    // 会社名の比べ用（株式会社・有限会社・(株) などと、全角半角・空白の違いを無視）
+    function companyKey(name) {
+      return norm(String(name || '').normalize('NFKC')
+        .replace(/株式会社|有限会社|合同会社|合資会社|\(株\)|\(有\)|\(同\)/g, ''));
+    }
+
+    // 会社の並び順（株式会社などを無視した文字順）
+    function cmpCompany(a, b) {
+      return companyKey(a).localeCompare(companyKey(b), 'ja') || a.localeCompare(b, 'ja');
     }
 
     function showMain() {
@@ -337,7 +382,20 @@
       const words = document.getElementById('q').value.trim().split(/[\s　]+/).map(norm).filter(Boolean);
       const hit = base.filter(p => (!gyoshuSel || keyOf(p) === gyoshuSel) && words.every(w => p._hay.includes(w)));
 
-      // 業種 → 会社 でまとめる
+      // 選ぶ画面: 業種で分けずに会社を並べる
+      if (!isList) {
+        const byCompany = {};
+        hit.forEach(p => (byCompany[p._company] || (byCompany[p._company] = [])).push(p));
+        const companies = Object.keys(byCompany).sort(cmpCompany);
+        document.getElementById('count').textContent =
+          `${companies.length}社 ${hit.length}人中 ${hit.filter(p => p._on).length}人を選択中`;
+        document.getElementById('list').innerHTML =
+          companies.map(c => pickHtml(c, byCompany[c])).join('') || emptyHtml(base.length);
+        document.querySelectorAll('input[data-mixed="1"]').forEach(el => el.indeterminate = true);
+        return;
+      }
+
+      // 一覧: 業種 → 会社 でまとめる
       const groups = {};
       hit.forEach(p => {
         const g = groups[keyOf(p)] || (groups[keyOf(p)] = {});
@@ -345,22 +403,20 @@
       });
 
       const nCompany = Object.values(groups).reduce((n, g) => n + Object.keys(g).length, 0);
-      document.getElementById('count').textContent = isList
-        ? `${nCompany}社 ${hit.length}人`
-        : `${hit.length}人中 ${hit.filter(p => p._on).length}人を選択中`;
+      document.getElementById('count').textContent = `${nCompany}社 ${hit.length}人`;
 
       // 追加した業種は空でも枠を出す（ドラッグの行き先になる）。検索中は出さない
       const show = gyoshuList.filter(g => groups[g] ||
         (custom.includes(g) && !words.length && (!gyoshuSel || gyoshuSel === g)));
 
       const html = show.map(g => {
-        const companies = Object.keys(groups[g] || {}).sort((a, b) => a.localeCompare(b, 'ja'));
+        const companies = Object.keys(groups[g] || {}).sort(cmpCompany);
         const canDelete = custom.includes(g) && !count[g];
         return `<section class="group" data-g="${esc(g)}">
           <h2 class="groupTitle">${esc(g)}<span>${companies.length}社</span>${canDelete ? `<button data-g="${esc(g)}" onclick="deleteGyoshu(this.dataset.g, this)">削除</button>` : ''}</h2>
-          ${isList && companies.length ? '<div class="colHead"><div>担当</div><div>携帯</div><div>メール</div></div>' : ''}
+          ${companies.length ? '<div class="colHead"><div>担当</div><div>携帯</div><div>メール</div></div>' : ''}
           ${companies.length
-            ? companies.map(c => isList ? companyHtml(g, c, groups[g][c]) : pickHtml(g, c, groups[g][c])).join('')
+            ? companies.map(c => companyHtml(g, c, groups[g][c])).join('')
             : '<div class="dropHint">ここに会社をドラッグ</div>'}
         </section>`;
       }).join('');
@@ -422,15 +478,18 @@
     }
 
     // 選ぶ画面の会社カード
-    function pickHtml(g, company, list) {
+    function pickHtml(company, list) {
       const rows = list.map(p => p._row).join(',');
       const nOn = list.filter(p => p._on).length;
       const all = nOn === list.length;
-      return `<div class="company ${nOn ? 'picked' : ''}" data-g="${esc(g)}" data-c="${esc(company)}">
+      // 見出しが無いので、チェック済みの人が入っている業種を会社名の横に出す
+      const tags = [...new Set(list.filter(p => p._on).map(p => p._gyoshu))]
+        .map(g => `<span class="tag">${esc(g)}</span>`).join('');
+      return `<div class="company ${nOn ? 'picked' : ''}" data-g="" data-c="${esc(company)}">
         <div class="companyHead">
           <span class="grip" role="img" aria-label="ドラッグして業種に入れる" onpointerdown="dragStart(event, this)">⠿</span>
           <label class="check all"><input type="checkbox" data-rows="${rows}" ${all ? 'checked' : ''} data-mixed="${nOn && !all ? 1 : 0}" onchange="toggle(this)">
-            <span>${esc(company)}</span></label>
+            <span>${esc(company)}${tags}</span></label>
         </div>
         ${list.map(p => `<label class="check one"><input type="checkbox" data-rows="${p._row}" ${p._on ? 'checked' : ''} onchange="toggle(this)">
           <span>${esc(p['氏名'] || '（氏名なし）')} <span class="pos">${esc(p['役職'] || '')}</span></span></label>`).join('')}
@@ -458,7 +517,7 @@
 
     // 会社を別の業種へ移す（選ぶ画面ではチェックしていない人もまとめてチェックして入れる）
     function moveCompany(from, company, to) {
-      const targets = people.filter(p => (mode === 'pick' || p._on) && p._gyoshu === from && p._company === company);
+      const targets = people.filter(p => p._company === company && (mode === 'pick' || (p._on && p._gyoshu === from)));
       if (targets.length) save(targets, to);
     }
 
