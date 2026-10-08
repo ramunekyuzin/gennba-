@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="lock.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>協力業者一覧</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f8; --card: #fff; --text: #182b43; --sub: #64748b; --line: #e1e7ef;
+      --main: #234e75; --mainText: #fff; --chip: #edf3f8; --chipText: #305675;
+      --ok: #257967; --ng: #bc4545;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #111c2b; --card: #1a283a; --text: #e6edf5; --sub: #a0b0c4; --line: #304155;
+        --main: #5084b6; --chip: #273c54; --chipText: #bbd8f4; --ok: #7bd2b5; --ng: #ffa59e;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.6;
+      max-width: 1120px; margin: 0 auto; padding: 24px 16px calc(40px + env(safe-area-inset-bottom));
+    }
+    button, input, a { -webkit-tap-highlight-color: transparent; font-family: inherit; }
+    button, a { touch-action: manipulation; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .5; cursor: wait; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #70b6da; outline-offset: 3px; }
+
+    .appHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    h1 { font-size: 24px; letter-spacing: .04em; }
+    .eyebrow { font-size: 11px; letter-spacing: .18em; color: var(--sub); font-weight: 700; }
+    #reloadBtn {
+      min-height: 44px; padding: 8px 16px; font-size: 16px; border-radius: 10px;
+      background: var(--card); color: var(--text); border: 1px solid var(--line);
+    }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tabs button {
+      flex: 1; min-height: 50px; font-size: 16px; font-weight: bold; border-radius: 12px;
+      background: var(--card); color: var(--text); border: 1px solid var(--line);
+    }
+    .tabs button.on { background: var(--main); color: var(--mainText); border-color: var(--main); }
+
+    .search { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0 10px; }
+    #q {
+      width: 100%; height: 54px; padding: 12px 16px; font-size: 16px;
+      border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text);
+    }
+    .chips { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+    .chips button {
+      flex: 0 0 auto; min-height: 44px; padding: 8px 14px; font-size: 16px;
+      border-radius: 999px; background: var(--card); color: var(--text); border: 1px solid var(--line); white-space: nowrap;
+    }
+    .chips button.on { background: var(--main); color: var(--mainText); border-color: var(--main); }
+    .resultsBar { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 14px; color: var(--sub); }
+    #saving { color: var(--ok); }
+    #saving.ng { color: var(--ng); }
+
+    #status { text-align: center; margin: 16px 0; color: var(--sub); }
+    #status.ng { color: var(--ng); }
+    #status:empty { display: none; }
+    .empty {
+      text-align: center; color: var(--sub); padding: 32px 16px;
+      border: 1px dashed var(--line); border-radius: 16px; background: var(--card);
+    }
+    .empty strong { display: block; color: var(--text); margin-bottom: 4px; }
+
+    .group { margin-top: 18px; }
+    .groupTitle {
+      font-size: 18px; font-weight: bold; padding: 4px 4px 8px; display: flex; align-items: center; gap: 8px;
+    }
+    .groupTitle span { font-size: 14px; font-weight: normal; color: var(--sub); }
+    .company {
+      background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+      padding: 14px 16px; margin-bottom: 10px;
+    }
+    .companyName { font-size: 18px; font-weight: bold; overflow-wrap: anywhere; }
+
+    /* 一覧 */
+    .person { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+    .who b { font-size: 17px; }
+    .who .pos { display: block; font-size: 14px; color: var(--sub); overflow-wrap: anywhere; }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .links a {
+      display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 8px 12px;
+      font-size: 16px; border-radius: 10px; text-decoration: none;
+      background: var(--chip); color: var(--chipText); overflow-wrap: anywhere;
+    }
+    .links a small { font-size: 13px; opacity: .8; }
+    .noData { font-size: 14px; color: var(--sub); align-self: center; }
+    .colHead { display: none; }
+
+    /* 選ぶ */
+    .check { display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }
+    .check input { width: 26px; height: 26px; flex-shrink: 0; accent-color: var(--main); cursor: pointer; }
+    .check.all { font-size: 18px; font-weight: bold; }
+    .check.one { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+    .check.one .pos { font-size: 14px; color: var(--sub); }
+    .company.picked { border-color: var(--main); }
+
+    /* PC: 一覧を表っぽく横に並べる */
+    @media (min-width: 800px) {
+      body { padding: 36px 32px 60px; }
+      .colHead, .person {
+        display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.3fr); gap: 12px; align-items: center;
+      }
+      .colHead { font-size: 14px; color: var(--sub); padding: 0 17px 6px; }
+      .links { margin-top: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="appHeader">
+    <div><div class="eyebrow">PARTNERS</div><h1>協力業者一覧</h1></div>
+    <button id="reloadBtn" onclick="load()">↻ 更新</button>
+  </header>
+
+  <div id="main" style="display:none">
+    <div class="tabs" role="tablist">
+      <button id="tabList" class="on" role="tab" aria-selected="true" onclick="setMode('list')">一覧</button>
+      <button id="tabPick" role="tab" aria-selected="false" onclick="setMode('pick')">名刺から選ぶ</button>
+    </div>
+    <div class="search">
+      <input id="q" type="search" aria-label="検索" placeholder="会社・名前・業種・電話で検索" oninput="render()">
+      <div class="chips" id="chips"></div>
+      <div class="resultsBar"><div id="count" role="status"></div><div id="saving" role="status" aria-live="polite"></div></div>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div id="status" role="status" aria-live="polite"></div>
+
+  <script>
+    // ============================================
+    // 協力業者用GAS WebアプリのURL（デプロイ後に貼る）
+    // ============================================
+    const GAS_URL = '';
+
+    let people = [];       // 名刺1枚 = 1人
+    let mode = 'list';     // 'list' 一覧 / 'pick' 名刺から選ぶ
+    let gyoshuSel = '';    // 選択中の業種（空なら全部）
+    let pending = 0;       // 保存中の数
+
+    load();
+
+    // ---------- 通信 ----------
+    async function api(body) {
+      if (!GAS_URL) throw new Error('GAS_URL が未設定');
+      const r = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(body),
+      });
+      const res = await r.json();
+      if (!res.ok) throw new Error(res.error);
+      return res.result;
+    }
+
+    async function load() {
+      const reload = document.getElementById('reloadBtn');
+      if (reload.disabled) return;
+      reload.disabled = true;
+      setStatus('読み込み中...');
+      try {
+        people = (await api({ action: 'list' })).filter(p => p['会社名'] || p['氏名']);
+        people.forEach(p => {
+          p._on = !!p['協力業者'];
+          p._company = String(p['会社名'] || '（会社名なし）').trim();
+          p._gyoshu = p['業種'] || '未分類';
+          p._hay = norm([p['会社名'], p['業種'], p['部署'], p['役職'], p['氏名'], p['ふりがな'], p['電話'], p['携帯'], p['メール']].join(' '));
+        });
+        document.getElementById('main').style.display = 'block';
+        setStatus('');
+        render();
+      } catch (err) {
+        setStatus('読み込めませんでした。更新ボタンで再試行してください。' + err.message, true);
+      } finally { reload.disabled = false; }
+    }
+
+    function setStatus(msg, ng) {
+      const s = document.getElementById('status');
+      s.textContent = msg;
+      s.className = ng ? 'ng' : '';
+    }
+
+    // ---------- 表示 ----------
+    // 全角半角・大小・カタカナひらがな・空白ハイフン括弧をそろえる
+    function norm(s) {
+      return String(s || '').normalize('NFKC').toLowerCase()
+        .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+        .replace(/[\s\-‐‑–—−ー()（）]/g, '');
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('tabList').className = m === 'list' ? 'on' : '';
+      document.getElementById('tabPick').className = m === 'pick' ? 'on' : '';
+      document.getElementById('tabList').setAttribute('aria-selected', m === 'list');
+      document.getElementById('tabPick').setAttribute('aria-selected', m === 'pick');
+      gyoshuSel = '';
+      render();
+    }
+
+    function pickGyoshu(g) {
+      gyoshuSel = (gyoshuSel === g) ? '' : g;
+      render();
+    }
+
+    function render() {
+      const base = mode === 'list' ? people.filter(p => p._on) : people;
+
+      // 業種ボタン（多い順、その他・未分類は後ろ）
+      const count = {};
+      base.forEach(p => count[p._gyoshu] = (count[p._gyoshu] || 0) + 1);
+      const gyoshuList = Object.keys(count).sort((a, b) => gyoshuRank(a) - gyoshuRank(b) || count[b] - count[a]);
+      if (gyoshuSel && !count[gyoshuSel]) gyoshuSel = '';
+      const chip = (g, label) =>
+        `<button class="${gyoshuSel === g ? 'on' : ''}" aria-pressed="${gyoshuSel === g}" data-g="${esc(g)}" onclick="pickGyoshu(this.dataset.g)">${esc(label)}</button>`;
+      document.getElementById('chips').innerHTML =
+        chip('', `すべて ${base.length}`) + gyoshuList.map(g => chip(g, `${g} ${count[g]}`)).join('');
+
+      // 絞り込み
+      const words = document.getElementById('q').value.trim().split(/[\s　]+/).map(norm).filter(Boolean);
+      const hit = base.filter(p => (!gyoshuSel || p._gyoshu === gyoshuSel) && words.every(w => p._hay.includes(w)));
+
+      // 業種 → 会社 でまとめる
+      const groups = {};
+      hit.forEach(p => {
+        const g = groups[p._gyoshu] || (groups[p._gyoshu] = {});
+        (g[p._company] || (g[p._company] = [])).push(p);
+      });
+
+      const nCompany = Object.values(groups).reduce((n, g) => n + Object.keys(g).length, 0);
+      document.getElementById('count').textContent = mode === 'list'
+        ? `${nCompany}社 ${hit.length}人`
+        : `${hit.length}人中 ${hit.filter(p => p._on).length}人を選択中`;
+
+      const html = gyoshuList.filter(g => groups[g]).map(g => {
+        const companies = Object.keys(groups[g]).sort((a, b) => a.localeCompare(b, 'ja'));
+        return `<section class="group">
+          <h2 class="groupTitle">${esc(g)}<span>${companies.length}社</span></h2>
+          ${mode === 'list' ? '<div class="colHead"><div>担当</div><div>電話</div><div>メール</div></div>' : ''}
+          ${companies.map(c => mode === 'list' ? companyHtml(c, groups[g][c]) : pickHtml(c, groups[g][c])).join('')}
+        </section>`;
+      }).join('');
+
+      document.getElementById('list').innerHTML = html || emptyHtml(base.length);
+
+      // 会社まとめチェックの「一部だけ選択中」表示
+      document.querySelectorAll('input[data-mixed="1"]').forEach(el => el.indeterminate = true);
+    }
+
+    function gyoshuRank(g) { return g === '未分類' ? 2 : g === 'その他' ? 1 : 0; }
+
+    function emptyHtml(baseCount) {
+      if (mode === 'list' && !people.some(p => p._on)) {
+        return '<div class="empty"><strong>まだ協力業者がありません</strong>「名刺から選ぶ」でチェックすると、ここに載ります。</div>';
+      }
+      if (!baseCount) return '<div class="empty"><strong>名刺がありません</strong>名刺検索ツールで名刺を登録してください。</div>';
+      return '<div class="empty"><strong>一致するものがありません</strong>キーワードや業種を変えてください。</div>';
+    }
+
+    // 一覧の会社カード
+    function companyHtml(company, list) {
+      return `<div class="company"><div class="companyName">${esc(company)}</div>${list.map(personHtml).join('')}</div>`;
+    }
+
+    function personHtml(p) {
+      const pos = [p['部署'], p['役職']].filter(Boolean).join('　');
+      const tels = splitNums(p['携帯']).map(n => telLink(n, '携帯'))
+        .concat(splitNums(p['電話']).map(n => telLink(n, '電話')));
+      const mails = String(p['メール'] || '').split('/').map(s => s.trim()).filter(Boolean)
+        .map(m => `<a href="mailto:${esc(m)}">✉ ${esc(m)}</a>`);
+      return `<div class="person">
+        <div class="who">${pos ? `<span class="pos">${esc(pos)}</span>` : ''}<b>${esc(p['氏名'] || '（氏名なし）')}</b></div>
+        <div class="links">${tels.join('') || '<span class="noData">電話なし</span>'}</div>
+        <div class="links">${mails.join('') || '<span class="noData">メールなし</span>'}</div>
+      </div>`;
+    }
+
+    function telLink(n, label) {
+      return `<a href="tel:${esc(n.tel)}" aria-label="${label} ${esc(n.text)}に電話">☎ ${esc(n.text)} <small>${label}</small></a>`;
+    }
+
+    // 「03-1234-5678 / 043-...」を1つずつに分ける
+    function splitNums(s) {
+      return String(s || '').split('/').map(x => x.trim())
+        .map(x => ({ text: x, tel: x.replace(/[^\d+]/g, '') }))
+        .filter(x => x.tel.length >= 6);
+    }
+
+    // 選ぶ画面の会社カード
+    function pickHtml(company, list) {
+      const rows = list.map(p => p._row).join(',');
+      const nOn = list.filter(p => p._on).length;
+      const all = nOn === list.length;
+      return `<div class="company ${nOn ? 'picked' : ''}">
+        <label class="check all"><input type="checkbox" data-rows="${rows}" ${all ? 'checked' : ''} data-mixed="${nOn && !all ? 1 : 0}" onchange="toggle(this)">
+          <span>${esc(company)}</span></label>
+        ${list.map(p => `<label class="check one"><input type="checkbox" data-rows="${p._row}" ${p._on ? 'checked' : ''} onchange="toggle(this)">
+          <span>${esc(p['氏名'] || '（氏名なし）')} <span class="pos">${esc(p['役職'] || '')}</span></span></label>`).join('')}
+      </div>`;
+    }
+
+    // ---------- チェックの保存 ----------
+    async function toggle(el) {
+      const on = el.checked;
+      const rows = el.dataset.rows.split(',').map(Number);
+      const targets = people.filter(p => rows.includes(Number(p._row)) && p._on !== on);
+      if (!targets.length) return;
+      targets.forEach(p => p._on = on);
+      render();
+      setSaving(+1);
+      try {
+        const res = await api({
+          action: 'toggle', on: on,
+          items: targets.map(p => ({ row: p._row, name: p['氏名'], company: p['会社名'] })),
+        });
+        setSaving(-1);
+        if (res.skipped) {
+          setSaving(0, `${res.skipped}件はシートの並びが変わっていたので保存できませんでした。読み直します`);
+          load();
+        }
+      } catch (err) {
+        targets.forEach(p => p._on = !on);
+        render();
+        setSaving(-1, '保存できませんでした: ' + err.message);
+      }
+    }
+
+    function setSaving(d, ngMsg) {
+      pending += d;
+      const s = document.getElementById('saving');
+      if (ngMsg) { s.textContent = ngMsg; s.className = 'ng'; return; }
+      if (s.className === 'ng' && !pending) return;
+      s.className = '';
+      s.textContent = pending ? '保存中…' : '保存しました';
+    }
+  </script>
+</body>
+</html>
