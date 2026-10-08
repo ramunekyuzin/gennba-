@@ -204,27 +204,71 @@
       return res.result;
     }
 
+    // 前回のデータがあれば先に表示して、裏で最新を取ってきて差し替える
     async function load() {
       const reload = document.getElementById('reloadBtn');
       if (reload.disabled) return;
       reload.disabled = true;
-      setStatus('読み込み中...');
+      if (!people.length) {
+        const cached = readCache();
+        if (cached) { applyData(cached); showMain(); }
+      }
+      if (people.length) reload.textContent = '↻ 確認中…';
+      else setStatus('読み込み中...');
       try {
         const res = await api({ action: 'list' });
-        customGyoshu = res.gyoshu || [];
-        people = res.people.filter(p => p['会社名'] || p['氏名']);
-        people.forEach(p => {
-          p._company = String(p['会社名'] || '（会社名なし）').trim();
-          p._meishiGyoshu = p['業種'] || '未分類';
-          p._hay = norm([p['会社名'], p['業種'], p['部署'], p['役職'], p['氏名'], p['ふりがな'], p['電話'], p['携帯'], p['メール']].join(' '));
-          applyFlag(p, p['協力業者']);
-        });
-        document.getElementById('main').style.display = 'block';
-        setStatus('');
-        render();
+        if (!pending) {   // 保存中なら、保存し終わるまで手元の状態を優先する
+          applyData(res);
+          writeCache();
+          showMain();
+        }
       } catch (err) {
-        setStatus('読み込めませんでした。更新ボタンで再試行してください。' + err.message, true);
-      } finally { reload.disabled = false; }
+        if (people.length) setSaving(0, '最新を読み込めませんでした（前回のデータを表示中）: ' + err.message);
+        else setStatus('読み込めませんでした。更新ボタンで再試行してください。' + err.message, true);
+      } finally {
+        reload.disabled = false;
+        reload.textContent = '↻ 更新';
+      }
+    }
+
+    function applyData(res) {
+      customGyoshu = res.gyoshu || [];
+      people = res.people.filter(p => p['会社名'] || p['氏名']);
+      people.forEach(p => {
+        p._company = String(p['会社名'] || '（会社名なし）').trim();
+        p._meishiGyoshu = p['業種'] || '未分類';
+        p._hay = norm([p['会社名'], p['業種'], p['部署'], p['役職'], p['氏名'], p['ふりがな'], p['電話'], p['携帯'], p['メール']].join(' '));
+        applyFlag(p, p['協力業者']);
+      });
+    }
+
+    function showMain() {
+      document.getElementById('main').style.display = 'block';
+      setStatus('');
+      render();
+    }
+
+    // ---------- 前回のデータ（この端末のブラウザに保存） ----------
+    const CACHE_KEY = 'kyoryoku-cache';
+
+    function readCache() {
+      try {
+        const c = JSON.parse(localStorage.getItem(CACHE_KEY));
+        return c && Array.isArray(c.people) ? c : null;
+      } catch (e) { return null; }
+    }
+
+    // 画面の今の状態（チェック・業種の変更後）を保存する
+    function writeCache() {
+      try {
+        const out = people.map(p => {
+          const o = {};
+          Object.keys(p).forEach(k => { if (k[0] !== '_' || k === '_row') o[k] = p[k]; });
+          o['協力業者'] = p._flag;
+          return o;
+        });
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ people: out, gyoshu: customGyoshu }));
+      } catch (e) { /* 保存できなくても動作には関係ない */ }
     }
 
     // 「協力業者」列の値から、一覧での業種を決める
@@ -430,6 +474,7 @@
           items: targets.map(p => ({ row: p._row, name: p['氏名'], company: p['会社名'] })),
         });
         setSaving(-1);
+        writeCache();
         if (res.skipped) {
           setSaving(0, `${res.skipped}件はシートの並びが変わっていたので保存できませんでした。読み直します`);
           load();
@@ -462,6 +507,7 @@
         customGyoshu = await api({ action: 'addGyoshu', name: name });
         input.value = '';
         setSaving(-1);
+        writeCache();
         gyoshuSel = '';
         render();
       } catch (err) {
@@ -475,6 +521,7 @@
       try {
         customGyoshu = await api({ action: 'deleteGyoshu', name: name });
         setSaving(-1);
+        writeCache();
         render();
       } catch (err) {
         btn.disabled = false;
