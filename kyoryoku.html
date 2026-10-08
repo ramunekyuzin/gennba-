@@ -70,6 +70,17 @@
       border: none; border-radius: 12px; background: var(--main); color: var(--mainText);
     }
     .dragTip { font-size: 14px; color: var(--sub); margin-bottom: 4px; }
+    #exportBtn {
+      width: 100%; min-height: 50px; margin: 4px 0 6px; padding: 8px 16px; font-size: 16px; font-weight: bold;
+      border-radius: 12px; background: var(--card); color: var(--ok); border: 2px solid var(--ok);
+    }
+    .boss {
+      min-height: 44px; padding: 6px 12px; font-size: 14px; border-radius: 10px; white-space: nowrap;
+      background: transparent; color: var(--sub); border: 1px solid var(--line);
+    }
+    .boss.on { background: var(--ok); color: #fff; border-color: var(--ok); font-weight: bold; }
+    .who { display: flex; align-items: center; gap: 10px; }
+    .who > div { flex: 1; min-width: 0; }
 
     #status { text-align: center; margin: 16px 0; color: var(--sub); }
     #status.ng { color: var(--ng); }
@@ -85,11 +96,12 @@
     .groupTitle {
       font-size: 18px; font-weight: bold; padding: 4px 4px 8px; display: flex; align-items: center; gap: 8px;
     }
-    .groupTitle span { font-size: 14px; font-weight: normal; color: var(--sub); }
+    .groupTitle span { font-size: 14px; font-weight: normal; color: var(--sub); margin-right: auto; }
     .groupTitle button {
-      margin-left: auto; min-height: 40px; padding: 4px 14px; font-size: 14px; border-radius: 10px;
+      min-height: 44px; padding: 4px 14px; font-size: 14px; border-radius: 10px;
       background: transparent; color: var(--ng); border: 1px solid var(--line);
     }
+    .groupTitle button.rename { color: var(--main); }
     .dropHint {
       border: 2px dashed var(--line); border-radius: 14px; padding: 20px 12px;
       text-align: center; color: var(--sub); background: var(--card);
@@ -172,6 +184,7 @@
         <button id="addGyoshuBtn" onclick="addGyoshu()">＋ 追加</button>
       </div>
       <p class="dragTip">会社の「⠿」をつまんで上の業種ボタンへドラッグすると、その業種に入ります（一覧では業種の枠でもOK。選ぶ画面ではチェックも付きます）。</p>
+      <button id="exportBtn" onclick="exportExcel()">📥 エクセル出力（工事名・業種名・会社名・責任者名）</button>
     </div>
     <div id="list"></div>
   </div>
@@ -186,6 +199,8 @@
     const FLAG_ON = '○';   // 協力業者だけど、まだ業種に入れていない
     const UNSORTED = '未振り分け';
     const CACHE_KEY = 'kyoryoku-cache';   // 前回のデータの保存名
+    const KOJI_KEY = 'kyoryoku-koji';     // 前回入れた工事名の保存名
+    const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 
     let people = [];       // 名刺1枚 = 1人
     let customGyoshu = []; // 自分たちで追加した業種
@@ -244,6 +259,7 @@
         p._company = String(p['会社名'] || '（会社名なし）').trim();
         p._hay = norm([p['会社名'], p['業種'], p['部署'], p['役職'], p['氏名'], p['ふりがな'], p['電話'], p['携帯'], p['メール']].join(' '));
         applyFlag(p, p['協力業者']);
+        p._boss = !!p['責任者'];
       });
       groupCompanies();
     }
@@ -309,6 +325,7 @@
           const o = {};
           Object.keys(p).forEach(k => { if (k[0] !== '_' || k === '_row') o[k] = p[k]; });
           o['協力業者'] = p._flag;
+          o['責任者'] = p._boss ? FLAG_ON : '';
           return o;
         });
         localStorage.setItem(CACHE_KEY, JSON.stringify({ people: out, gyoshu: customGyoshu }));
@@ -392,6 +409,7 @@
         document.getElementById('list').innerHTML =
           companies.map(c => pickHtml(c, byCompany[c])).join('') || emptyHtml(base.length);
         document.querySelectorAll('input[data-mixed="1"]').forEach(el => el.indeterminate = true);
+        document.getElementById('exportBtn').style.display = 'none';
         return;
       }
 
@@ -413,7 +431,9 @@
         const companies = Object.keys(groups[g] || {}).sort(cmpCompany);
         const canDelete = custom.includes(g) && !count[g];
         return `<section class="group" data-g="${esc(g)}">
-          <h2 class="groupTitle">${esc(g)}<span>${companies.length}社</span>${canDelete ? `<button data-g="${esc(g)}" onclick="deleteGyoshu(this.dataset.g, this)">削除</button>` : ''}</h2>
+          <h2 class="groupTitle">${esc(g)}<span>${companies.length}社</span>
+            ${custom.includes(g) ? `<button class="rename" data-g="${esc(g)}" onclick="renameGyoshu(this.dataset.g, this)">名前変更</button>` : ''}
+            ${canDelete ? `<button data-g="${esc(g)}" onclick="deleteGyoshu(this.dataset.g, this)">削除</button>` : ''}</h2>
           ${companies.length ? '<div class="colHead"><div>担当</div><div>携帯</div><div>メール</div></div>' : ''}
           ${companies.length
             ? companies.map(c => companyHtml(g, c, groups[g][c])).join('')
@@ -422,6 +442,7 @@
       }).join('');
 
       document.getElementById('list').innerHTML = html || emptyHtml(base.length);
+      document.getElementById('exportBtn').style.display = '';
 
       // 会社まとめチェックの「一部だけ選択中」表示
       document.querySelectorAll('input[data-mixed="1"]').forEach(el => el.indeterminate = true);
@@ -460,7 +481,8 @@
       const mails = String(p['メール'] || '').split('/').map(s => s.trim()).filter(Boolean)
         .map(m => `<a href="mailto:${esc(m)}">✉ ${esc(m)}</a>`);
       return `<div class="person">
-        <div class="who">${pos ? `<span class="pos">${esc(pos)}</span>` : ''}<b>${esc(p['氏名'] || '（氏名なし）')}</b></div>
+        <div class="who"><div>${pos ? `<span class="pos">${esc(pos)}</span>` : ''}<b>${esc(p['氏名'] || '（氏名なし）')}</b></div>
+          <button class="boss ${p._boss ? 'on' : ''}" aria-pressed="${p._boss}" onclick="toggleBoss(${Number(p._row)})">${p._boss ? '★責任者' : '☆責任者'}</button></div>
         <div class="links">${tels.join('') || '<span class="noData">携帯なし</span>'}</div>
         <div class="links">${mails.join('') || '<span class="noData">メールなし</span>'}</div>
       </div>`;
@@ -521,14 +543,18 @@
       if (targets.length) save(targets, to === UNSORTED ? FLAG_ON : to);
     }
 
-    async function save(targets, value) {
-      const prev = targets.map(p => p._flag);
-      targets.forEach(p => applyFlag(p, value));
+    // field: '協力業者'（業種）か '責任者'
+    async function save(targets, value, field) {
+      field = field || '協力業者';
+      const get = p => field === '責任者' ? (p._boss ? FLAG_ON : '') : p._flag;
+      const set = (p, v) => field === '責任者' ? (p._boss = !!v) : applyFlag(p, v);
+      const prev = targets.map(get);
+      targets.forEach(p => set(p, value));
       render();
       setSaving(+1);
       try {
         const res = await api({
-          action: 'set', value: value,
+          action: 'set', field: field, value: value,
           items: targets.map(p => ({ row: p._row, name: p['氏名'], company: p['会社名'] })),
         });
         setSaving(-1);
@@ -538,10 +564,20 @@
           load();
         }
       } catch (err) {
-        targets.forEach((p, i) => applyFlag(p, prev[i]));
+        targets.forEach((p, i) => set(p, prev[i]));
         render();
         setSaving(-1, '保存できませんでした: ' + err.message);
       }
+    }
+
+    // 責任者は1社に1人。押した人を責任者にして、同じ会社のほかの人は外す（もう一度押すと外れる）
+    function toggleBoss(row) {
+      const p = people.find(x => Number(x._row) === Number(row));
+      if (!p) return;
+      if (p._boss) { save([p], '', '責任者'); return; }
+      const others = people.filter(x => x._boss && x._company === p._company && x !== p);
+      if (others.length) save(others, '', '責任者');
+      save([p], FLAG_ON, '責任者');
     }
 
     function setSaving(d, ngMsg) {
@@ -553,7 +589,7 @@
       s.textContent = pending ? '保存中…' : '保存しました';
     }
 
-    // ---------- 業種の追加・削除 ----------
+    // ---------- 業種の追加・名前変更・削除 ----------
     async function addGyoshu() {
       const input = document.getElementById('newGyoshu');
       const name = input.value.trim();
@@ -574,6 +610,30 @@
       } finally { btn.disabled = false; }
     }
 
+    async function renameGyoshu(from, btn) {
+      const input = prompt(`「${from}」の新しい名前`, from);
+      if (input == null) return;
+      const to = input.trim();
+      if (!to || to === from) return;
+      if (to === UNSORTED || to === FLAG_ON) { setSaving(0, `「${to}」は業種名に使えません`); return; }
+      if (to.length > 30) { setSaving(0, '業種名は30文字までにしてください'); return; }
+      if (customGyoshu.includes(to) && !confirm(`「${to}」はもうあります。「${from}」の会社を「${to}」にまとめますか？`)) return;
+      btn.disabled = true;
+      setSaving(+1);
+      try {
+        const res = await api({ action: 'renameGyoshu', from: from, to: to });
+        customGyoshu = res.gyoshu;
+        people.forEach(p => { if (p._flag === from) applyFlag(p, to); });
+        if (gyoshuSel === from) gyoshuSel = to;
+        setSaving(-1);
+        writeCache();
+        render();
+      } catch (err) {
+        btn.disabled = false;
+        setSaving(-1, '名前を変えられませんでした: ' + err.message);
+      }
+    }
+
     async function deleteGyoshu(name, btn) {
       btn.disabled = true;
       setSaving(+1);
@@ -586,6 +646,65 @@
         btn.disabled = false;
         setSaving(-1, '削除できませんでした: ' + err.message);
       }
+    }
+
+    // ---------- エクセル出力 ----------
+    // 業種に入れた会社だけ、一覧と同じ順番で「工事名・業種名・会社名・責任者名」を出す
+    async function exportExcel() {
+      const byGyoshu = {};
+      people.filter(p => p._on && p._gyoshu !== UNSORTED).forEach(p => {
+        const g = byGyoshu[p._gyoshu] || (byGyoshu[p._gyoshu] = {});
+        (g[p._company] || (g[p._company] = [])).push(p);
+      });
+      const order = customGyoshu.concat(Object.keys(byGyoshu).filter(g => !customGyoshu.includes(g)))
+        .filter(g => byGyoshu[g]);
+      if (!order.length) { setSaving(0, '業種に入れた会社がないので、出力できるものがありません'); return; }
+
+      let koji = '';
+      try { koji = localStorage.getItem(KOJI_KEY) || ''; } catch (e) { /* なくてもOK */ }
+      const input = prompt('工事名を入れてください', koji);
+      if (input == null) return;
+      koji = input.trim();
+      try { localStorage.setItem(KOJI_KEY, koji); } catch (e) { /* なくてもOK */ }
+
+      // 責任者: 選んだ人 → いなければチェックが1人だけならその人 → それ以外は空欄
+      const rows = [['工事名', '業種名', '会社名', '責任者名']];
+      const noBoss = [];
+      order.forEach(g => Object.keys(byGyoshu[g]).sort(cmpCompany).forEach(c => {
+        const list = byGyoshu[g][c];
+        const boss = list.find(p => p._boss) || (list.length === 1 ? list[0] : null);
+        if (!boss) noBoss.push(c);
+        rows.push([koji, g, c, boss ? boss['氏名'] : '']);
+      }));
+      if (noBoss.length && !confirm(`責任者が決まっていない会社が${noBoss.length}社あります（${noBoss.slice(0, 3).join('、')}${noBoss.length > 3 ? ' など' : ''}）。\n責任者名を空欄のまま出力しますか？`)) return;
+
+      const btn = document.getElementById('exportBtn');
+      btn.disabled = true;
+      try {
+        await loadXlsx();
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{ wch: 30 }, { wch: 16 }, { wch: 34 }, { wch: 16 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '協力業者一覧');
+        const d = new Date();
+        const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+        const safe = s => s.replace(/[\\/:*?"<>|]/g, '').slice(0, 40);
+        XLSX.writeFile(wb, `協力業者一覧${koji ? '_' + safe(koji) : ''}_${ymd}.xlsx`);
+      } catch (err) {
+        setSaving(0, 'エクセルを作れませんでした: ' + err.message);
+      } finally { btn.disabled = false; }
+    }
+
+    // エクセル用のライブラリは、出力するときだけ読み込む（開くのが遅くならないように）
+    function loadXlsx() {
+      if (window.XLSX) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = XLSX_URL;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('ライブラリを読み込めませんでした（電波を確認してください）'));
+        document.head.appendChild(s);
+      });
     }
 
     // ---------- ドラッグ（マウス・指どちらでも） ----------
