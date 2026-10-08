@@ -26,6 +26,7 @@
       background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.6;
       max-width: 1120px; margin: 0 auto; padding: 24px 16px calc(40px + env(safe-area-inset-bottom));
     }
+    body.isDragging { user-select: none; -webkit-user-select: none; }
     button, input, a { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     button, a { touch-action: manipulation; }
     button { cursor: pointer; }
@@ -48,7 +49,7 @@
     .tabs button.on { background: var(--main); color: var(--mainText); border-color: var(--main); }
 
     .search { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0 10px; }
-    #q {
+    input[type=search], #newGyoshu {
       width: 100%; height: 54px; padding: 12px 16px; font-size: 16px;
       border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text);
     }
@@ -58,9 +59,17 @@
       border-radius: 999px; background: var(--card); color: var(--text); border: 1px solid var(--line); white-space: nowrap;
     }
     .chips button.on { background: var(--main); color: var(--mainText); border-color: var(--main); }
+    .chips button.over { outline: 3px dashed var(--main); outline-offset: -3px; background: var(--chip); color: var(--chipText); }
     .resultsBar { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 14px; color: var(--sub); }
-    #saving { color: var(--ok); }
+    #saving { color: var(--ok); text-align: right; }
     #saving.ng { color: var(--ng); }
+
+    #addRow { display: flex; gap: 8px; margin: 4px 0 6px; }
+    #addRow button {
+      flex-shrink: 0; min-height: 54px; padding: 8px 16px; font-size: 16px; font-weight: bold;
+      border: none; border-radius: 12px; background: var(--main); color: var(--mainText);
+    }
+    .dragTip { font-size: 14px; color: var(--sub); margin-bottom: 4px; }
 
     #status { text-align: center; margin: 16px 0; color: var(--sub); }
     #status.ng { color: var(--ng); }
@@ -71,35 +80,55 @@
     }
     .empty strong { display: block; color: var(--text); margin-bottom: 4px; }
 
-    .group { margin-top: 18px; }
+    .group { margin-top: 18px; padding: 4px; border-radius: 16px; border: 3px solid transparent; }
+    .group.over { border: 3px dashed var(--main); background: var(--chip); }
     .groupTitle {
       font-size: 18px; font-weight: bold; padding: 4px 4px 8px; display: flex; align-items: center; gap: 8px;
     }
     .groupTitle span { font-size: 14px; font-weight: normal; color: var(--sub); }
+    .groupTitle button {
+      margin-left: auto; min-height: 40px; padding: 4px 14px; font-size: 14px; border-radius: 10px;
+      background: transparent; color: var(--ng); border: 1px solid var(--line);
+    }
+    .dropHint {
+      border: 2px dashed var(--line); border-radius: 14px; padding: 20px 12px;
+      text-align: center; color: var(--sub); background: var(--card);
+    }
     .company {
       background: var(--card); border: 1px solid var(--line); border-radius: 14px;
       padding: 14px 16px; margin-bottom: 10px;
     }
-    .companyName { font-size: 18px; font-weight: bold; overflow-wrap: anywhere; }
+    .companyHead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    .companyName { font-size: 18px; font-weight: bold; overflow-wrap: anywhere; flex: 1 1 auto; min-width: 0; }
+    .grip {
+      flex-shrink: 0; width: 44px; height: 44px; display: grid; place-items: center;
+      font-size: 22px; border-radius: 10px; background: var(--chip); color: var(--chipText);
+      cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+    .company.dragging { opacity: .35; }
+    .ghost {
+      position: fixed; z-index: 50; margin: 0; pointer-events: none; opacity: .92;
+      box-shadow: 0 12px 32px rgba(0,0,0,.25); transform: rotate(-1deg);
+    }
 
     /* 一覧 */
     .person { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
     .who b { font-size: 17px; }
     .who .pos { display: block; font-size: 14px; color: var(--sub); overflow-wrap: anywhere; }
     .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .companyHead .links { margin-top: 0; }
     .links a {
       display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 8px 12px;
       font-size: 16px; border-radius: 10px; text-decoration: none;
       background: var(--chip); color: var(--chipText); overflow-wrap: anywhere;
     }
-    .links a small { font-size: 13px; opacity: .8; }
     .noData { font-size: 14px; color: var(--sub); align-self: center; }
     .colHead { display: none; }
 
     /* 選ぶ */
     .check { display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }
     .check input { width: 26px; height: 26px; flex-shrink: 0; accent-color: var(--main); cursor: pointer; }
-    .check.all { font-size: 18px; font-weight: bold; }
+    .check.all { font-size: 18px; font-weight: bold; flex: 1; min-width: 0; overflow-wrap: anywhere; }
     .check.one { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
     .check.one .pos { font-size: 14px; color: var(--sub); }
     .company.picked { border-color: var(--main); }
@@ -108,10 +137,11 @@
     @media (min-width: 800px) {
       body { padding: 36px 32px 60px; }
       .colHead, .person {
-        display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.3fr); gap: 12px; align-items: center;
+        display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; align-items: center;
       }
       .colHead { font-size: 14px; color: var(--sub); padding: 0 17px 6px; }
-      .links { margin-top: 0; }
+      .person .links { margin-top: 0; }
+      .companyName { flex: 0 1 auto; }
     }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
@@ -132,6 +162,13 @@
       <div class="chips" id="chips"></div>
       <div class="resultsBar"><div id="count" role="status"></div><div id="saving" role="status" aria-live="polite"></div></div>
     </div>
+    <div id="listTools">
+      <div id="addRow">
+        <input id="newGyoshu" maxlength="30" aria-label="新しい業種名" placeholder="新しい業種名（例: 鳶・土工）" enterkeyhint="done" onkeydown="if (event.key === 'Enter') addGyoshu()">
+        <button id="addGyoshuBtn" onclick="addGyoshu()">＋ 追加</button>
+      </div>
+      <p class="dragTip">会社の「⠿」をつまんで、上の業種ボタンか業種の枠へドラッグすると、その業種に入ります（選ぶ画面ではチェックも付きます）。</p>
+    </div>
     <div id="list"></div>
   </div>
 
@@ -142,11 +179,15 @@
     // 協力業者用GAS WebアプリのURL（デプロイ後に貼る）
     // ============================================
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbykkzJKHWbnVt4XeR8o9RjlZmfnZM2lW3nOXqoixe4RYFlPRQA_nZ584puN8l30cyUC/exec';
+    const FLAG_ON = '○';   // 協力業者だけど業種は名刺のまま
 
     let people = [];       // 名刺1枚 = 1人
+    let customGyoshu = []; // 自分たちで追加した業種
     let mode = 'list';     // 'list' 一覧 / 'pick' 名刺から選ぶ
     let gyoshuSel = '';    // 選択中の業種（空なら全部）
     let pending = 0;       // 保存中の数
+    let drag = null;       // ドラッグ中の情報
+    let renderLater = false;
 
     load();
 
@@ -169,12 +210,14 @@
       reload.disabled = true;
       setStatus('読み込み中...');
       try {
-        people = (await api({ action: 'list' })).filter(p => p['会社名'] || p['氏名']);
+        const res = await api({ action: 'list' });
+        customGyoshu = res.gyoshu || [];
+        people = res.people.filter(p => p['会社名'] || p['氏名']);
         people.forEach(p => {
-          p._on = !!p['協力業者'];
           p._company = String(p['会社名'] || '（会社名なし）').trim();
-          p._gyoshu = p['業種'] || '未分類';
+          p._meishiGyoshu = p['業種'] || '未分類';
           p._hay = norm([p['会社名'], p['業種'], p['部署'], p['役職'], p['氏名'], p['ふりがな'], p['電話'], p['携帯'], p['メール']].join(' '));
+          applyFlag(p, p['協力業者']);
         });
         document.getElementById('main').style.display = 'block';
         setStatus('');
@@ -182,6 +225,13 @@
       } catch (err) {
         setStatus('読み込めませんでした。更新ボタンで再試行してください。' + err.message, true);
       } finally { reload.disabled = false; }
+    }
+
+    // 「協力業者」列の値から、一覧での業種を決める
+    function applyFlag(p, v) {
+      p._flag = v || '';
+      p._on = !!p._flag;
+      p._gyoshu = (p._flag && p._flag !== FLAG_ON) ? p._flag : p._meishiGyoshu;
     }
 
     function setStatus(msg, ng) {
@@ -218,41 +268,57 @@
       render();
     }
 
-    function render() {
-      const base = mode === 'list' ? people.filter(p => p._on) : people;
+    // 振り分けた業種（振り分けていなければ名刺の業種）でまとめる
+    function keyOf(p) { return p._gyoshu; }
 
-      // 業種ボタン（多い順、その他・未分類は後ろ）
+    function render() {
+      if (drag) { renderLater = true; return; }
+      const isList = mode === 'list';
+      const base = isList ? people.filter(p => p._on) : people;
+
+      // 業種の並び（追加した業種が先、そのあと多い順。その他・未分類は後ろ）
       const count = {};
-      base.forEach(p => count[p._gyoshu] = (count[p._gyoshu] || 0) + 1);
-      const gyoshuList = Object.keys(count).sort((a, b) => gyoshuRank(a) - gyoshuRank(b) || count[b] - count[a]);
-      if (gyoshuSel && !count[gyoshuSel]) gyoshuSel = '';
+      base.forEach(p => count[keyOf(p)] = (count[keyOf(p)] || 0) + 1);
+      const custom = customGyoshu.slice();
+      const others = Object.keys(count).filter(g => !custom.includes(g))
+        .sort((a, b) => gyoshuRank(a) - gyoshuRank(b) || count[b] - count[a]);
+      const gyoshuList = custom.concat(others);
+      if (gyoshuSel && !gyoshuList.includes(gyoshuSel)) gyoshuSel = '';
+
       const chip = (g, label) =>
         `<button class="${gyoshuSel === g ? 'on' : ''}" aria-pressed="${gyoshuSel === g}" data-g="${esc(g)}" onclick="pickGyoshu(this.dataset.g)">${esc(label)}</button>`;
       document.getElementById('chips').innerHTML =
-        chip('', `すべて ${base.length}`) + gyoshuList.map(g => chip(g, `${g} ${count[g]}`)).join('');
+        chip('', `すべて ${base.length}`) + gyoshuList.map(g => chip(g, `${g} ${count[g] || 0}`)).join('');
 
       // 絞り込み
       const words = document.getElementById('q').value.trim().split(/[\s　]+/).map(norm).filter(Boolean);
-      const hit = base.filter(p => (!gyoshuSel || p._gyoshu === gyoshuSel) && words.every(w => p._hay.includes(w)));
+      const hit = base.filter(p => (!gyoshuSel || keyOf(p) === gyoshuSel) && words.every(w => p._hay.includes(w)));
 
       // 業種 → 会社 でまとめる
       const groups = {};
       hit.forEach(p => {
-        const g = groups[p._gyoshu] || (groups[p._gyoshu] = {});
+        const g = groups[keyOf(p)] || (groups[keyOf(p)] = {});
         (g[p._company] || (g[p._company] = [])).push(p);
       });
 
       const nCompany = Object.values(groups).reduce((n, g) => n + Object.keys(g).length, 0);
-      document.getElementById('count').textContent = mode === 'list'
+      document.getElementById('count').textContent = isList
         ? `${nCompany}社 ${hit.length}人`
         : `${hit.length}人中 ${hit.filter(p => p._on).length}人を選択中`;
 
-      const html = gyoshuList.filter(g => groups[g]).map(g => {
-        const companies = Object.keys(groups[g]).sort((a, b) => a.localeCompare(b, 'ja'));
-        return `<section class="group">
-          <h2 class="groupTitle">${esc(g)}<span>${companies.length}社</span></h2>
-          ${mode === 'list' ? '<div class="colHead"><div>担当</div><div>電話</div><div>メール</div></div>' : ''}
-          ${companies.map(c => mode === 'list' ? companyHtml(c, groups[g][c]) : pickHtml(c, groups[g][c])).join('')}
+      // 追加した業種は空でも枠を出す（ドラッグの行き先になる）。検索中は出さない
+      const show = gyoshuList.filter(g => groups[g] ||
+        (custom.includes(g) && !words.length && (!gyoshuSel || gyoshuSel === g)));
+
+      const html = show.map(g => {
+        const companies = Object.keys(groups[g] || {}).sort((a, b) => a.localeCompare(b, 'ja'));
+        const canDelete = custom.includes(g) && !count[g];
+        return `<section class="group" data-g="${esc(g)}">
+          <h2 class="groupTitle">${esc(g)}<span>${companies.length}社</span>${canDelete ? `<button data-g="${esc(g)}" onclick="deleteGyoshu(this.dataset.g, this)">削除</button>` : ''}</h2>
+          ${isList && companies.length ? '<div class="colHead"><div>担当</div><div>携帯</div><div>メール</div></div>' : ''}
+          ${companies.length
+            ? companies.map(c => isList ? companyHtml(g, c, groups[g][c]) : pickHtml(g, c, groups[g][c])).join('')
+            : '<div class="dropHint">ここに会社をドラッグ</div>'}
         </section>`;
       }).join('');
 
@@ -272,26 +338,37 @@
       return '<div class="empty"><strong>一致するものがありません</strong>キーワードや業種を変えてください。</div>';
     }
 
-    // 一覧の会社カード
-    function companyHtml(company, list) {
-      return `<div class="company"><div class="companyName">${esc(company)}</div>${list.map(personHtml).join('')}</div>`;
+    // 一覧の会社カード（会社の電話は会社名の横に1回だけ）
+    function companyHtml(g, company, list) {
+      const seen = new Set();
+      const tels = [];
+      list.forEach(p => splitNums(p['電話']).forEach(n => {
+        if (!seen.has(n.tel)) { seen.add(n.tel); tels.push(telLink(n)); }
+      }));
+      return `<div class="company" data-g="${esc(g)}" data-c="${esc(company)}">
+        <div class="companyHead">
+          <span class="grip" role="img" aria-label="ドラッグして業種を移動" onpointerdown="dragStart(event, this)">⠿</span>
+          <div class="companyName">${esc(company)}</div>
+          ${tels.length ? `<div class="links">${tels.join('')}</div>` : ''}
+        </div>
+        ${list.map(personHtml).join('')}
+      </div>`;
     }
 
     function personHtml(p) {
       const pos = [p['部署'], p['役職']].filter(Boolean).join('　');
-      const tels = splitNums(p['携帯']).map(n => telLink(n, '携帯'))
-        .concat(splitNums(p['電話']).map(n => telLink(n, '電話')));
+      const tels = splitNums(p['携帯']).map(telLink);
       const mails = String(p['メール'] || '').split('/').map(s => s.trim()).filter(Boolean)
         .map(m => `<a href="mailto:${esc(m)}">✉ ${esc(m)}</a>`);
       return `<div class="person">
         <div class="who">${pos ? `<span class="pos">${esc(pos)}</span>` : ''}<b>${esc(p['氏名'] || '（氏名なし）')}</b></div>
-        <div class="links">${tels.join('') || '<span class="noData">電話なし</span>'}</div>
+        <div class="links">${tels.join('') || '<span class="noData">携帯なし</span>'}</div>
         <div class="links">${mails.join('') || '<span class="noData">メールなし</span>'}</div>
       </div>`;
     }
 
-    function telLink(n, label) {
-      return `<a href="tel:${esc(n.tel)}" aria-label="${label} ${esc(n.text)}に電話">☎ ${esc(n.text)} <small>${label}</small></a>`;
+    function telLink(n) {
+      return `<a href="tel:${esc(n.tel)}" aria-label="${esc(n.text)}に電話">☎ ${esc(n.text)}</a>`;
     }
 
     // 「03-1234-5678 / 043-...」を1つずつに分ける
@@ -302,30 +379,54 @@
     }
 
     // 選ぶ画面の会社カード
-    function pickHtml(company, list) {
+    function pickHtml(g, company, list) {
       const rows = list.map(p => p._row).join(',');
       const nOn = list.filter(p => p._on).length;
       const all = nOn === list.length;
-      return `<div class="company ${nOn ? 'picked' : ''}">
-        <label class="check all"><input type="checkbox" data-rows="${rows}" ${all ? 'checked' : ''} data-mixed="${nOn && !all ? 1 : 0}" onchange="toggle(this)">
-          <span>${esc(company)}</span></label>
+      return `<div class="company ${nOn ? 'picked' : ''}" data-g="${esc(g)}" data-c="${esc(company)}">
+        <div class="companyHead">
+          <span class="grip" role="img" aria-label="ドラッグして業種に入れる" onpointerdown="dragStart(event, this)">⠿</span>
+          <label class="check all"><input type="checkbox" data-rows="${rows}" ${all ? 'checked' : ''} data-mixed="${nOn && !all ? 1 : 0}" onchange="toggle(this)">
+            <span>${esc(company)}</span></label>
+        </div>
         ${list.map(p => `<label class="check one"><input type="checkbox" data-rows="${p._row}" ${p._on ? 'checked' : ''} onchange="toggle(this)">
           <span>${esc(p['氏名'] || '（氏名なし）')} <span class="pos">${esc(p['役職'] || '')}</span></span></label>`).join('')}
       </div>`;
     }
 
-    // ---------- チェックの保存 ----------
-    async function toggle(el) {
+    // ---------- 保存 ----------
+    // 選ぶ画面のチェック。同じ会社がもう業種に振り分け済みなら、その業種に入れる
+    function toggle(el) {
       const on = el.checked;
       const rows = el.dataset.rows.split(',').map(Number);
       const targets = people.filter(p => rows.includes(Number(p._row)) && p._on !== on);
       if (!targets.length) return;
-      targets.forEach(p => p._on = on);
+      const byCompany = {};
+      targets.forEach(p => {
+        let v = '';
+        if (on) {
+          const mate = people.find(m => m._on && m._company === p._company && m._flag !== FLAG_ON);
+          v = mate ? mate._flag : FLAG_ON;
+        }
+        (byCompany[v] || (byCompany[v] = [])).push(p);
+      });
+      Object.keys(byCompany).forEach(v => save(byCompany[v], v));
+    }
+
+    // 会社を別の業種へ移す（選ぶ画面ではチェックしていない人もまとめてチェックして入れる）
+    function moveCompany(from, company, to) {
+      const targets = people.filter(p => (mode === 'pick' || p._on) && p._gyoshu === from && p._company === company);
+      if (targets.length) save(targets, to);
+    }
+
+    async function save(targets, value) {
+      const prev = targets.map(p => p._flag);
+      targets.forEach(p => applyFlag(p, value));
       render();
       setSaving(+1);
       try {
         const res = await api({
-          action: 'toggle', on: on,
+          action: 'set', value: value,
           items: targets.map(p => ({ row: p._row, name: p['氏名'], company: p['会社名'] })),
         });
         setSaving(-1);
@@ -334,7 +435,7 @@
           load();
         }
       } catch (err) {
-        targets.forEach(p => p._on = !on);
+        targets.forEach((p, i) => applyFlag(p, prev[i]));
         render();
         setSaving(-1, '保存できませんでした: ' + err.message);
       }
@@ -347,6 +448,120 @@
       if (s.className === 'ng' && !pending) return;
       s.className = '';
       s.textContent = pending ? '保存中…' : '保存しました';
+    }
+
+    // ---------- 業種の追加・削除 ----------
+    async function addGyoshu() {
+      const input = document.getElementById('newGyoshu');
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      const btn = document.getElementById('addGyoshuBtn');
+      btn.disabled = true;
+      setSaving(+1);
+      try {
+        customGyoshu = await api({ action: 'addGyoshu', name: name });
+        input.value = '';
+        setSaving(-1);
+        gyoshuSel = '';
+        render();
+      } catch (err) {
+        setSaving(-1, '追加できませんでした: ' + err.message);
+      } finally { btn.disabled = false; }
+    }
+
+    async function deleteGyoshu(name, btn) {
+      btn.disabled = true;
+      setSaving(+1);
+      try {
+        customGyoshu = await api({ action: 'deleteGyoshu', name: name });
+        setSaving(-1);
+        render();
+      } catch (err) {
+        btn.disabled = false;
+        setSaving(-1, '削除できませんでした: ' + err.message);
+      }
+    }
+
+    // ---------- ドラッグ（マウス・指どちらでも） ----------
+    function dragStart(e, grip) {
+      if (e.button > 0 || drag) return;
+      e.preventDefault();
+      const card = grip.closest('.company');
+      const r = card.getBoundingClientRect();
+      const ghost = card.cloneNode(true);
+      ghost.classList.add('ghost');
+      ghost.style.width = r.width + 'px';
+      ghost.style.left = r.left + 'px';
+      ghost.style.top = r.top + 'px';
+      document.body.appendChild(ghost);
+      card.classList.add('dragging');
+      document.body.classList.add('isDragging');
+      drag = {
+        card: card, ghost: ghost, grip: grip, from: card.dataset.g, company: card.dataset.c,
+        dx: e.clientX - r.left, dy: e.clientY - r.top, x: e.clientX, y: e.clientY, over: null,
+        top: document.querySelector('.search').getBoundingClientRect().bottom, // 検索欄の下から自動スクロール
+        timer: setInterval(autoScroll, 16),
+      };
+      grip.setPointerCapture(e.pointerId);
+      grip.onpointermove = dragMove;
+      grip.onpointerup = () => dragEnd(true);
+      grip.onpointercancel = () => dragEnd(false);
+    }
+
+    function dragMove(e) {
+      if (!drag) return;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+      drag.ghost.style.left = (e.clientX - drag.dx) + 'px';
+      drag.ghost.style.top = (e.clientY - drag.dy) + 'px';
+      updateOver();
+    }
+
+    // 指の下にある業種の枠・上の業種ボタンを光らせる（「すべて」ボタンは対象外）
+    function updateOver() {
+      const el = document.elementFromPoint(drag.x, drag.y);
+      const sec = el && (el.closest('.chips button[data-g]:not([data-g=""])') || el.closest('.group'));
+      if (sec === drag.over) return;
+      if (drag.over) drag.over.classList.remove('over');
+      drag.over = (sec && sec.dataset.g !== drag.from) ? sec : null;
+      if (drag.over) drag.over.classList.add('over');
+    }
+
+    // 画面の端に来たら自動でスクロール
+    // 業種ボタンの列の左右の端では、ボタンの列を横にスクロール
+    function autoScroll() {
+      if (!drag) return;
+      const m = 80;
+      const chips = document.getElementById('chips');
+      const cr = chips.getBoundingClientRect();
+      if (drag.y >= cr.top && drag.y <= cr.bottom) {
+        const e = 48;
+        let h = 0;
+        if (drag.x < cr.left + e) h = -8;
+        else if (drag.x > cr.right - e) h = 8;
+        if (h) { chips.scrollLeft += h; updateOver(); }
+        return;
+      }
+      let d = 0;
+      const top = Math.max(drag.top, 0);
+      if (drag.y >= top && drag.y < top + m) d = -Math.ceil((top + m - drag.y) / 6);
+      else if (drag.y > innerHeight - m) d = Math.ceil((drag.y - innerHeight + m) / 6);
+      if (d) { scrollBy(0, d); updateOver(); }
+    }
+
+    function dragEnd(drop) {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      clearInterval(d.timer);
+      d.grip.onpointermove = d.grip.onpointerup = d.grip.onpointercancel = null;
+      d.ghost.remove();
+      d.card.classList.remove('dragging');
+      document.body.classList.remove('isDragging');
+      if (d.over) d.over.classList.remove('over');
+      if (drop && d.over) moveCompany(d.from, d.company, d.over.dataset.g);
+      else if (renderLater) render();
+      renderLater = false;
     }
   </script>
 </body>
