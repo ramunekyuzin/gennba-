@@ -184,7 +184,7 @@
         <button id="addGyoshuBtn" onclick="addGyoshu()">＋ 追加</button>
       </div>
       <p class="dragTip">会社の「⠿」をつまんで上の業種ボタンへドラッグすると、その業種に入ります（一覧では業種の枠でもOK。選ぶ画面ではチェックも付きます）。</p>
-      <button id="exportBtn" onclick="exportExcel()">📥 エクセル出力（工事名・業種名・会社名・責任者名）</button>
+      <button id="exportBtn" onclick="exportExcel()">📥 エクセル出力（工事名・業種名・会社名・責任者名・電話番号）</button>
     </div>
     <div id="list"></div>
   </div>
@@ -649,7 +649,7 @@
     }
 
     // ---------- エクセル出力 ----------
-    // 業種に入れた会社だけ、一覧と同じ順番で「工事名・業種名・会社名・責任者名」を出す
+    // 業種に入れた会社だけ、一覧と同じ順番で「工事名・業種名・会社名・責任者名・電話番号」を出す
     async function exportExcel() {
       const byGyoshu = {};
       people.filter(p => p._on && p._gyoshu !== UNSORTED).forEach(p => {
@@ -668,13 +668,19 @@
       try { localStorage.setItem(KOJI_KEY, koji); } catch (e) { /* なくてもOK */ }
 
       // 責任者: 選んだ人 → いなければチェックが1人だけならその人 → それ以外は空欄
-      const rows = [['工事名', '業種名', '会社名', '責任者名']];
+      // 電話番号は会社の番号（同じ会社の名刺の「電話」から、同じ番号は1つにまとめる）
+      const rows = [['工事名', '業種名', '会社名', '責任者名', '電話番号']];
       const noBoss = [];
       order.forEach(g => Object.keys(byGyoshu[g]).sort(cmpCompany).forEach(c => {
         const list = byGyoshu[g][c];
         const boss = list.find(p => p._boss) || (list.length === 1 ? list[0] : null);
         if (!boss) noBoss.push(c);
-        rows.push([koji, g, c, boss ? boss['氏名'] : '']);
+        const seen = new Set();
+        const tels = [];
+        people.filter(p => p._company === c).forEach(p => splitNums(p['電話']).forEach(n => {
+          if (!seen.has(n.tel)) { seen.add(n.tel); tels.push(n.text); }
+        }));
+        rows.push([koji, g, c, boss ? boss['氏名'] : '', tels.join(' / ')]);
       }));
       if (noBoss.length && !confirm(`責任者が決まっていない会社が${noBoss.length}社あります（${noBoss.slice(0, 3).join('、')}${noBoss.length > 3 ? ' など' : ''}）。\n責任者名を空欄のまま出力しますか？`)) return;
 
@@ -683,7 +689,7 @@
       try {
         await loadXlsx();
         const ws = XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols'] = [{ wch: 30 }, { wch: 16 }, { wch: 34 }, { wch: 16 }];
+        ws['!cols'] = [{ wch: 30 }, { wch: 16 }, { wch: 34 }, { wch: 16 }, { wch: 30 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, '協力業者一覧');
         const d = new Date();
