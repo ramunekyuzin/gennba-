@@ -62,24 +62,12 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
     <div class="brand"><span class="brand-icon" aria-hidden="true">字</span><strong>誤字脱字チェック</strong></div>
     <div class="header-actions">
       <select id="themeMode" aria-label="表示モード"><option value="auto">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select>
-      <button class="gear" onclick="toggle('keyCard')" aria-controls="keyCard">API設定</button>
     </div>
   </header>
 
-  <div class="card" id="keyCard">
-    <h2>API設定</h2>
-    <label for="apiKey">Claude APIキー</label>
-    <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off">
-    <p class="note">キーはこのブラウザだけに保存されます(メール作成ツールと共通)。チェックする文章はClaude APIへ送信されます。</p>
-    <div class="row">
-      <button class="sub" onclick="saveKey()">保存</button>
-      <button class="sub" onclick="clearKey()">削除</button>
-    </div>
-  </div>
-
   <div class="card">
     <h2>チェックする文章</h2>
-    <p class="note">誤字・変換ミス・脱字・重複・表記ゆれを探します。</p>
+    <p class="note">誤字・変換ミス・脱字・重複・表記ゆれを探します。英語の文章はスペル・文法ミスを探します。文章はAI(Claude)に送ってチェックします。1回1万文字まで。</p>
     <label for="src">文章を貼り付け</label>
     <textarea id="src" placeholder="ここに文章を貼り付けてね"></textarea>
     <div class="row">
@@ -106,12 +94,13 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
   <footer class="footer">誤字脱字チェック</footer>
 </main>
 <script>
-const MODEL = 'claude-sonnet-4-6';
-const LS = { key: 'mailgen_apikey', text: 'goji_text' };
+// GASのWebアプリURL(APIキーはGAS側のスクリプトプロパティに置く)
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxOd55-hHVkP138rVpNXQBTRE8azZLFtxAYYRRpr7clzk1LCcr54xycodZOxddGAj4J1g/exec';
+const MAX_CHARS = 10000;
+const LS = { text: 'goji_text' };
 
 function $(id) { return document.getElementById(id); }
 function setStatus(msg, ok) { const el = $('status'); el.textContent = msg; el.className = ok ? 'ok' : 'ng'; }
-function toggle(id) { const el = $(id); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 // ---- 表示設定 ----
@@ -122,21 +111,8 @@ $('themeMode').addEventListener('change',()=>applyDisplay($('themeMode').value))
 // ---- 初期化 ----
 (function init() {
   try { $('src').value = localStorage.getItem(LS.text) || ''; } catch (e) {}
-  if (!getKey()) { $('keyCard').style.display = 'block'; setStatus('まずAPIキーを保存してね', false); }
 })();
 $('src').addEventListener('input', () => { try { localStorage.setItem(LS.text, $('src').value); } catch (e) {} });
-
-// ---- APIキー ----
-function getKey() { try { return localStorage.getItem(LS.key) || ''; } catch (e) { return ''; } }
-function saveKey() {
-  const k = $('apiKey').value.trim();
-  if (!k) { setStatus('キーが空だよ', false); return; }
-  try { localStorage.setItem(LS.key, k); } catch (e) { setStatus('保存できなかった', false); return; }
-  $('apiKey').value = '';
-  $('keyCard').style.display = 'none';
-  setStatus('キー保存したよ', true);
-}
-function clearKey() { try { localStorage.removeItem(LS.key); } catch (e) {} setStatus('キー削除した', true); }
 
 // ---- 入力補助 ----
 async function pasteText() {
@@ -145,43 +121,22 @@ async function pasteText() {
 }
 function clearText() { $('src').value = ''; $('src').dispatchEvent(new Event('input')); $('result').style.display = 'none'; setStatus('', true); }
 
-// ---- チェック ----
-const SYSTEM = [
-  'あなたは日本語の校正者です。渡された文章の誤字脱字だけをチェックします。',
-  '見る項目: 誤字・変換ミス(同音異義語の誤りを含む)、脱字(助詞の抜けなど)、衍字(同じ文字や語の重複)、送り仮名の誤り、文章内の表記ゆれ。',
-  '文体・言い回し・内容の良し悪しは指摘しない。正しい部分は変えない。専門用語や固有名詞は明らかな誤りのときだけ指摘する。',
-  '出力は次のJSONだけ。前後に説明やコードブロックを付けない。',
-  '{"issues":[{"type":"誤字|脱字|重複|送り仮名|表記ゆれ","wrong":"本文中の誤っている部分(本文からそのまま抜き出す、前後数文字を含めて特定できる長さ)","right":"wrongを直したもの","reason":"短い理由"}],"corrected":"全部直した文章(改行は元のまま)"}',
-  '問題がなければ issues は空配列、corrected は元の文章そのまま。'
-].join('\n');
-
+// ---- チェック(GAS経由でClaudeに送る) ----
 async function check() {
-  const key = getKey();
   const text = $('src').value;
-  if (!key) { $('keyCard').style.display = 'block'; setStatus('まずAPIキーを保存してね', false); return; }
+  if (!GAS_URL) { setStatus('GASのURLがまだ設定されていません', false); return; }
   if (!text.trim()) { setStatus('文章を入れてね', false); return; }
+  if (text.length > MAX_CHARS) { setStatus('長すぎるよ(' + text.length + '文字)。' + MAX_CHARS + '文字以内に分けてね', false); return; }
 
   const btn = $('checkBtn');
   btn.disabled = true;
   setStatus('チェック中...', true);
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: MODEL, max_tokens: 8000, system: SYSTEM,
-        messages: [{ role: 'user', content: '次の文章をチェックしてください。\n\n<text>\n' + text + '\n</text>' }],
-      }),
-    });
+    const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ text: text }) });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.error ? json.error.message : res.status);
+    if (!json.ok) throw new Error(json.error || '失敗しました');
 
-    const out = json.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+    const out = json.text || '';
     const clean = out.replace(/```json|```/g, '').trim();
     let parsed;
     try { parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}') + 1)); }
