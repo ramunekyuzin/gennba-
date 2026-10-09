@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>誤字脱字チェック</title>
+<meta name="color-scheme" content="light dark">
+<script>try{var t=localStorage.getItem('gojiTheme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
+<style>
+:root{color-scheme:light;--bg:#f1f3f6;--paper:#fff;--field:#f7f8fa;--ink:#24272e;--muted:#69707d;--line:#dfe3ea;--accent:#2f6fd6;--soft:#e6eefc;--mark:#ffe3a3;--markInk:#5a3d00;--error:#c0392b;--ok:#1f8a4c}
+html[data-theme="dark"]{color-scheme:dark;--bg:#14161b;--paper:#1f222a;--field:#191c23;--ink:#eef1f6;--muted:#a7aebb;--line:#363b47;--accent:#8db4ff;--soft:#26324a;--mark:#6b5216;--markInk:#ffe9b8;--error:#ff9a8f;--ok:#7fd8a2}
+@media(prefers-color-scheme:dark){html:not([data-theme]){color-scheme:dark;--bg:#14161b;--paper:#1f222a;--field:#191c23;--ink:#eef1f6;--muted:#a7aebb;--line:#363b47;--accent:#8db4ff;--soft:#26324a;--mark:#6b5216;--markInk:#ffe9b8;--error:#ff9a8f;--ok:#7fd8a2}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px;color:var(--ink);background:var(--bg);line-height:1.7}
+.app{max-width:760px;margin:auto;padding:20px 16px 40px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--accent);color:var(--paper);font-size:20px;font-weight:700}
+.brand strong{font-size:18px}
+.header-actions{display:flex;gap:6px}
+.header-actions select{width:auto;padding:8px;font-size:16px}
+h2{font-size:18px;margin-bottom:6px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px 16px;margin-top:18px}
+.note{font-size:16px;color:var(--muted);margin:6px 0 12px}
+label{display:block;font-size:16px;font-weight:600;color:var(--muted);margin:0 0 6px}
+input,select,textarea{width:100%;padding:12px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);outline:0}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+textarea{resize:vertical;min-height:220px;line-height:1.8}
+button{font:inherit;font-size:16px;width:100%;min-height:50px;padding:12px 16px;font-weight:700;border:1px solid var(--accent);border-radius:10px;background:var(--accent);color:var(--paper);cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.sub{background:var(--paper);color:var(--ink);border-color:var(--line);font-weight:500}
+.gear{width:auto;min-height:44px;background:var(--paper);border-color:var(--line);color:var(--ink);font-weight:500;padding:8px 12px}
+.row{display:flex;gap:10px;margin-top:10px}
+.row>*{flex:1}
+#checkBtn{margin-top:14px}
+#status{font-size:16px;margin-top:12px;overflow-wrap:anywhere}
+#status:empty{display:none}
+.ok{color:var(--ok)}.ng{color:var(--error)}
+#keyCard,#result{display:none}
+#keyCard{border-left:4px solid var(--accent)}
+.count{font-size:16px;color:var(--muted)}
+.preview{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px;line-height:1.9}
+mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px}
+.issues{list-style:none;margin-top:12px}
+.issue{border-top:1px solid var(--line);padding:12px 0}
+.issue:first-child{border-top:0}
+.tag{display:inline-block;font-size:16px;background:var(--soft);color:var(--accent);border-radius:6px;padding:0 8px;margin-right:6px}
+.fix{font-size:17px;font-weight:700;overflow-wrap:anywhere}
+.fix .from{color:var(--error);text-decoration:line-through}
+.fix .to{color:var(--ok)}
+.reason{color:var(--muted);margin-top:2px}
+.none{color:var(--ok);font-weight:700;margin-top:10px}
+#corrected{margin-top:10px;min-height:180px}
+.footer{text-align:center;font-size:16px;color:var(--muted);margin-top:26px}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-icon" aria-hidden="true">字</span><strong>誤字脱字チェック</strong></div>
+    <div class="header-actions">
+      <select id="themeMode" aria-label="表示モード"><option value="auto">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select>
+      <button class="gear" onclick="toggle('keyCard')" aria-controls="keyCard">API設定</button>
+    </div>
+  </header>
+
+  <div class="card" id="keyCard">
+    <h2>API設定</h2>
+    <label for="apiKey">Claude APIキー</label>
+    <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+    <p class="note">キーはこのブラウザだけに保存されます(メール作成ツールと共通)。チェックする文章はClaude APIへ送信されます。</p>
+    <div class="row">
+      <button class="sub" onclick="saveKey()">保存</button>
+      <button class="sub" onclick="clearKey()">削除</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>チェックする文章</h2>
+    <p class="note">誤字・変換ミス・脱字・重複・表記ゆれを探します。</p>
+    <label for="src">文章を貼り付け</label>
+    <textarea id="src" placeholder="ここに文章を貼り付けてね"></textarea>
+    <div class="row">
+      <button class="sub" onclick="pasteText()">貼り付け</button>
+      <button class="sub" onclick="clearText()">クリア</button>
+    </div>
+    <button id="checkBtn" onclick="check()">チェックする</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="card" id="result">
+    <h2>チェック結果 <span class="count" id="count"></span></h2>
+    <div id="none" class="none" style="display:none">気になるところは見つからなかったよ</div>
+    <ul class="issues" id="issues"></ul>
+    <div id="previewWrap">
+      <h2 style="margin-top:16px">本文(指摘箇所に色付け)</h2>
+      <div class="preview" id="preview"></div>
+    </div>
+    <h2 style="margin-top:16px">直した文章</h2>
+    <textarea id="corrected" aria-label="直した文章"></textarea>
+    <div class="row"><button onclick="copyCorrected(this)">直した文章をコピー</button></div>
+  </div>
+
+  <footer class="footer">誤字脱字チェック</footer>
+</main>
+<script>
+const MODEL = 'claude-sonnet-4-6';
+const LS = { key: 'mailgen_apikey', text: 'goji_text' };
+
+function $(id) { return document.getElementById(id); }
+function setStatus(msg, ok) { const el = $('status'); el.textContent = msg; el.className = ok ? 'ok' : 'ng'; }
+function toggle(id) { const el = $(id); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// ---- 表示設定 ----
+function applyDisplay(t){if(!['auto','light','dark'].includes(t))t='auto';if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=t;$('themeMode').value=t;try{localStorage.setItem('gojiTheme',t);}catch(e){}}
+let savedDisplay='auto';try{savedDisplay=localStorage.getItem('gojiTheme')||'auto';}catch(e){}applyDisplay(savedDisplay);
+$('themeMode').addEventListener('change',()=>applyDisplay($('themeMode').value));
+
+// ---- 初期化 ----
+(function init() {
+  try { $('src').value = localStorage.getItem(LS.text) || ''; } catch (e) {}
+  if (!getKey()) { $('keyCard').style.display = 'block'; setStatus('まずAPIキーを保存してね', false); }
+})();
+$('src').addEventListener('input', () => { try { localStorage.setItem(LS.text, $('src').value); } catch (e) {} });
+
+// ---- APIキー ----
+function getKey() { try { return localStorage.getItem(LS.key) || ''; } catch (e) { return ''; } }
+function saveKey() {
+  const k = $('apiKey').value.trim();
+  if (!k) { setStatus('キーが空だよ', false); return; }
+  try { localStorage.setItem(LS.key, k); } catch (e) { setStatus('保存できなかった', false); return; }
+  $('apiKey').value = '';
+  $('keyCard').style.display = 'none';
+  setStatus('キー保存したよ', true);
+}
+function clearKey() { try { localStorage.removeItem(LS.key); } catch (e) {} setStatus('キー削除した', true); }
+
+// ---- 入力補助 ----
+async function pasteText() {
+  try { $('src').value = await navigator.clipboard.readText(); $('src').dispatchEvent(new Event('input')); }
+  catch (e) { setStatus('貼り付けできなかった。長押しで貼り付けてね', false); }
+}
+function clearText() { $('src').value = ''; $('src').dispatchEvent(new Event('input')); $('result').style.display = 'none'; setStatus('', true); }
+
+// ---- チェック ----
+const SYSTEM = [
+  'あなたは日本語の校正者です。渡された文章の誤字脱字だけをチェックします。',
+  '見る項目: 誤字・変換ミス(同音異義語の誤りを含む)、脱字(助詞の抜けなど)、衍字(同じ文字や語の重複)、送り仮名の誤り、文章内の表記ゆれ。',
+  '文体・言い回し・内容の良し悪しは指摘しない。正しい部分は変えない。専門用語や固有名詞は明らかな誤りのときだけ指摘する。',
+  '出力は次のJSONだけ。前後に説明やコードブロックを付けない。',
+  '{"issues":[{"type":"誤字|脱字|重複|送り仮名|表記ゆれ","wrong":"本文中の誤っている部分(本文からそのまま抜き出す、前後数文字を含めて特定できる長さ)","right":"wrongを直したもの","reason":"短い理由"}],"corrected":"全部直した文章(改行は元のまま)"}',
+  '問題がなければ issues は空配列、corrected は元の文章そのまま。'
+].join('\n');
+
+async function check() {
+  const key = getKey();
+  const text = $('src').value;
+  if (!key) { $('keyCard').style.display = 'block'; setStatus('まずAPIキーを保存してね', false); return; }
+  if (!text.trim()) { setStatus('文章を入れてね', false); return; }
+
+  const btn = $('checkBtn');
+  btn.disabled = true;
+  setStatus('チェック中...', true);
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: MODEL, max_tokens: 8000, system: SYSTEM,
+        messages: [{ role: 'user', content: '次の文章をチェックしてください。\n\n<text>\n' + text + '\n</text>' }],
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error ? json.error.message : res.status);
+
+    const out = json.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+    const clean = out.replace(/```json|```/g, '').trim();
+    let parsed;
+    try { parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}') + 1)); }
+    catch (e) { throw new Error('結果を読み取れなかった。もう一度試してね'); }
+
+    render(text, Array.isArray(parsed.issues) ? parsed.issues : [], parsed.corrected || text);
+    setStatus(json.stop_reason === 'max_tokens' ? '文章が長すぎて途中までしか見られなかったかも。分けてチェックしてね' : 'チェック完了!', json.stop_reason !== 'max_tokens');
+    $('result').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    setStatus('エラー: ' + err.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---- 結果表示 ----
+function render(text, issues, corrected) {
+  $('result').style.display = 'block';
+  $('count').textContent = issues.length ? '(' + issues.length + '件)' : '';
+  $('none').style.display = issues.length ? 'none' : 'block';
+  $('previewWrap').style.display = issues.length ? 'block' : 'none';
+  $('issues').innerHTML = issues.map(it =>
+    '<li class="issue"><div><span class="tag">' + esc(it.type || '指摘') + '</span>' +
+    '<span class="fix"><span class="from">' + esc(it.wrong) + '</span> → <span class="to">' + esc(it.right) + '</span></span></div>' +
+    (it.reason ? '<div class="reason">' + esc(it.reason) + '</div>' : '') + '</li>'
+  ).join('');
+  $('preview').innerHTML = highlight(text, issues);
+  $('corrected').value = corrected;
+}
+
+// 指摘の「wrong」を本文中で探して色付けする(重なるものは先に見つかった方を優先)
+function highlight(text, issues) {
+  const ranges = [];
+  let from = 0;
+  issues.forEach(it => {
+    const w = String(it.wrong || '');
+    if (!w) return;
+    let i = text.indexOf(w, from);
+    if (i < 0) i = text.indexOf(w);
+    if (i < 0) return;
+    const r = [i, i + w.length];
+    if (ranges.some(x => r[0] < x[1] && x[0] < r[1])) return;
+    ranges.push(r);
+    from = r[1];
+  });
+  ranges.sort((a, b) => a[0] - b[0]);
+  let html = '', pos = 0;
+  ranges.forEach(([s, e]) => { html += esc(text.slice(pos, s)) + '<mark>' + esc(text.slice(s, e)) + '</mark>'; pos = e; });
+  return html + esc(text.slice(pos));
+}
+
+function copyCorrected(btn) {
+  navigator.clipboard.writeText($('corrected').value).then(() => {
+    const o = btn.textContent; btn.textContent = 'コピーした!'; setTimeout(() => btn.textContent = o, 1200);
+  }).catch(() => setStatus('コピーできなかった。直した文章を長押しでコピーしてね', false));
+}
+</script>
+</body>
+</html>
