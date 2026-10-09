@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#142c43" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1019" media="(prefers-color-scheme: dark)">
+<title>依頼・相談フォーム</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef3f7;--card:#ffffff;--ink:#183148;--muted:#5b6e82;--line:#d1dce6;--navy:#142c43;--accent:#b9eddc;--focus:#4aa9df;--ok:#1f7a5c;--ng:#b3261e;--field:#ffffff}
+@media (prefers-color-scheme: dark){:root{--bg:#0b1019;--card:#151d2a;--ink:#e3eaf2;--muted:#9aabbd;--line:#2c3a4d;--navy:#0f1a29;--accent:#7fd6bb;--ok:#6fd3a8;--ng:#ff8a80;--field:#0f1622}}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:var(--ink);background:var(--bg);font-size:16px;line-height:1.6}
+.topbar{background:var(--navy);color:#fff;padding:20px max(18px,env(safe-area-inset-left))}
+.topbar .inner{max-width:720px;margin:auto}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.18em;color:var(--accent);margin-bottom:4px}
+h1{font-size:22px;margin:0;letter-spacing:.06em}
+main{max-width:720px;margin:auto;padding:18px 16px max(24px,env(safe-area-inset-bottom))}
+.lead{margin:0 0 16px;color:var(--muted)}
+form,.done{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 18px}
+.field{margin-bottom:20px}
+.label{display:block;font-weight:700;margin-bottom:8px}
+.req,.opt{font-size:13px;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:6px;vertical-align:1px}
+.req{background:#b3261e;color:#fff}
+.opt{background:var(--line);color:var(--muted)}
+.hint{font-size:14px;color:var(--muted);margin:-4px 0 8px}
+input[type=text],input[type=date],textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:12px}
+textarea{min-height:160px;resize:vertical}
+input:focus-visible,textarea:focus-visible,button:focus-visible,.choice input:focus-visible+span{outline:3px solid var(--focus);outline-offset:2px}
+.choices{display:grid;gap:10px}
+.choice{display:block;cursor:pointer}
+.choice input{position:absolute;opacity:0;pointer-events:none}
+.choice span{display:block;min-height:52px;padding:13px 14px;border:2px solid var(--line);border-radius:10px;background:var(--field)}
+.choice input:checked+span{border-color:var(--focus);font-weight:700}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;font:inherit;font-size:17px;font-weight:700;border-radius:12px;border:0;background:var(--navy);color:#fff;cursor:pointer}
+@media (prefers-color-scheme: dark){.btn{background:#2b6c8f}}
+.btn:disabled{opacity:.6;cursor:wait}
+.msg{min-height:1.6em;margin:12px 0 0;font-weight:700}
+.msg.ng{color:var(--ng)}
+.done{text-align:center}
+.done p{margin:0 0 6px}
+.done .big{font-size:20px;font-weight:700;color:var(--ok)}
+@media(min-width:600px){.choices{grid-template-columns:1fr 1fr 1fr}}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="inner"><div class="eyebrow">REQUEST &amp; CONSULT</div><h1>依頼・相談フォーム</h1></div></header>
+<main>
+  <p class="lead">「こんなツールがほしい」「ここを直してほしい」「困っていること」など、なんでも送ってください。</p>
+
+  <form id="form" novalidate>
+    <div class="field">
+      <label class="label" for="name">お名前<span class="req">必須</span></label>
+      <input type="text" id="name" autocomplete="name" maxlength="50">
+    </div>
+
+    <div class="field" role="radiogroup" aria-labelledby="kindLabel">
+      <span class="label" id="kindLabel">種類<span class="req">必須</span></span>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="kind" value="新しいツールがほしい"><span>新しいツールがほしい</span></label>
+        <label class="choice"><input type="radio" name="kind" value="今あるツールを直してほしい"><span>今あるツールを直してほしい</span></label>
+        <label class="choice"><input type="radio" name="kind" value="その他の困りごと・相談"><span>その他の困りごと・相談</span></label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label" for="title">件名<span class="req">必須</span></label>
+      <p class="hint">例:現場写真の整理ツールがほしい/〇〇の手続きがわかりにくい</p>
+      <input type="text" id="title" maxlength="100">
+    </div>
+
+    <div class="field">
+      <label class="label" for="detail">内容<span class="req">必須</span></label>
+      <p class="hint">何に困っていて、どうなってほしいかを書いてください。</p>
+      <textarea id="detail" maxlength="3000"></textarea>
+    </div>
+
+    <div class="field">
+      <label class="label" for="due">いつまでにほしいか<span class="opt">任意</span></label>
+      <input type="date" id="due">
+    </div>
+
+    <button class="btn" id="send" type="submit">送信</button>
+    <p class="msg" id="msg" role="status" aria-live="polite"></p>
+  </form>
+
+  <div class="done" id="done" hidden>
+    <p class="big">受け付けました</p>
+    <p>ありがとうございます。</p>
+  </div>
+</main>
+<script>
+// ============================================
+// GASのWebアプリURL(デプロイしたらここに貼る)
+// ============================================
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw0jUwozA4IMPLkzg0k8frcpto4i0KVVuUVIh4hYLvMAVFv2nHKqkHnKA79AJXJwKw/exec";
+
+const form = document.getElementById("form");
+const msg  = document.getElementById("msg");
+const send = document.getElementById("send");
+const done = document.getElementById("done");
+
+function showError(text){ msg.textContent = text; msg.className = "msg ng"; }
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data = {
+    name:   document.getElementById("name").value.trim(),
+    kind:   (form.querySelector('input[name="kind"]:checked') || {}).value || "",
+    title:  document.getElementById("title").value.trim(),
+    detail: document.getElementById("detail").value.trim(),
+    due:    document.getElementById("due").value
+  };
+  if (!data.name)   return showError("お名前を入れてください");
+  if (!data.kind)   return showError("種類を選んでください");
+  if (!data.title)  return showError("件名を入れてください");
+  if (!data.detail) return showError("内容を入れてください");
+  if (!GAS_URL)     return showError("送信先(GAS_URL)が未設定です");
+
+  send.disabled = true; send.textContent = "送信中…"; msg.textContent = ""; msg.className = "msg";
+  try {
+    const r = await fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(data) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "エラー");
+    form.hidden = true; done.hidden = false; window.scrollTo(0, 0);
+  } catch (err) {
+    showError("送信できませんでした: " + err.message);
+  } finally {
+    send.disabled = false; send.textContent = "送信";
+  }
+});
+</script>
+</body>
+</html>
