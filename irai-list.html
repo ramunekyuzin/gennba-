@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#142c43" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1019" media="(prefers-color-scheme: dark)">
+<title>依頼・相談一覧</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef3f7;--card:#ffffff;--ink:#183148;--muted:#5b6e82;--line:#d1dce6;--navy:#142c43;--accent:#b9eddc;--focus:#4aa9df;--ok:#1f7a5c;--ng:#b3261e;--field:#ffffff;--doneBg:#f1f4f7}
+@media (prefers-color-scheme: dark){:root{--bg:#0b1019;--card:#151d2a;--ink:#e3eaf2;--muted:#9aabbd;--line:#2c3a4d;--navy:#0f1a29;--accent:#7fd6bb;--ok:#6fd3a8;--ng:#ff8a80;--field:#0f1622;--doneBg:#111824}}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:var(--ink);background:var(--bg);font-size:16px;line-height:1.6}
+.topbar{background:var(--navy);color:#fff;padding:20px max(18px,env(safe-area-inset-left))}
+.topbar .inner{max-width:720px;margin:auto}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.18em;color:var(--accent);margin-bottom:4px}
+h1{font-size:22px;margin:0;letter-spacing:.06em}
+main{max-width:720px;margin:auto;padding:18px 16px max(24px,env(safe-area-inset-bottom))}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 18px}
+.label{display:block;font-weight:700;margin-bottom:8px}
+input[type=password]{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:12px}
+input:focus-visible,button:focus-visible,.check input:focus-visible+span{outline:3px solid var(--focus);outline-offset:2px}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;margin-top:14px;font:inherit;font-size:17px;font-weight:700;border-radius:12px;border:0;background:var(--navy);color:#fff;cursor:pointer}
+@media (prefers-color-scheme: dark){.btn{background:#2b6c8f}}
+.btn:disabled{opacity:.6;cursor:wait}
+.msg{min-height:1.6em;margin:12px 0 0;font-weight:700}
+.msg.ng{color:var(--ng)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.tab{min-height:48px;font:inherit;font-size:16px;font-weight:700;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.tab[aria-pressed=true]{border-color:var(--focus);background:var(--field)}
+.count{color:var(--muted);margin:0 0 10px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.item.done{background:var(--doneBg)}
+.item.done .body{opacity:.6}
+.meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:16px;color:var(--muted)}
+.meta b{color:var(--ink)}
+.kind{display:inline-block;margin:6px 0;padding:2px 10px;border-radius:8px;background:var(--line);font-size:16px;font-weight:700}
+.detail{white-space:pre-wrap;word-break:break-word;margin:4px 0 0}
+.due{margin-top:6px;font-size:16px;color:var(--muted)}
+.check{display:block;margin-top:12px;cursor:pointer}
+.check input{position:absolute;opacity:0;pointer-events:none}
+.check span{display:flex;align-items:center;justify-content:center;gap:10px;min-height:52px;border:2px solid var(--line);border-radius:10px;font-weight:700;background:var(--field)}
+.check span::before{content:"";width:22px;height:22px;border:2px solid var(--muted);border-radius:6px;flex-shrink:0}
+.check input:checked+span{border-color:var(--ok);color:var(--ok)}
+.check input:checked+span::before{background:var(--ok);border-color:var(--ok);box-shadow:inset 0 0 0 3px var(--card)}
+.check input:disabled+span{opacity:.6;cursor:wait}
+.empty{text-align:center;color:var(--muted);padding:30px 0}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="inner"><div class="eyebrow">REQUEST LIST</div><h1>依頼・相談一覧</h1></div></header>
+<main>
+  <form class="box" id="login" hidden>
+    <label class="label" for="pass">合言葉</label>
+    <input type="password" id="pass" autocomplete="current-password">
+    <button class="btn" id="open" type="submit">開く</button>
+    <p class="msg" id="loginMsg" role="status" aria-live="polite"></p>
+  </form>
+
+  <section id="listArea" hidden>
+    <div class="tabs">
+      <button class="tab" type="button" data-filter="todo" aria-pressed="true">未対応だけ</button>
+      <button class="tab" type="button" data-filter="all" aria-pressed="false">すべて</button>
+    </div>
+    <p class="count" id="count"></p>
+    <div id="list"></div>
+    <p class="msg ng" id="listMsg" role="status" aria-live="polite"></p>
+  </section>
+
+  <p class="empty" id="loading">読み込み中…</p>
+</main>
+<script>
+// ============================================
+// GASのWebアプリURL(irai.html と同じもの)
+// ============================================
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw0jUwozA4IMPLkzg0k8frcpto4i0KVVuUVIh4hYLvMAVFv2nHKqkHnKA79AJXJwKw/exec";
+const PASS_KEY = "iraiListPass";
+
+const loginEl  = document.getElementById("login");
+const listArea = document.getElementById("listArea");
+const listEl   = document.getElementById("list");
+const loading  = document.getElementById("loading");
+let PASS = "";
+try { PASS = localStorage.getItem(PASS_KEY) || ""; } catch (e) {}
+let ITEMS = [];
+let FILTER = "todo";
+
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function api(body){
+  const r = await fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(Object.assign({ pass: PASS }, body)) });
+  const j = await r.json();
+  if (!j.ok) { const err = new Error(j.error || "エラー"); err.auth = j.code === "AUTH"; throw err; }
+  return j.result;
+}
+
+function showLogin(text){
+  loading.hidden = true; listArea.hidden = true; loginEl.hidden = false;
+  const m = document.getElementById("loginMsg");
+  m.textContent = text || ""; m.className = "msg" + (text ? " ng" : "");
+  document.getElementById("pass").focus();
+}
+
+async function load(){
+  if (!PASS) { showLogin(""); return; }
+  loading.hidden = false;
+  try {
+    ITEMS = await api({ action: "list" });
+    loading.hidden = true; loginEl.hidden = true; listArea.hidden = false;
+    render();
+  } catch (e) {
+    if (e.auth) {
+      PASS = ""; try { localStorage.removeItem(PASS_KEY); } catch (er) {}
+      showLogin(e.message);
+      return;
+    }
+    loading.textContent = "読み込めませんでした: " + e.message;
+  }
+}
+
+function render(){
+  const shown = FILTER === "todo" ? ITEMS.filter(it => !it.done) : ITEMS;
+  const todo = ITEMS.filter(it => !it.done).length;
+  document.getElementById("count").textContent = "未対応 " + todo + "件 / 全部で " + ITEMS.length + "件";
+  if (!shown.length) {
+    listEl.innerHTML = '<p class="empty">' + (FILTER === "todo" ? "未対応の依頼はありません" : "依頼はまだありません") + "</p>";
+    return;
+  }
+  listEl.innerHTML = shown.map(it => `
+    <article class="item${it.done ? " done" : ""}">
+      <div class="body">
+        <div class="meta"><b>${esc(it.name)}</b><span>${esc(it.at)}</span></div>
+        <span class="kind">${esc(it.kind)}</span>
+        <p class="detail">${esc(it.detail)}</p>
+        ${it.due ? `<div class="due">希望:${esc(it.due)}まで</div>` : ""}
+      </div>
+      <label class="check"><input type="checkbox" data-id="${esc(it.id)}"${it.done ? " checked" : ""}><span>対応済み</span></label>
+    </article>`).join("");
+}
+
+listEl.addEventListener("change", async (e) => {
+  const box = e.target.closest('input[type="checkbox"][data-id]');
+  if (!box) return;
+  const item = ITEMS.find(it => it.id === box.dataset.id);
+  if (!item) return;
+  const want = box.checked;
+  const msgEl = document.getElementById("listMsg");
+  msgEl.textContent = "";
+  box.disabled = true;
+  try {
+    await api({ action: "toggle", id: item.id, done: want });
+    item.done = want;
+    render();
+  } catch (err) {
+    box.checked = !want; box.disabled = false;
+    if (err.auth) { PASS = ""; try { localStorage.removeItem(PASS_KEY); } catch (er) {} showLogin(err.message); return; }
+    msgEl.textContent = "変更できませんでした: " + err.message;
+  }
+});
+
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
+  FILTER = b.dataset.filter;
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-pressed", String(t === b)));
+  render();
+}));
+
+loginEl.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const v = document.getElementById("pass").value;
+  if (!v) { showLogin("合言葉を入れてください"); return; }
+  const btn = document.getElementById("open");
+  btn.disabled = true;
+  PASS = v;
+  try { localStorage.setItem(PASS_KEY, v); } catch (er) {}
+  await load();
+  btn.disabled = false;
+});
+
+load();
+</script>
+</body>
+</html>

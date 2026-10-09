@@ -66,12 +66,6 @@ input:focus-visible,textarea:focus-visible,button:focus-visible,.choice input:fo
     </div>
 
     <div class="field">
-      <label class="label" for="title">件名<span class="req">必須</span></label>
-      <p class="hint">例:現場写真の整理ツールがほしい/〇〇の手続きがわかりにくい</p>
-      <input type="text" id="title" maxlength="100">
-    </div>
-
-    <div class="field">
       <label class="label" for="detail">内容<span class="req">必須</span></label>
       <p class="hint">何に困っていて、どうなってほしいかを書いてください。</p>
       <textarea id="detail" maxlength="3000"></textarea>
@@ -109,13 +103,11 @@ form.addEventListener("submit", async (e) => {
   const data = {
     name:   document.getElementById("name").value.trim(),
     kind:   (form.querySelector('input[name="kind"]:checked') || {}).value || "",
-    title:  document.getElementById("title").value.trim(),
     detail: document.getElementById("detail").value.trim(),
     due:    document.getElementById("due").value
   };
   if (!data.name)   return showError("お名前を入れてください");
   if (!data.kind)   return showError("種類を選んでください");
-  if (!data.title)  return showError("件名を入れてください");
   if (!data.detail) return showError("内容を入れてください");
   if (!GAS_URL)     return showError("送信先(GAS_URL)が未設定です");
 
