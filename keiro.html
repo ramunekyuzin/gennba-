@@ -42,7 +42,7 @@ h2{font-size:17px;margin-bottom:8px}
 #results li+li{margin-top:6px}
 #results .btn{text-align:left}
 #searchStatus{margin-top:8px;color:var(--muted)}
-#searchStatus:empty{display:none}
+#searchStatus:empty,#routeStatus:empty{display:none}
 .ng{color:var(--error)}
 #photoInput{display:none}
 .footer{text-align:center;font-size:16px;color:var(--muted);margin:20px 0 8px}
@@ -98,11 +98,17 @@ h2{font-size:17px;margin-bottom:8px}
     <section class="card">
       <h2>ルート</h2>
       <button type="button" class="btn sub" id="drawBtn" aria-pressed="false">ルートを引く:OFF</button>
+      <label>線の引き方</label>
+      <div class="row" id="modeBtns" role="group" aria-label="線の引き方" style="margin-top:0">
+        <button type="button" class="btn sub" data-m="road">道なり</button>
+        <button type="button" class="btn sub" data-m="line">直線</button>
+      </div>
       <div class="row">
         <button type="button" class="btn sub" id="undoBtn">1つ戻す</button>
         <button type="button" class="btn sub" id="clearBtn">全部消す</button>
       </div>
-      <p class="note">ONにして地図をタップすると、その順に青い線でつながります。</p>
+      <p class="note">ONにして地図をタップすると、その順に青い線でつながります。「道なり」は道路に沿って、「直線」はまっすぐつなぎます。切り替えは次にタップする点から効きます。</p>
+      <p class="note" id="routeStatus" role="status"></p>
       <label for="startLabel">始点のラベル</label>
       <input type="text" id="startLabel" value="現場" maxlength="20">
       <label for="endLabel">終点のラベル</label>
@@ -119,7 +125,7 @@ h2{font-size:17px;margin-bottom:8px}
     <section class="card">
       <h2>保存</h2>
       <button type="button" class="btn" id="saveBtn">PDFで保存</button>
-      <p class="note">いま地図に見えている範囲が、そのままA4のPDFになります。写真やルートはこの端末の中だけで扱い、どこにも送信しません。</p>
+      <p class="note">いま地図に見えている範囲が、そのままA4のPDFになります。写真やラベルはこの端末の中だけで扱い、どこにも送信しません(「道なり」のときは、道順を調べるためにタップした地点の位置だけを送ります)。</p>
     </section>
 
     <p class="footer">経路図づくり</p>
@@ -209,8 +215,70 @@ h2{font-size:17px;margin-bottom:8px}
   }
 
   // ---------- ルート ----------
-  var route = [];
+  // pts: タップした点。mode はその点へ向かう区間の引き方('road'=道なり / 'line'=直線)、path は区間の線
+  var pts = [];
   var drawing = false;
+  var mode = 'road';
+  var pending = 0;
+  var OSRM = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/';
+  var ROUTE_CREDIT = 'ルート:© OpenStreetMap contributors';
+  var routeAttrAdded = false;
+
+  function usesRoad() {
+    return pts.some(function (p, i) { return i > 0 && p.mode === 'road' && !p.failed; });
+  }
+  function fullPath() {
+    var out = [];
+    pts.forEach(function (p, i) {
+      if (i === 0) { out.push(p.ll); return; }
+      var seg = p.path || [pts[i - 1].ll, p.ll];
+      out = out.concat(seg.slice(1));
+    });
+    return out;
+  }
+  function setRouteStatus() {
+    var st = $('routeStatus');
+    var failed = pts.some(function (p) { return p.failed; });
+    if (pending) { st.className = 'note'; st.textContent = 'ルート検索中…'; }
+    else if (failed) { st.className = 'note ng'; st.textContent = '道順が見つからなかった区間は直線でつないでいます。'; }
+    else { st.textContent = ''; }
+  }
+  function findRoad(p, prev) {
+    pending++;
+    setRouteStatus();
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 10000);
+    var url = OSRM + prev.ll.lng + ',' + prev.ll.lat + ';' + p.ll.lng + ',' + p.ll.lat + '?overview=full&geometries=geojson';
+    fetch(url, ctrl ? { signal: ctrl.signal } : {})
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j.code !== 'Ok' || !j.routes || !j.routes.length) throw new Error('no route');
+        var road = j.routes[0].geometry.coordinates.map(function (c) { return L.latLng(c[1], c[0]); });
+        // 道路に寄せた線の両端を、タップした点につなげる
+        p.path = [prev.ll].concat(road, [p.ll]);
+        if (!routeAttrAdded) { map.attributionControl.addAttribution('ルート:&copy; OpenStreetMap contributors'); routeAttrAdded = true; }
+      })
+      .catch(function () { p.failed = true; })
+      .then(function () {
+        clearTimeout(timer);
+        pending--;
+        if (pts.indexOf(p) >= 0) renderRoute();
+        setRouteStatus();
+      });
+  }
+
+  function markModeBtns() {
+    document.querySelectorAll('#modeBtns .btn').forEach(function (b) {
+      var on = b.dataset.m === mode;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('#modeBtns .btn').forEach(function (b) {
+    b.addEventListener('click', function () { mode = b.dataset.m; markModeBtns(); });
+  });
+  markModeBtns();
+
   var routeUnder = L.polyline([], { color: '#fff', weight: 12, opacity: .9, interactive: false, lineCap: 'round', lineJoin: 'round' }).addTo(map);
   var routeLine = L.polyline([], { color: BLUE, weight: 8, interactive: false, lineCap: 'round', lineJoin: 'round' }).addTo(map);
   var dotStyle = { radius: 7, color: BLUE, weight: 4, fillColor: '#fff', fillOpacity: 1, interactive: false };
@@ -227,10 +295,11 @@ h2{font-size:17px;margin-bottom:8px}
     if (text) { lb.setLatLng(ll).setIcon(labelIcon(text)).addTo(map); } else { map.removeLayer(lb); }
   }
   function renderRoute() {
-    routeUnder.setLatLngs(route);
-    routeLine.setLatLngs(route);
-    placeEnd(startDot, startLb, route.length >= 1 ? route[0] : null, $('startLabel').value.trim());
-    placeEnd(endDot, endLb, route.length >= 2 ? route[route.length - 1] : null, $('endLabel').value.trim());
+    var path = fullPath();
+    routeUnder.setLatLngs(path);
+    routeLine.setLatLngs(path);
+    placeEnd(startDot, startLb, pts.length >= 1 ? pts[0].ll : null, $('startLabel').value.trim());
+    placeEnd(endDot, endLb, pts.length >= 2 ? pts[pts.length - 1].ll : null, $('endLabel').value.trim());
   }
 
   $('drawBtn').addEventListener('click', function () {
@@ -243,19 +312,24 @@ h2{font-size:17px;margin-bottom:8px}
   });
   map.on('click', function (e) {
     if (!drawing) return;
-    route.push(e.latlng);
+    var p = { ll: e.latlng, mode: mode, path: null, failed: false };
+    var prev = pts[pts.length - 1];
+    pts.push(p);
     renderRoute();
+    if (prev && mode === 'road') findRoad(p, prev);
   });
   $('undoBtn').addEventListener('click', function () {
-    if (!route.length) return;
-    route.pop();
+    if (!pts.length) return;
+    pts.pop();
     renderRoute();
+    setRouteStatus();
   });
   $('clearBtn').addEventListener('click', function () {
-    if (!route.length) return;
+    if (!pts.length) return;
     if (!confirm('ルートを全部消しますか?')) return;
-    route = [];
+    pts = [];
     renderRoute();
+    setRouteStatus();
   });
   $('startLabel').addEventListener('input', renderRoute);
   $('endLabel').addEventListener('input', renderRoute);
@@ -459,6 +533,7 @@ h2{font-size:17px;margin-bottom:8px}
 
   $('saveBtn').addEventListener('click', function () {
     var btn = this;
+    if (pending) { alert('ルート検索中です。線が出てから、もう一度押してください。'); return; }
     btn.disabled = true; btn.textContent = 'PDFを作成中…';
     waitTiles().then(function () {
       var size = map.getSize(), S = 2;
@@ -482,16 +557,17 @@ h2{font-size:17px;margin-bottom:8px}
       var P = function (ll) { return map.latLngToContainerPoint(ll); };
 
       // ルート
-      if (route.length >= 2) {
+      var path = fullPath();
+      if (path.length >= 2) {
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath();
-        route.forEach(function (ll, i) { var q = P(ll); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
+        path.forEach(function (ll, i) { var q = P(ll); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
         ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 12; ctx.stroke();
         ctx.strokeStyle = BLUE; ctx.lineWidth = 8; ctx.stroke();
       }
       var ends = [];
-      if (route.length >= 1) ends.push({ pt: P(route[0]), text: $('startLabel').value.trim() });
-      if (route.length >= 2) ends.push({ pt: P(route[route.length - 1]), text: $('endLabel').value.trim() });
+      if (pts.length >= 1) ends.push({ pt: P(pts[0].ll), text: $('startLabel').value.trim() });
+      if (pts.length >= 2) ends.push({ pt: P(pts[pts.length - 1].ll), text: $('endLabel').value.trim() });
       ends.forEach(function (e) {
         ctx.beginPath(); ctx.arc(e.pt.x, e.pt.y, 7, 0, Math.PI * 2);
         ctx.fillStyle = '#fff'; ctx.fill();
@@ -504,7 +580,7 @@ h2{font-size:17px;margin-bottom:8px}
       ends.forEach(function (e) { drawLabel(ctx, e.pt, e.text); });
 
       // 出典
-      var credit = LAYERS[curKey].credit;
+      var credit = LAYERS[curKey].credit + (usesRoad() ? ' / ' + ROUTE_CREDIT : '');
       ctx.font = '12px ' + FONT;
       var cw = ctx.measureText(credit).width + 12;
       ctx.fillStyle = 'rgba(255,255,255,.85)';
