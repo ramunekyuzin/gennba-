@@ -49,7 +49,8 @@ h2{font-size:17px;margin-bottom:8px}
 #prBox.show{display:block}
 #prList{list-style:none}
 #prStatus:empty,#startInfo:empty,#goalInfo:empty{display:none}
-.pr-kind{display:inline-block;font-size:16px;border:1px solid var(--line);border-radius:6px;padding:0 8px;margin-left:4px}
+.pr-use{font:inherit;font-size:16px;font-weight:700;min-height:40px;padding:2px 12px;margin-left:6px;border:1px solid var(--accent);border-radius:8px;background:var(--soft);color:var(--accent);cursor:pointer}
+.pr-use.off{border-color:var(--line);background:var(--paper);color:var(--muted);font-weight:500}
 .pr-item{padding:12px 0;border-bottom:1px solid var(--line)}
 .pr-thumbs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
 .pr-thumbs img{width:64px;height:64px;object-fit:cover;border-radius:8px}
@@ -676,7 +677,9 @@ h2{font-size:17px;margin-bottom:8px}
           var t = splitText(e.lines);
           var gps = null;
           imgs.forEach(function (x) { if (!gps && x.gps) gps = x.gps; });
-          return { imgs: imgs.map(function (x) { return x.img; }), place: t.place, comment: t.comment, gps: gps };
+          // 右折・左折が書いてある件だけ、最初から「ルートに使う」にする(通過中などは写真だけ)
+          return { imgs: imgs.map(function (x) { return x.img; }), place: t.place, comment: t.comment, gps: gps,
+            use: /(右折|左折)/.test(e.lines.join(' ')) };
         });
       }));
     }).then(function (items) {
@@ -705,11 +708,18 @@ h2{font-size:17px;margin-bottom:8px}
         '<button type="button" class="btn sub" aria-label="一覧から外す">×</button></div>';
       var meta = li.querySelector('.pr-meta');
       meta.textContent = (i + 1) + '件目' + (it.imgs.length ? '(写真' + it.imgs.length + '枚)' : '(写真なし)');
-      var kind = document.createElement('span');
-      kind.className = 'pr-kind';
-      var showKind = function () { kind.textContent = it.gps || kindOf(it.place) === 'point' ? '地点' : '道路'; };
-      showKind();
-      meta.appendChild(kind);
+      // 「ルートに使う」と「写真だけ」をタップで切り替える
+      var use = document.createElement('button');
+      use.type = 'button';
+      use.className = 'pr-use';
+      var showUse = function () {
+        use.textContent = it.use ? 'ルートに使う' : '写真だけ';
+        use.classList.toggle('off', !it.use);
+        use.setAttribute('aria-pressed', it.use ? 'true' : 'false');
+      };
+      showUse();
+      use.addEventListener('click', function () { it.use = !it.use; showUse(); });
+      meta.appendChild(use);
       if (it.gps) {
         var badge = document.createElement('span');
         badge.className = 'pr-gps'; badge.textContent = '写真の位置あり';
@@ -721,7 +731,7 @@ h2{font-size:17px;margin-bottom:8px}
       place.value = it.place; comment.value = it.comment;
       place.setAttribute('aria-label', (i + 1) + '件目の場所');
       comment.setAttribute('aria-label', (i + 1) + '件目のコメント');
-      place.addEventListener('input', function () { it.place = place.value; showKind(); });
+      place.addEventListener('input', function () { it.place = place.value; });
       comment.addEventListener('input', function () { it.comment = comment.value; });
       var ops = li.querySelectorAll('.pr-ops .btn');
       ops[0].disabled = i === 0;
@@ -905,44 +915,44 @@ h2{font-size:17px;margin-bottom:8px}
     btns.forEach(function (b) { b.disabled = true; });
     var items = prItems.map(function (it) {
       var place = it.place.trim();
-      return { imgs: it.imgs, place: place, label: (place + ' ' + it.comment.trim()).trim(), gps: it.gps,
+      return { imgs: it.imgs, place: place, label: (place + ' ' + it.comment.trim()).trim(), gps: it.gps, use: it.use,
         kind: it.gps ? 'point' : kindOf(place), ll: null, pi: -1 };
     });
     var area = (ends.start && ends.goal) ? areaAround(ends.start, ends.goal) : null;
     var ref = ends.start || map.getCenter();
-    var skipped = [], onRoute = [];
     var prevLL = function (i) { for (var k = i - 1; k >= 0; k--) if (items[k].ll) return items[k].ll; return ends.start; };
     var nextLL = function (i) { for (var k = i + 1; k < items.length; k++) if (items[k].ll) return items[k].ll; return ends.goal; };
 
-    // 1. 地点を探す
+    // 1.「ルートに使う」件のうち、交差点名などがあるものの場所を探す
     items.reduce(function (chain, it, i) {
       return chain.then(function () {
-        if (it.kind !== 'point') return null;
-        setPrStatus('地点を探しています…(' + (i + 1) + '/' + items.length + ')');
+        if (!it.use || it.kind !== 'point') return null;
+        setPrStatus('場所を探しています…(' + (i + 1) + '/' + items.length + ')');
         if (it.gps) return it.gps;
         if (!it.place) return null;
         return geocode(it.place, ref, area);
       }).then(function (ll) {
-        if (it.kind !== 'point') return;
         if (ll) { it.ll = ll; ref = ll; }
-        else skipped.push((i + 1) + '件目(' + (it.place || '場所が空欄') + ')');
       });
     }, Promise.resolve()).then(function () {
-      // 2. 道路は前後の地点のあいだで探し、見つかればそこを通るようにする
+      // 2.「ルートに使う」件のうち、道路名だけのもの(例:○○号線へ右折)は、前後の点のあいだでその道路を探す
       return items.reduce(function (chain, it, i) {
         return chain.then(function () {
-          if (it.kind !== 'road') return null;
+          if (!it.use || it.kind !== 'road') return null;
           var a = prevLL(i), b = nextLL(i), name = roadName(it.place);
           if (!name || (!a && !b)) return null;
           setPrStatus('道路を探しています…(' + (i + 1) + '/' + items.length + ')');
           var target = a && b ? L.latLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2) : (a || b);
           return findRoadPoint(name, boxAround(a || b, b || a), target);
         }).then(function (ll) {
-          if (it.kind !== 'road') return;
-          if (ll && inArea(ll, area)) it.ll = ll; else onRoute.push(it);
+          if (ll && inArea(ll, area)) it.ll = ll;
         });
       }, Promise.resolve());
     }).then(function () {
+      // 場所が決まらなかった件(「写真だけ」と、見つからなかった件)の写真は、前後の点のあいだのルートの上に置く
+      var missing = items.filter(function (it) { return it.use && !it.ll; });
+      var onRoute = items.filter(function (it) { return !it.ll && it.imgs.length; });
+      var photoOnly = items.filter(function (it) { return !it.use; }).length;
       btns.forEach(function (b) { b.disabled = false; });
       var seq = [];
       if (ends.start) seq.push(newPt(ends.start, 'start'));
@@ -978,12 +988,12 @@ h2{font-size:17px;margin-bottom:8px}
       items.forEach(function (it) { if (it.ll) pts[it.pi].cards = placeCards(it, it.ll); });
       prItems = [];
       $('prBox').classList.remove('show');
-      var nPoint = items.filter(function (it) { return it.ll && it.kind === 'point'; }).length;
-      var nRoad = items.filter(function (it) { return it.ll && it.kind === 'road'; }).length;
-      setPrStatus('地点' + nPoint + '件・道路' + nRoad + '件を通るルートを作りました。' +
-        (skipped.length ? '見つからなかった地点' + (area ? '(出発地と到着地の範囲の外は探していません)' : '') + ':' + skipped.join('、') + '。' : '') +
-        (onRoute.length ? '場所がわからなかった道路は、前後の地点のあいだのルートの上に写真を置きました:' +
-          onRoute.map(function (it) { return (items.indexOf(it) + 1) + '件目(' + it.place + ')'; }).join('、') + '。' : ''), skipped.length > 0);
+      var nUsed = items.filter(function (it) { return it.ll; }).length;
+      setPrStatus('曲がる場所' + nUsed + '件を通るルートを作りました。' +
+        (photoOnly ? '「写真だけ」の' + photoOnly + '件は、前後の点のあいだのルートの上に写真を置きました。' : '') +
+        (missing.length ? '場所が見つからなかった件' + (area ? '(出発地と到着地の範囲の外は探していません)' : '') + ':' +
+          missing.map(function (it) { return (items.indexOf(it) + 1) + '件目(' + (it.place || '場所が空欄') + ')'; }).join('、') +
+          '。この件の写真もルートの上に置きました。違うときは番号の印や写真を動かしてください。' : ''), missing.length > 0);
       // 道なりの線は1区間ずつ順番に問い合わせ、全区間が終わるまで「ルート検索中」のままにしておく
       var route = pts.slice();
       pending++;
