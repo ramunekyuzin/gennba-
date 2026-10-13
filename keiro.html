@@ -48,7 +48,8 @@ h2{font-size:17px;margin-bottom:8px}
 #prBox{display:none;margin-top:10px;border-top:1px solid var(--line)}
 #prBox.show{display:block}
 #prList{list-style:none}
-#prStatus:empty{display:none}
+#prStatus:empty,#startInfo:empty,#goalInfo:empty{display:none}
+.pr-kind{display:inline-block;font-size:16px;border:1px solid var(--line);border-radius:6px;padding:0 8px;margin-left:4px}
 .pr-item{padding:12px 0;border-bottom:1px solid var(--line)}
 .pr-thumbs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
 .pr-thumbs img{width:64px;height:64px;object-fit:cover;border-radius:8px}
@@ -122,6 +123,22 @@ h2{font-size:17px;margin-bottom:8px}
       </div>
       <p class="note">ONにして地図をタップすると、その順に青い線でつながります。「道なり」は道路に沿って、「直線」はまっすぐつなぎます。切り替えは次にタップする点から効きます。</p>
       <p class="note" id="routeStatus" role="status"></p>
+      <label for="startQ">出発地</label>
+      <div class="search-row">
+        <input type="text" id="startQ" placeholder="住所や地名" enterkeyhint="search">
+        <button type="button" class="btn" id="startFind">検索</button>
+      </div>
+      <button type="button" class="btn sub" id="startPick" style="margin-top:8px">地図をタップして決める</button>
+      <p class="note" id="startInfo" role="status"></p>
+      <label for="goalQ">到着地</label>
+      <div class="search-row">
+        <input type="text" id="goalQ" placeholder="住所や地名" enterkeyhint="search">
+        <button type="button" class="btn" id="goalFind">検索</button>
+      </div>
+      <button type="button" class="btn sub" id="goalPick" style="margin-top:8px">地図をタップして決める</button>
+      <p class="note" id="goalInfo" role="status"></p>
+      <button type="button" class="btn sub" id="endsRoute" style="margin-top:10px">出発地から到着地までルートを引く</button>
+      <p class="note">出発地と到着地を決めてからExcelを読み込むと、出発地 → Excelの場所(上から順)→ 到着地 の順につなぎます。場所もこの2つを囲む範囲の中だけで探します。</p>
       <label for="excelInput" class="btn sub" style="margin:12px 0 0;color:var(--ink);font-weight:500">Excelからルートを作る</label>
       <input type="file" id="excelInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
       <p class="note">追跡のExcel(写真と、横の四角に書いた場所)を選ぶと、上から順に読み取って一覧にします。場所を確かめてから「この順でルートを作る」を押してください。</p>
@@ -337,6 +354,7 @@ h2{font-size:17px;margin-bottom:8px}
     if (drawing) map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
   });
   map.on('click', function (e) {
+    if (picking) { setEnd(picking, e.latlng); picking = null; $('map').classList.toggle('drawing', drawing); return; }
     if (!drawing) return;
     var p = { ll: e.latlng, mode: mode, path: null, failed: false };
     var prev = pts[pts.length - 1];
@@ -575,10 +593,11 @@ h2{font-size:17px;margin-bottom:8px}
     entries = entries.filter(function (e) { return e.pics.length || e.lines.some(function (s) { return PLACE_RE.test(s); }); });
     return entries.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
   }
-  // 四角の文字を「場所」と「コメント」に分ける(「追跡」のような短い見出しは外す)
+  // 四角の文字を「場所」と「コメント」に分ける(「追跡」のような短い見出しは外す)。交差点などの行を先に選ぶ
   function splitText(lines) {
     var ls = lines.filter(function (s) { return s.replace(/\s/g, '').length > 2; });
     var i = -1;
+    ls.forEach(function (s, k) { if (i < 0 && POINT_RE.test(s)) i = k; });
     ls.forEach(function (s, k) { if (i < 0 && PLACE_RE.test(s)) i = k; });
     if (i < 0) i = 0;
     return { place: ls[i] || '', comment: ls.filter(function (s, k) { return k !== i; }).join(' ') };
@@ -638,6 +657,11 @@ h2{font-size:17px;margin-bottom:8px}
         '<button type="button" class="btn sub" aria-label="一覧から外す">×</button></div>';
       var meta = li.querySelector('.pr-meta');
       meta.textContent = (i + 1) + '件目' + (it.imgs.length ? '(写真' + it.imgs.length + '枚)' : '(写真なし)');
+      var kind = document.createElement('span');
+      kind.className = 'pr-kind';
+      var showKind = function () { kind.textContent = it.gps || kindOf(it.place) === 'point' ? '地点' : '道路'; };
+      showKind();
+      meta.appendChild(kind);
       if (it.gps) {
         var badge = document.createElement('span');
         badge.className = 'pr-gps'; badge.textContent = '写真の位置あり';
@@ -649,7 +673,7 @@ h2{font-size:17px;margin-bottom:8px}
       place.value = it.place; comment.value = it.comment;
       place.setAttribute('aria-label', (i + 1) + '件目の場所');
       comment.setAttribute('aria-label', (i + 1) + '件目のコメント');
-      place.addEventListener('input', function () { it.place = place.value; });
+      place.addEventListener('input', function () { it.place = place.value; showKind(); });
       comment.addEventListener('input', function () { it.comment = comment.value; });
       var ops = li.querySelectorAll('.pr-ops .btn');
       ops[0].disabled = i === 0;
@@ -671,45 +695,154 @@ h2{font-size:17px;margin-bottom:8px}
     renderPrList();
   }
 
-  // 地名から場所を探す。OpenStreetMap を先に使い、国土地理院は名前がそのまま含まれる結果だけ使う。ref に一番近い候補を選ぶ
+  // ---------- 場所を探す(地点・道路) ----------
+  var POINT_RE = /(交差点|信号|ＩＣ|IC|インター|ジャンクション|JCT|駅|入口|入り口|出口|橋|丁目|前)/;
+  var ROAD_RE = /(号線|国道|県道|市道|町道|道路|バイパス|街道)/;
+
+  // 道路名だけ(交差点などがない)なら「道路」、それ以外は「地点」
+  function kindOf(place) { return ROAD_RE.test(place) && !POINT_RE.test(place) ? 'road' : 'point'; }
+  // 「○○を左折」「○○から」などの動きの言葉を外して、場所の名前だけにする
+  function cleanPlace(q) {
+    return q.replace(/\s+/g, ' ').replace(/\s*(を|で)?(右折|左折|直進|通過中?|から|より|方面|へ).*$/, '').trim();
+  }
   function nearest(cands, ref) {
     var best = null, bd = Infinity;
     cands.forEach(function (ll) { var d = ref.distanceTo(ll); if (d < bd) { bd = d; best = ll; } });
     return best;
   }
-  function gsiSearch(q) {
+  function inArea(ll, area) { return !area || area.contains(ll); }
+  // 2点を囲む範囲(狭すぎるときは少し広げる)
+  function boxAround(a, b) {
+    var bb = L.latLngBounds([a, b || a]), c = bb.getCenter();
+    var dLat = Math.max(bb.getNorth() - bb.getSouth(), 0.02) * 0.65;
+    var dLng = Math.max(bb.getEast() - bb.getWest(), 0.02) * 0.65;
+    return L.latLngBounds([c.lat - dLat, c.lng - dLng], [c.lat + dLat, c.lng + dLng]);
+  }
+  // 出発地と到着地を囲む探す範囲。実際の道は遠回りすることもあるので、まわりに広め(5km以上)の余白をとる
+  function areaAround(a, b) {
+    var bb = L.latLngBounds([a, b]);
+    var mLat = Math.max((bb.getNorth() - bb.getSouth()) * 0.5, 0.05);
+    var mLng = Math.max((bb.getEast() - bb.getWest()) * 0.5, 0.06);
+    return L.latLngBounds([bb.getSouth() - mLat, bb.getWest() - mLng], [bb.getNorth() + mLat, bb.getEast() + mLng]);
+  }
+  // 国土地理院の住所検索。exact のときは名前がそのまま含まれる結果だけ使う
+  function gsiSearch(q, exact) {
     return fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(q))
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        return (data || []).filter(function (d) { return d.properties && d.properties.title && d.properties.title.indexOf(q) >= 0; })
+        return (data || []).filter(function (d) { return !exact || (d.properties && d.properties.title && d.properties.title.indexOf(q) >= 0); })
           .map(function (d) { return L.latLng(d.geometry.coordinates[1], d.geometry.coordinates[0]); });
       })
       .catch(function () { return []; });
   }
-  function nominatimSearch(q) {
+  function nominatimSearch(q, area) {
     // 利用ルールに合わせて1秒に1件まで
     var gap = lastNominatim + 1100 - Date.now();
     return wait(gap > 0 ? gap : 0).then(function () {
       lastNominatim = Date.now();
-      var b = map.getBounds();
+      var b = area || map.getBounds();
       var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=ja&countrycodes=jp' +
-        '&viewbox=' + b.getWest() + ',' + b.getNorth() + ',' + b.getEast() + ',' + b.getSouth() + '&q=' + encodeURIComponent(q);
+        '&viewbox=' + b.getWest() + ',' + b.getNorth() + ',' + b.getEast() + ',' + b.getSouth() + (area ? '&bounded=1' : '') +
+        '&q=' + encodeURIComponent(q);
       return fetch(url).then(function (r) { return r.json(); });
     }).then(function (data) {
       return (data || []).map(function (d) { return L.latLng(+d.lat, +d.lon); });
     }).catch(function () { return []; });
   }
-  function geocode(q, ref) {
-    // 「○○交差点」は交差点・信号などを外した名前でも探す
-    var short = q.replace(/\s+/g, ' ').replace(/(交差点|信号機?|付近|前)$/, '').trim();
-    return nominatimSearch(q).then(function (n) {
-      if (n.length || short === q || !short) return n;
-      return nominatimSearch(short);
+  // 地点を探す。OpenStreetMap を先に使い、「交差点」などを外した名前でも探す。ref に一番近い候補を選ぶ
+  function geocode(q, ref, area) {
+    var name = cleanPlace(q) || q;
+    var short = name.replace(/(交差点|信号機?|付近|前)$/, '').trim();
+    return nominatimSearch(name, area).then(function (n) {
+      if (n.length || !short || short === name) return n;
+      return nominatimSearch(short, area);
     }).then(function (n) {
-      return gsiSearch(short || q).then(function (g) { return nearest(n.concat(g), ref); });
+      return gsiSearch(short || name, true).then(function (g) {
+        return nearest(n.concat(g).filter(function (ll) { return inArea(ll, area); }), ref);
+      });
     });
   }
+  // 「千葉県64号線」→「千葉県道64号」、「一般国道356号線」→「国道356号」、「印西市41002号線」→「印西市道41002号」のように、地図データでの呼び方にする
+  function roadName(place) {
+    var m = place.match(/国道\s*(\d+)\s*号/);
+    if (m) return '国道' + m[1] + '号';
+    m = place.match(/([^\s　\d]*?[都道府県])\s*道?\s*(\d+)\s*号/) || place.match(/([^\s　\d]*?[市町村区])\s*道?\s*(\d+)\s*号/);
+    return m ? m[1] + '道' + m[2] + '号' : null;
+  }
+  // 道路を範囲の中だけで探し、target に一番近い点を返す
+  function findRoadPoint(name, box, target) {
+    return nominatimSearch(name, box).then(function (c) {
+      return nearest(c.filter(function (ll) { return box.contains(ll); }), target);
+    });
+  }
+  // 線の上で、長さの f の割合の位置にある点
+  function pointAlong(line, f) {
+    if (line.length < 2) return line[0];
+    var total = 0, i;
+    for (i = 1; i < line.length; i++) total += line[i - 1].distanceTo(line[i]);
+    var goal = total * f, run = 0;
+    for (i = 1; i < line.length; i++) {
+      var d = line[i - 1].distanceTo(line[i]);
+      if (run + d >= goal && d > 0) {
+        var t = (goal - run) / d;
+        return L.latLng(line[i - 1].lat + (line[i].lat - line[i - 1].lat) * t, line[i - 1].lng + (line[i].lng - line[i - 1].lng) * t);
+      }
+      run += d;
+    }
+    return line[line.length - 1];
+  }
+  function newPt(ll) { return { ll: ll, mode: 'road', path: null, failed: false }; }
 
+  // ---------- 出発地・到着地 ----------
+  var ends = { start: null, goal: null };
+  var endMarkers = { start: null, goal: null };
+  var picking = null;
+  var END_NAME = { start: '出発地', goal: '到着地' };
+  var END_COLOR = { start: '#1f8a4c', goal: '#c0392b' };
+
+  function endInfo(w, text, ng) {
+    $(w + 'Info').className = 'note' + (ng ? ' ng' : '');
+    $(w + 'Info').textContent = text;
+  }
+  function setEnd(w, ll, name) {
+    ends[w] = ll;
+    if (endMarkers[w]) map.removeLayer(endMarkers[w]);
+    endMarkers[w] = L.circleMarker(ll, { radius: 10, color: '#fff', weight: 3, fillColor: END_COLOR[w], fillOpacity: 1, interactive: false }).addTo(map);
+    endInfo(w, END_NAME[w] + 'を決めました:' + (name || '地図で選んだ場所'));
+  }
+  ['start', 'goal'].forEach(function (w) {
+    var find = function () {
+      var q = $(w + 'Q').value.trim();
+      if (!q) return;
+      endInfo(w, '検索中…');
+      gsiSearch(q, false).then(function (g) {
+        return g.length ? g[0] : nominatimSearch(q, null).then(function (n) { return n[0] || null; });
+      }).then(function (ll) {
+        if (!ll) { endInfo(w, '見つかりませんでした。書き方を変えるか、「地図をタップして決める」を使ってください。', true); return; }
+        setEnd(w, ll, q);
+        map.setView(ll, Math.max(map.getZoom(), 15));
+      });
+    };
+    $(w + 'Find').addEventListener('click', find);
+    $(w + 'Q').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); find(); } });
+    $(w + 'Pick').addEventListener('click', function () {
+      picking = w;
+      $('map').classList.add('drawing');
+      endInfo(w, '地図をタップして' + END_NAME[w] + 'を決めてください。');
+    });
+  });
+
+  $('endsRoute').addEventListener('click', function () {
+    if (!ends.start || !ends.goal) { endInfo('goal', '出発地と到着地を両方決めてください。', true); return; }
+    if (pending) { alert('ルート検索中です。線が出てから、もう一度押してください。'); return; }
+    if (pts.length && !confirm('今のルートを消して、出発地から到着地までのルートを引きます。よろしいですか?')) return;
+    pts = [newPt(ends.start), newPt(ends.goal)];
+    renderRoute();
+    map.fitBounds(L.latLngBounds([ends.start, ends.goal]), { padding: [60, 60], maxZoom: 17 });
+    findRoad(pts[1], pts[0]);
+  });
+
+  // ---------- Excelの一覧からルートを作る ----------
   $('prCancel').addEventListener('click', function () {
     prItems = [];
     $('prBox').classList.remove('show');
@@ -722,55 +855,104 @@ h2{font-size:17px;margin-bottom:8px}
     if (pts.length && !confirm('今のルートを消して、この順に引き直します。よろしいですか?')) return;
     var btns = [$('prBuild'), $('prCancel')];
     btns.forEach(function (b) { b.disabled = true; });
-    var items = prItems.slice();
-    var found = [], missing = [];
-    var ref = map.getCenter();
+    var items = prItems.map(function (it) {
+      var place = it.place.trim();
+      return { imgs: it.imgs, place: place, label: (place + ' ' + it.comment.trim()).trim(), gps: it.gps,
+        kind: it.gps ? 'point' : kindOf(place), ll: null, pi: -1 };
+    });
+    var area = (ends.start && ends.goal) ? areaAround(ends.start, ends.goal) : null;
+    var ref = ends.start || map.getCenter();
+    var skipped = [], onRoute = [];
+    var prevLL = function (i) { for (var k = i - 1; k >= 0; k--) if (items[k].ll) return items[k].ll; return ends.start; };
+    var nextLL = function (i) { for (var k = i + 1; k < items.length; k++) if (items[k].ll) return items[k].ll; return ends.goal; };
 
+    // 1. 地点を探す
     items.reduce(function (chain, it, i) {
       return chain.then(function () {
-        setPrStatus('場所を探しています…(' + (i + 1) + '/' + items.length + ')');
-        var name = it.place.trim();
+        if (it.kind !== 'point') return null;
+        setPrStatus('地点を探しています…(' + (i + 1) + '/' + items.length + ')');
         if (it.gps) return it.gps;
-        if (!name) return null;
-        return geocode(name, ref);
+        if (!it.place) return null;
+        return geocode(it.place, ref, area);
       }).then(function (ll) {
-        if (ll) { found.push({ it: it, ll: ll }); ref = ll; }
-        else { missing.push((i + 1) + '件目(' + (it.place.trim() || '場所が空欄') + ')'); }
+        if (it.kind !== 'point') return;
+        if (ll) { it.ll = ll; ref = ll; }
+        else skipped.push((i + 1) + '件目(' + (it.place || '場所が空欄') + ')');
       });
     }, Promise.resolve()).then(function () {
+      // 2. 道路は前後の地点のあいだで探し、見つかればそこを通るようにする
+      return items.reduce(function (chain, it, i) {
+        return chain.then(function () {
+          if (it.kind !== 'road') return null;
+          var a = prevLL(i), b = nextLL(i), name = roadName(it.place);
+          if (!name || (!a && !b)) return null;
+          setPrStatus('道路を探しています…(' + (i + 1) + '/' + items.length + ')');
+          var target = a && b ? L.latLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2) : (a || b);
+          return findRoadPoint(name, boxAround(a || b, b || a), target);
+        }).then(function (ll) {
+          if (it.kind !== 'road') return;
+          if (ll && inArea(ll, area)) it.ll = ll; else onRoute.push(it);
+        });
+      }, Promise.resolve());
+    }).then(function () {
       btns.forEach(function (b) { b.disabled = false; });
-      if (!found.length) {
-        setPrStatus('場所が1つも見つかりませんでした。場所の書き方を変えるか、地図を走った地域の近くに動かしてから、もう一度ためしてください。', true);
+      var seq = [];
+      if (ends.start) seq.push(ends.start);
+      items.forEach(function (it) { if (it.ll) { it.pi = seq.length; seq.push(it.ll); } });
+      if (ends.goal) seq.push(ends.goal);
+      if (!seq.length) {
+        setPrStatus('場所が1つも見つかりませんでした。出発地と到着地を決めるか、場所の書き方を変えてから、もう一度ためしてください。', true);
         return;
       }
-      pts = found.map(function (f) { return { ll: f.ll, mode: 'road', path: null, failed: false }; });
+      pts = seq.map(newPt);
       renderRoute();
       // 写真カードを置く余白を残して全体が見えるようにする(地図が小さいときは余白も小さく)
       var size = map.getSize();
       var shift = Math.round(Math.min(130, size.y * 0.25));
       var pad = [Math.round(Math.min(100, size.x * 0.2)), shift + 40];
-      if (found.length === 1) map.setView(found[0].ll, 17, { animate: false });
-      else map.fitBounds(L.latLngBounds(found.map(function (f) { return f.ll; })), { padding: pad, maxZoom: 17, animate: false });
+      if (seq.length === 1) map.setView(seq[0], 17, { animate: false });
+      else map.fitBounds(L.latLngBounds(seq), { padding: pad, maxZoom: 17, animate: false });
       // 写真カードがルートを隠さないよう、上下交互にずらして置き(同じ場所の写真は横に並べる)、赤い矢印で場所を指す
-      found.forEach(function (f, i) {
-        var n = f.it.imgs.length;
-        f.it.imgs.forEach(function (img, j) {
-          var cp = map.latLngToContainerPoint(f.ll).add([(j - (n - 1) / 2) * 180, i % 2 ? shift : -shift]);
-          var p = addPhoto(img, map.containerPointToLatLng(cp), j === 0 ? (f.it.place.trim() + ' ' + f.it.comment.trim()).trim() : '');
-          toggleArrow(p, p.arrowBtn, f.ll);
+      var cardNo = 0;
+      var placeCards = function (it, ll) {
+        var n = it.imgs.length;
+        it.imgs.forEach(function (img, j) {
+          var cp = map.latLngToContainerPoint(ll).add([(j - (n - 1) / 2) * 180, cardNo % 2 ? shift : -shift]);
+          var p = addPhoto(img, map.containerPointToLatLng(cp), j === 0 ? it.label : '');
+          toggleArrow(p, p.arrowBtn, ll);
         });
-      });
+        if (n) cardNo++;
+      };
+      items.forEach(function (it) { if (it.ll) placeCards(it, it.ll); });
       prItems = [];
       $('prBox').classList.remove('show');
-      setPrStatus(found.length + '件の場所でルートを作りました。' +
-        (missing.length ? '見つからなかった件:' + missing.join('、') : ''), missing.length > 0);
+      var nPoint = items.filter(function (it) { return it.ll && it.kind === 'point'; }).length;
+      var nRoad = items.filter(function (it) { return it.ll && it.kind === 'road'; }).length;
+      setPrStatus('地点' + nPoint + '件・道路' + nRoad + '件を通るルートを作りました。' +
+        (skipped.length ? '見つからなかった地点' + (area ? '(出発地と到着地の範囲の外は探していません)' : '') + ':' + skipped.join('、') + '。' : '') +
+        (onRoute.length ? '場所がわからなかった道路は、前後の地点のあいだのルートの上に写真を置きました:' +
+          onRoute.map(function (it) { return (items.indexOf(it) + 1) + '件目(' + it.place + ')'; }).join('、') + '。' : ''), skipped.length > 0);
       // 道なりの線は1区間ずつ順番に問い合わせ、全区間が終わるまで「ルート検索中」のままにしておく
-      var seq = pts.slice();
+      var route = pts.slice();
       pending++;
       setRouteStatus();
-      seq.slice(1).reduce(function (chain, p, i) {
-        return chain.then(function () { return findRoad(p, seq[i]); });
+      route.slice(1).reduce(function (chain, p, i) {
+        return chain.then(function () { return findRoad(p, route[i]); });
       }, Promise.resolve()).then(function () {
+        // 場所がわからなかった道路は、前後の地点のあいだのルートの途中に置く
+        var groups = {};
+        onRoute.forEach(function (it) {
+          var i = items.indexOf(it), a = ends.start ? 0 : -1;
+          for (var k = i - 1; k >= 0; k--) if (items[k].ll) { a = items[k].pi; break; }
+          (groups[a] = groups[a] || []).push(it);
+        });
+        Object.keys(groups).forEach(function (key) {
+          var a = +key, list = groups[key], line;
+          if (a < 0) line = [route[0].ll];
+          else if (a + 1 < route.length) line = route[a + 1].path || [route[a].ll, route[a + 1].ll];
+          else line = [route[a].ll];
+          list.forEach(function (it, j) { placeCards(it, pointAlong(line, (j + 1) / (list.length + 1))); });
+        });
         pending--;
         setRouteStatus();
       });
