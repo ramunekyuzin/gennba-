@@ -164,6 +164,8 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
 #memberPanel .madd button{width:auto;flex-shrink:0;padding:10px 16px}
 #memberPanel .mempty{font-size:14px;color:var(--sub);padding:4px 0}
 #memberPanel .mhelp{font-size:13px;color:var(--sub);margin-top:8px;line-height:1.7}
+/* 優先度バッジ */
+.badge.prio{margin-left:0;border:1px solid currentColor}.badge.prio-0{background:var(--late);color:var(--danger)}.badge.prio-1{color:var(--primary)}.badge.prio-2{color:var(--sub)}
 
   </style>
 </head>
@@ -193,6 +195,12 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
         <datalist id="gyoshaList"></datalist>
       </div>
     </div>
+    <label for="f_prio">優先度</label>
+    <select id="f_prio">
+      <option value="高">高</option>
+      <option value="中" selected>中</option>
+      <option value="低">低</option>
+    </select>
     <label for="f_work">作業内容<span class="required">必須</span></label>
     <input id="f_work" placeholder="例: 3F 配線立上げ">
     <label for="f_memo">備考 <span style="font-weight:400">任意</span></label>
@@ -242,6 +250,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
   <!-- ===== 一覧操作 ===== -->
   <div class="toolbar">
     <div><label for="sortKey">並び順</label><select id="sortKey" onchange="render()">
+      <option value="prio" selected>優先度順</option>
       <option value="date">期限順</option>
       <option value="work">作業内容順</option>
       <option value="gyosha">業者順</option>
@@ -249,6 +258,12 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     </div><div><label for="showDone">表示する作業</label><select id="showDone" onchange="render()">
       <option value="open">未完了のみ</option>
       <option value="all">完了も表示</option>
+    </select>
+    </div><div><label for="prioFilter">優先度で絞り込み</label><select id="prioFilter" onchange="render()">
+      <option value="">すべて</option>
+      <option value="高">高だけ</option>
+      <option value="中">中だけ</option>
+      <option value="低">低だけ</option>
     </select>
     </div><button class="small" id="reloadBtn" onclick="load()">更新</button>
   </div>
@@ -390,6 +405,8 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     // ---------- 一覧描画 ----------
     function isDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s || ''); }
     function dateKey(s) { return isDate(s) ? s : (s === '未定' ? '9998' : '9999'); } // 未定は末尾
+    function prioOf(r) { return ['高','中','低'].includes(r['優先度']) ? r['優先度'] : '中'; } // 未入力は中
+    function prioRank(r) { return { '高': 0, '中': 1, '低': 2 }[prioOf(r)]; }
 
     function getFiltered() {
       const sortKey = document.getElementById('sortKey').value;
@@ -399,7 +416,10 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
       const query = document.getElementById('searchInput').value.trim().toLocaleLowerCase();
       if(query) list = list.filter(r => ['作業内容','業者','備考'].some(k => String(r[k] || '').toLocaleLowerCase().includes(query)));
       if (showDone === 'open') list = list.filter(r => !r['完了']);
+      const prio = document.getElementById('prioFilter').value;
+      if (prio) list = list.filter(r => prioOf(r) === prio);
       list.sort((a, b) => {
+        if (sortKey === 'prio')   return prioRank(a) - prioRank(b) || dateKey(a['期限']).localeCompare(dateKey(b['期限']));
         if (sortKey === 'date')   return dateKey(a['期限']).localeCompare(dateKey(b['期限']));
         if (sortKey === 'work')   return String(a['作業内容']).localeCompare(String(b['作業内容']), 'ja');
         if (sortKey === 'gyosha') return String(a['業者']).localeCompare(String(b['業者']), 'ja') || dateKey(a['期限']).localeCompare(dateKey(b['期限']));
@@ -434,7 +454,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
         return `<div class="item ${r['完了']?'done':''} ${late?'late':''} ${tbd?'tbd':''}"${colorStyle}>
           <div class="top">
             <span class="date">期限：${esc(isDate(r['期限']) ? r['期限'].slice(0,4)+'年 '+labelDate(r['期限']) : labelDate(r['期限']))}<span class="badge ${r['完了']?'done':late?'late':tbd?'tbd':''}">${r['完了']?'完了':late?'期限超過':tbd?'期限未定':r['期限']===today?'本日期限':'未完了'}</span></span>
-            <span class="tags">${torokuTag(who)}<span class="gyosha">${esc(r['業者'])}</span></span>
+            <span class="tags"><span class="badge prio prio-${prioRank(r)}">優先度：${prioOf(r)}</span>${torokuTag(who)}<span class="gyosha">${esc(r['業者'])}</span></span>
           </div>
           <div class="work">${esc(r['作業内容'])}</div>
           ${r['備考'] ? `<div class="memo"><span class="memo-caption">備考</span>${esc(r['備考'])}</div>` : ''}
@@ -508,6 +528,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
         '業者': document.getElementById('f_gyosha').value.trim(),
         '備考': document.getElementById('f_memo').value.trim(),
         '登録者': document.getElementById('f_toroku').value,
+        '優先度': document.getElementById('f_prio').value,
       };
       if (!data['作業内容']) { setStatus('作業内容を入れてね', 'ng'); return; }
       if (!data['業者']) { setStatus('業者を入れてね', 'ng'); return; }
@@ -537,6 +558,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
       ['f_date','f_work','f_gyosha','f_memo','f_id','f_files'].forEach(i => document.getElementById(i).value = '');
       document.getElementById('f_tbd').checked = false;
       document.getElementById('f_date').disabled = false;
+      document.getElementById('f_prio').value = '中';
       document.getElementById('fileList').innerHTML = '';
       buildTorokuOptions('');
       pendingFiles = []; renderPending();
@@ -564,6 +586,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
       document.getElementById('f_work').value = r['作業内容'];
       document.getElementById('f_gyosha').value = r['業者'];
       document.getElementById('f_memo').value = r['備考'];
+      document.getElementById('f_prio').value = prioOf(r);
       buildTorokuOptions(r['登録者'] || '');
       document.getElementById('f_files').value = '';
       pendingFiles = []; renderPending();
