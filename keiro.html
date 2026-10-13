@@ -165,14 +165,14 @@ h2{font-size:17px;margin-bottom:8px}
       <h2>写真</h2>
       <label for="photoInput" class="btn sub" style="margin:0;color:var(--ink);font-weight:500">写真を追加</label>
       <input type="file" id="photoInput" accept="image/*" multiple>
-      <p class="note">地図には赤い番号の写真マークが出ます。マークはドラッグで動かせます。写真とコメントは下の一覧で確かめてください。PDFでは2ページ目からの写真一覧に入ります。</p>
+      <p class="note">地図には赤い番号の写真マークが出ます。マークはドラッグで動かせます。写真とコメントは下の一覧で確かめてください。PDFでは、地図のまわりに写真が番号順に並び、赤い矢印でマークを指します。</p>
       <ul id="phList"></ul>
     </section>
 
     <section class="card">
       <h2>保存</h2>
       <button type="button" class="btn" id="saveBtn">PDFで保存</button>
-      <p class="note">いま地図に見えている範囲が、そのままA4のPDFになります。写真やExcelの中身はこの端末の中だけで扱い、どこにも送信しません。道順や場所を調べるときだけ、地点の位置や「場所」の文字を検索サービスに送ります。</p>
+      <p class="note">ルートと写真マークが全部入るように地図を自動で合わせて、A4横1枚のPDFにします(写真は地図のまわりに並び、赤い矢印でマークを指します)。写真やExcelの中身はこの端末の中だけで扱い、どこにも送信しません。道順や場所を調べるときだけ、地点の位置や「場所」の文字を検索サービスに送ります。</p>
     </section>
 
     <p class="footer">経路図づくり</p>
@@ -1204,41 +1204,83 @@ h2{font-size:17px;margin-bottom:8px}
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(String(n), pt.x, pt.y + 1);
   }
-  // 写真一覧のページ(A4縦、1ページに2列×3段)。1枚ごとに番号・写真・コメントを入れる
-  function photoPages() {
-    var cells = [];
-    photos.forEach(function (g, i) {
-      g.imgs.forEach(function (img) { cells.push({ no: i + 1, img: img, text: g.comment.trim() }); });
-    });
-    var W = 1240, H = 1754, M = 70, top = 150, gap = 30, cols = 2, rows = 3, per = cols * rows;
-    var cw = (W - M * 2 - gap) / cols, ch = (H - top - M - gap * (rows - 1)) / rows, capH = 120;
-    var total = Math.ceil(cells.length / per), pages = [];
-    for (var s = 0; s < cells.length; s += per) {
-      var cv = document.createElement('canvas');
-      cv.width = W; cv.height = H;
-      var ctx = cv.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = '#111'; ctx.textBaseline = 'alphabetic';
-      ctx.font = '700 40px ' + FONT; ctx.textAlign = 'left';
-      ctx.fillText('写真一覧', M, 100);
-      ctx.font = '28px ' + FONT; ctx.textAlign = 'right';
-      ctx.fillText((s / per + 1) + ' / ' + total, W - M, 100);
-      cells.slice(s, s + per).forEach(function (c, k) {
-        var x = M + (k % cols) * (cw + gap), y = top + Math.floor(k / cols) * (ch + gap);
-        ctx.lineWidth = 2; ctx.strokeStyle = '#ccc';
-        rr(ctx, x, y, cw, ch, 12); ctx.stroke();
-        // 写真は枠に収まるよう、縦横の比率を変えずに縮める
-        var bw = cw - 24, bh = ch - 24 - capH;
-        var r = Math.min(bw / c.img.naturalWidth, bh / c.img.naturalHeight);
-        var dw = c.img.naturalWidth * r, dh = c.img.naturalHeight * r;
-        ctx.drawImage(c.img, x + 12 + (bw - dw) / 2, y + 12 + (bh - dh) / 2, dw, dh);
-        drawPin(ctx, { x: x + 40, y: y + 40 }, c.no, 1.6);
-        ctx.fillStyle = '#222'; ctx.font = '30px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        wrapText(ctx, c.text, cw - 32).slice(0, 3).forEach(function (ln, j) { ctx.fillText(ln, x + 16, y + ch - capH + j * 38); });
-      });
-      pages.push(cv);
+  // ---------- PDFの1ページ目:地図をまん中に置き、写真をまわりに並べて赤い矢印で場所を指す ----------
+  // 写真の大きさを、n 枚がまわりに収まるいちばん大きいサイズに決める
+  function photoLayout(n, W, H, M, g) {
+    var best = null;
+    for (var cw = 400; cw >= 150; cw -= 10) {
+      var font = Math.max(22, Math.round(cw * 0.085));
+      var ch = Math.round(cw * 0.66) + Math.round(font * 2.7) + 16;
+      var row = Math.floor((W - 2 * M + g) / (cw + g));
+      var col = Math.max(0, Math.floor((H - 2 * M - 2 * (ch + g) + g) / (ch + g)));
+      best = { cw: cw, ch: ch, font: font, row: row, col: col };
+      if (2 * row + 2 * col >= n) break;
     }
-    return pages;
+    return best;
+  }
+  // まわりの置き場所を、左上から時計回りに並べる
+  function photoSlots(L0, W, H, M, g) {
+    var s = [], i, rowW = L0.row * L0.cw + (L0.row - 1) * g, colH = L0.col * L0.ch + (L0.col - 1) * g;
+    var x0 = (W - rowW) / 2, y0 = (H - colH) / 2;
+    for (i = 0; i < L0.row; i++) s.push({ x: x0 + i * (L0.cw + g), y: M });
+    for (i = 0; i < L0.col; i++) s.push({ x: W - M - L0.cw, y: y0 + i * (L0.ch + g) });
+    for (i = L0.row - 1; i >= 0; i--) s.push({ x: x0 + i * (L0.cw + g), y: H - M - L0.ch });
+    for (i = L0.col - 1; i >= 0; i--) s.push({ x: M, y: y0 + i * (L0.ch + g) });
+    return s;
+  }
+  // 写真と置き場所を、ページのまん中から見た向きの順で組にする(矢印がなるべく交差しないように)
+  function assignSlots(pins, slots, c) {
+    var ang = function (p) { return Math.atan2(p.y - c.y, p.x - c.x); };
+    var ps = pins.slice().sort(function (a, b) { return ang(a) - ang(b); });
+    var ss = slots.map(function (s) { return { x: s.x, y: s.y, cx: s.cx, cy: s.cy }; })
+      .sort(function (a, b) { return ang({ x: a.cx, y: a.cy }) - ang({ x: b.cx, y: b.cy }); });
+    var N = ps.length, S = ss.length, best = null, bestCost = Infinity;
+    for (var sh = 0; sh < S; sh++) {
+      var cost = 0, pick = [];
+      for (var k = 0; k < N; k++) {
+        var s = ss[(Math.floor(k * S / N) + sh) % S];
+        pick.push(s);
+        cost += Math.hypot(s.cx - ps[k].x, s.cy - ps[k].y);
+      }
+      if (cost < bestCost) { bestCost = cost; best = pick; }
+    }
+    ps.forEach(function (p, k) { p.slot = best[k]; });
+    return ps;
+  }
+  function drawPhotoCard(ctx, s, L0, g, no) {
+    var pad = 8, iw = L0.cw - pad * 2, ih = Math.round(L0.cw * 0.66), img = g.imgs[0];
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
+    rr(ctx, s.x, s.y, L0.cw, L0.ch, 10); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.restore();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#bbb'; rr(ctx, s.x, s.y, L0.cw, L0.ch, 10); ctx.stroke();
+    // 写真(枠に合わせて、はみ出す分は切り取る)
+    var nat = img.naturalWidth / img.naturalHeight, box = iw / ih, sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+    if (nat > box) { sw = sh * box; sx = (img.naturalWidth - sw) / 2; } else { sh = sw / box; sy = (img.naturalHeight - sh) / 2; }
+    ctx.drawImage(img, sx, sy, sw, sh, s.x + pad, s.y + pad, iw, ih);
+    drawPin(ctx, { x: s.x + pad + 26, y: s.y + pad + 26 }, no, 1.5);
+    // コメント(2行まで。長いときは「…」で切る)
+    ctx.fillStyle = '#222'; ctx.font = L0.font + 'px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    var lines = wrapText(ctx, g.comment.trim(), iw);
+    if (lines.length > 2) { lines = lines.slice(0, 2); lines[1] = lines[1].slice(0, -1) + '…'; }
+    lines.forEach(function (ln, j) { ctx.fillText(ln, s.x + pad, s.y + pad + ih + 6 + j * Math.round(L0.font * 1.3)); });
+  }
+  function drawArrowLine(ctx, a, b, w) {
+    var ang = Math.atan2(b.y - a.y, b.x - a.x), head = w * 4.5;
+    var bx = b.x - head * Math.cos(ang), by = b.y - head * Math.sin(ang);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = w + 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.strokeStyle = RED; ctx.lineWidth = w;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(bx, by); ctx.stroke();
+    var nx = -Math.sin(ang) * head * 0.55, ny = Math.cos(ang) * head * 0.55;
+    ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(bx + nx, by + ny); ctx.lineTo(bx - nx, by - ny); ctx.closePath();
+    ctx.fillStyle = RED; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  // 写真の枠のふちのうち、矢印の出発点(枠のまん中から相手の方向へ伸ばした線が枠と交わる点)
+  function cardEdge(s, L0, to) {
+    var cx = s.x + L0.cw / 2, cy = s.y + L0.ch / 2, dx = to.x - cx, dy = to.y - cy;
+    var t = Math.min(Math.abs((L0.cw / 2) / (dx || 1e-9)), Math.abs((L0.ch / 2) / (dy || 1e-9)));
+    return { x: cx + dx * t, y: cy + dy * t };
   }
   function waitTiles() {
     var lyr = tileLayers[curKey];
@@ -1258,7 +1300,26 @@ h2{font-size:17px;margin-bottom:8px}
     var btn = this;
     if (pending) { alert('ルート検索中です。線が出てから、もう一度押してください。'); return; }
     btn.disabled = true; btn.textContent = 'PDFを作成中…';
-    waitTiles().then(function () {
+    // ページの大きさ(A4横)と、写真の並べ方を先に決める
+    var W = 2339, H = 1654, M = 40, gap = 18;
+    var L0 = photos.length ? photoLayout(photos.length, W, H, M, gap) : null;
+    var ax = M, ay = M, aw = W - M * 2, ah = H - M * 2;
+    if (L0) { ax += L0.cw + gap; ay += L0.ch + gap; aw -= (L0.cw + gap) * 2; ah -= (L0.ch + gap) * 2; }
+    // PDFを作るあいだだけ、地図をまん中の枠と同じ形にして、ルートと写真マークが全部入るように合わせる
+    var cont = map.getContainer();
+    var before = { w: cont.style.width, h: cont.style.height, c: map.getCenter(), z: map.getZoom() };
+    cont.style.width = '1200px';
+    cont.style.height = Math.round(1200 * ah / aw) + 'px';
+    map.invalidateSize(false);
+    var all = pts.map(function (p) { return p.ll; }).concat(photos.map(function (g) { return g.ll; }));
+    if (all.length > 1) map.fitBounds(L.latLngBounds(all), { padding: [40, 40], maxZoom: 17, animate: false });
+    else if (all.length === 1) map.setView(all[0], 16, { animate: false });
+    var restore = function () {
+      cont.style.width = before.w; cont.style.height = before.h;
+      map.invalidateSize(false);
+      map.setView(before.c, before.z, { animate: false });
+    };
+    wait(500).then(waitTiles).then(function () {
       var size = map.getSize(), S = 2;
       var cv = document.createElement('canvas');
       cv.width = size.x * S; cv.height = size.y * S;
@@ -1297,37 +1358,54 @@ h2{font-size:17px;margin-bottom:8px}
         ctx.lineWidth = 4; ctx.strokeStyle = BLUE; ctx.stroke();
       });
 
-      // 写真マーク → ラベル の順に重ねる
-      photos.forEach(function (g, i) { drawPin(ctx, P(g.ll), i + 1); });
       endPts.forEach(function (e) { drawLabel(ctx, e.pt, e.text); });
 
       // 出典
       var credit = LAYERS[curKey].credit + (usesRoad() ? ' / ' + ROUTE_CREDIT : '');
       ctx.font = '12px ' + FONT;
-      var cw = ctx.measureText(credit).width + 12;
+      var crw = ctx.measureText(credit).width + 12;
       ctx.fillStyle = 'rgba(255,255,255,.85)';
-      ctx.fillRect(size.x - cw, size.y - 20, cw, 20);
+      ctx.fillRect(size.x - crw, size.y - 20, crw, 20);
       ctx.fillStyle = '#333'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(credit, size.x - cw + 6, size.y - 10);
+      ctx.fillText(credit, size.x - crw + 6, size.y - 10);
 
-      // A4(地図の形に合わせて縦・横を決める)に、余白10mmで一番大きく載せる
-      var data = cv.toDataURL('image/jpeg', 0.92);
-      var land = size.x >= size.y;
-      var pw = land ? 297 : 210, ph = land ? 210 : 297, m = 10;
-      var k = Math.min((pw - m * 2) / size.x, (ph - m * 2) / size.y);
-      var w = size.x * k, h = size.y * k;
-      var pdf = new window.jspdf.jsPDF({ orientation: land ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
-      pdf.addImage(data, 'JPEG', (pw - w) / 2, (ph - h) / 2, w, h);
-      // 2ページ目から:写真一覧(A4縦)
-      photoPages().forEach(function (page) {
-        pdf.addPage('a4', 'portrait');
-        pdf.addImage(page.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, 210, 297);
+      // A4横の1ページに、地図をまん中、写真をまわりに並べる(写真がないときは地図だけを大きく)
+      var page = document.createElement('canvas');
+      page.width = W; page.height = H;
+      var pc = page.getContext('2d');
+      pc.fillStyle = '#fff'; pc.fillRect(0, 0, W, H);
+      // 地図は縦横の比率を変えずに、まん中の枠に一番大きく入れる
+      var k = Math.min(aw / size.x, ah / size.y), mw = size.x * k, mh = size.y * k;
+      var mx = ax + (aw - mw) / 2, my = ay + (ah - mh) / 2;
+      pc.drawImage(cv, mx, my, mw, mh);
+      pc.lineWidth = 2; pc.strokeStyle = '#999'; pc.strokeRect(mx, my, mw, mh);
+      // 地図の上の写真マークの位置(地図の外に出ているときは、地図のふちに寄せる)
+      var pins = photos.map(function (g, i) {
+        var q = P(g.ll);
+        return { g: g, no: i + 1,
+          x: Math.min(mx + mw - 20, Math.max(mx + 20, mx + q.x * k)),
+          y: Math.min(my + mh - 20, Math.max(my + 20, my + q.y * k)) };
       });
+      if (L0) {
+        var slots = photoSlots(L0, W, H, M, gap).map(function (s) { return { x: s.x, y: s.y, cx: s.x + L0.cw / 2, cy: s.y + L0.ch / 2 }; });
+        assignSlots(pins, slots, { x: W / 2, y: H / 2 });
+        // 矢印 → 写真マーク → 写真 の順に重ねる
+        pins.forEach(function (p) {
+          var a = cardEdge(p.slot, L0, p), d = Math.hypot(p.x - a.x, p.y - a.y) || 1;
+          // 矢印の先は、写真マークの丸のふちで止める
+          drawArrowLine(pc, a, { x: p.x - (p.x - a.x) / d * 22, y: p.y - (p.y - a.y) / d * 22 }, 6);
+        });
+        pins.forEach(function (p) { drawPin(pc, p, p.no, 1.3); });
+        pins.forEach(function (p) { drawPhotoCard(pc, p.slot, L0, p.g, p.no); });
+      }
+      var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      pdf.addImage(page.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 297, 210);
       pdf.save(fileName());
     }).catch(function (err) {
       console.error(err);
       alert('PDFを作れませんでした。地図の読み込みが終わってから、もう一度ためしてください。');
     }).then(function () {
+      restore();
       btn.disabled = false; btn.textContent = 'PDFで保存';
     });
   });
