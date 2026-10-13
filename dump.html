@@ -73,7 +73,27 @@ details.settings>summary::-webkit-details-marker{display:none}
 details.settings>summary::before{content:"▶";font-size:13px;margin-right:8px;transition:transform .15s}
 details.settings[open]>summary::before{transform:rotate(90deg)}
 details.settings[open]>summary{margin-bottom:12px}
+.pdfbox{border-top:1px solid var(--line);margin-top:8px;padding-top:14px}
+.pdfbox .btn{margin-top:10px}
+#printSheet{display:none}
 @media(min-width:600px){.choices{grid-template-columns:1fr 1fr 1fr}}
+@page{size:A4 portrait;margin:15mm}
+@media print{
+  html,body{background:#fff;color:#000;color-scheme:light}
+  body>*:not(#printSheet){display:none!important}
+  #printSheet{display:block;color:#000;font-size:12pt}
+  .ps-title{font-size:18pt;font-weight:700;text-align:center;margin:0 0 4mm;letter-spacing:.1em}
+  .ps-date{text-align:center;font-size:13pt;margin:0 0 8mm}
+  .ps-genba{font-size:13pt;border-bottom:1px solid #000;padding-bottom:2mm;margin:0 0 6mm}
+  .ps-table{width:100%;border-collapse:collapse}
+  .ps-table th,.ps-table td{border:1px solid #000;padding:3mm 2mm}
+  .ps-table th{white-space:nowrap;background:#eee;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ps-table td.n{text-align:right;white-space:nowrap}
+  .ps-sum{margin:6mm 0 0 auto;border-collapse:collapse;min-width:60%}
+  .ps-sum th,.ps-sum td{border:1px solid #000;padding:3mm 4mm;font-size:13pt}
+  .ps-sum th{text-align:left;font-weight:700}
+  .ps-sum td{text-align:right;font-weight:700;white-space:nowrap}
+}
 </style>
 </head>
 <body>
@@ -140,11 +160,12 @@ details.settings[open]>summary{margin-bottom:12px}
     </details>
   </section>
 </main>
+<div id="printSheet"></div>
 <script>
 // ============================================
 // GASのWebアプリURL(デプロイしたらここに貼る)
 // ============================================
-const GAS_URL = "";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyh2K37JlbfDYcMTFsR58uQq1q5LFTJXxWE0DF3bb2Olh68UxP9jPJ6yalmjUhIoTiw/exec";
 
 const $ = (id) => document.getElementById(id);
 let sizes = [];    // [{name, load}]
@@ -259,8 +280,43 @@ function renderDetail(){
     (recs.length
       ? recs.map(r => '<div class="recrow"><span>' + esc(r.size) + ' × ' + r.count + '台 × ' + r.trips + '回 ＝ ' + num(r.total) + '㎥</span><button type="button" class="del" data-id="' + esc(r.id) + '">削除</button></div>').join("")
       : '<p class="empty">この日の記録はありません</p>') +
+    (recs.length
+      ? '<div class="pdfbox"><label class="label" for="genbaName">現場名（PDFに入ります）</label>' +
+        '<input type="text" id="genbaName" maxlength="60" placeholder="例：〇〇線 道路改良工事" value="' + esc(loadGenba()) + '">' +
+        '<button type="button" class="btn" id="pdfBtn">この日のPDFを作る</button></div>'
+      : "") +
     '</div>';
 }
+
+// ---------- PDF(印刷 → PDFとして保存) ----------
+// 現場名はこの端末にだけ覚えておく
+function loadGenba(){ try { return localStorage.getItem("dump_genba") || ""; } catch (e) { return ""; } }
+function saveGenba(v){ try { localStorage.setItem("dump_genba", v); } catch (e) { /* 使えなくてもOK */ } }
+$("detail").addEventListener("input", (e) => { if (e.target.id === "genbaName") saveGenba(e.target.value.trim()); });
+
+function makePdf(date){
+  const recs = records.filter(r => r.date === date);
+  if (!recs.length) return;
+  const daySum = recs.reduce((a, r) => a + Number(r.total), 0);
+  const monthStart = date.slice(0, 8) + "01";
+  const monthSum = records.filter(r => r.date >= monthStart && r.date <= date).reduce((a, r) => a + Number(r.total), 0);
+  const [y, m, d] = date.split("-").map(Number);
+  const genba = ($("genbaName") ? $("genbaName").value.trim() : loadGenba());
+  $("printSheet").innerHTML =
+    '<h1 class="ps-title">ダンプ搬出量</h1>' +
+    '<p class="ps-date">' + y + '年' + jpDate(date).replace("/", "月").replace("（", "日（") + '</p>' +
+    (genba ? '<p class="ps-genba">現場名：' + esc(genba) + '</p>' : "") +
+    '<table class="ps-table"><thead><tr><th>車格</th><th>積載量</th><th>台数</th><th>回転数</th><th>量</th></tr></thead><tbody>' +
+    recs.map(r => '<tr><td>' + esc(r.size) + '</td><td class="n">' + num(r.load) + '㎥</td><td class="n">' + r.count + '台</td><td class="n">' + r.trips + '回</td><td class="n">' + num(r.total) + '㎥</td></tr>').join("") +
+    '</tbody></table>' +
+    '<table class="ps-sum"><tr><th>日の合計</th><td>' + num(daySum) + '㎥</td></tr>' +
+    '<tr><th>' + m + '月の合計（' + m + '/1〜' + m + '/' + d + '）</th><td>' + num(monthSum) + '㎥</td></tr></table>';
+  // 保存するときのファイル名になる
+  const title = document.title;
+  document.title = "ダンプ搬出量_" + date;
+  setTimeout(() => { window.print(); document.title = title; }, 300);
+}
+$("detail").addEventListener("click", (e) => { if (e.target.id === "pdfBtn") makePdf(selDate); });
 $("cal").addEventListener("click", (e) => {
   const cell = e.target.closest(".cell"); if (!cell || !cell.dataset.date) return;
   selDate = cell.dataset.date; setMsg($("listMsg"), "");
