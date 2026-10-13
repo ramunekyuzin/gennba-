@@ -98,6 +98,15 @@ details.settings[open]>summary{margin-bottom:12px}
           <button type="button" class="sbtn" id="plus" aria-label="1台増やす">＋</button>
         </div>
       </div>
+      <div class="field">
+        <label class="label" for="trips">回転数</label>
+        <p class="hint">1台が何回運んだか</p>
+        <div class="stepper">
+          <button type="button" class="sbtn" id="tripMinus" aria-label="1回減らす">−</button>
+          <input type="number" id="trips" inputmode="numeric" min="1" step="1" value="1">
+          <button type="button" class="sbtn" id="tripPlus" aria-label="1回増やす">＋</button>
+        </div>
+      </div>
       <div class="subtotal" id="subtotal" aria-live="polite">車格を選んでください</div>
       <button class="btn" id="send" type="submit">登録</button>
       <p class="msg" id="msg" role="status" aria-live="polite"></p>
@@ -139,7 +148,7 @@ const GAS_URL = "";
 
 const $ = (id) => document.getElementById(id);
 let sizes = [];    // [{name, load}]
-let records = [];  // [{id, date, size, load, count, total}]
+let records = [];  // [{id, date, size, load, count, trips, total}]
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function num(n){ return String(Math.round(Number(n) * 100) / 100); }
@@ -172,32 +181,37 @@ function currentSize(){
   return sizes.find(s => s.name === v);
 }
 function currentCount(){ return Math.floor(Number($("count").value)); }
+function currentTrips(){ return Math.floor(Number($("trips").value)); }
 function updateSubtotal(){
-  const s = currentSize(), c = currentCount();
-  $("subtotal").innerHTML = (s && c > 0)
-    ? esc(s.name) + " " + num(s.load) + "㎥ × " + c + "台 ＝ <b>" + num(s.load * c) + "</b> ㎥"
-    : "車格と台数を入れてください";
+  const s = currentSize(), c = currentCount(), t = currentTrips();
+  $("subtotal").innerHTML = (s && c > 0 && t > 0)
+    ? esc(s.name) + " " + num(s.load) + "㎥ × " + c + "台 × " + t + "回 ＝ <b>" + num(s.load * c * t) + "</b> ㎥"
+    : "車格・台数・回転数を入れてください";
 }
 $("sizes").addEventListener("change", updateSubtotal);
 $("count").addEventListener("input", updateSubtotal);
+$("trips").addEventListener("input", updateSubtotal);
 $("minus").addEventListener("click", () => { $("count").value = Math.max(1, currentCount() - 1 || 1); updateSubtotal(); });
 $("plus").addEventListener("click", () => { $("count").value = Math.max(0, currentCount() || 0) + 1; updateSubtotal(); });
+$("tripMinus").addEventListener("click", () => { $("trips").value = Math.max(1, currentTrips() - 1 || 1); updateSubtotal(); });
+$("tripPlus").addEventListener("click", () => { $("trips").value = Math.max(0, currentTrips() || 0) + 1; updateSubtotal(); });
 
 $("form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const s = currentSize(), c = currentCount(), date = $("date").value;
+  const s = currentSize(), c = currentCount(), t = currentTrips(), date = $("date").value;
   if (!date)        return setMsg($("msg"), "日付を入れてください", "ng");
   if (!s)           return setMsg($("msg"), "車格を選んでください", "ng");
   if (!(c > 0))     return setMsg($("msg"), "台数は1以上で入れてください", "ng");
+  if (!(t > 0))     return setMsg($("msg"), "回転数は1以上で入れてください", "ng");
   $("send").disabled = true; $("send").textContent = "登録中…"; setMsg($("msg"), "");
   try {
-    const rec = await api({ action: "add", data: { date: date, size: s.name, count: c } });
+    const rec = await api({ action: "add", data: { date: date, size: s.name, count: c, trips: t } });
     records.push(rec);
     const [y, m] = date.split("-").map(Number);
     viewY = y; viewM = m - 1; selDate = date;
     renderDays();
-    setMsg($("msg"), jpDate(date) + " " + s.name + " " + c + "台（" + num(rec.total) + "㎥）を登録しました", "ok");
-    $("count").value = 1; updateSubtotal();
+    setMsg($("msg"), jpDate(date) + " " + s.name + " " + c + "台×" + t + "回（" + num(rec.total) + "㎥）を登録しました", "ok");
+    $("count").value = 1; $("trips").value = 1; updateSubtotal();
   } catch (err) {
     setMsg($("msg"), "登録できませんでした: " + err.message, "ng");
   } finally {
@@ -243,7 +257,7 @@ function renderDetail(){
   const sum = recs.reduce((a, r) => a + Number(r.total), 0);
   $("detail").innerHTML = '<div class="day"><div class="day-head"><span class="d">' + jpDate(selDate) + '</span><span class="sum">' + num(sum) + ' ㎥</span></div>' +
     (recs.length
-      ? recs.map(r => '<div class="recrow"><span>' + esc(r.size) + ' × ' + r.count + '台 ＝ ' + num(r.total) + '㎥</span><button type="button" class="del" data-id="' + esc(r.id) + '">削除</button></div>').join("")
+      ? recs.map(r => '<div class="recrow"><span>' + esc(r.size) + ' × ' + r.count + '台 × ' + r.trips + '回 ＝ ' + num(r.total) + '㎥</span><button type="button" class="del" data-id="' + esc(r.id) + '">削除</button></div>').join("")
       : '<p class="empty">この日の記録はありません</p>') +
     '</div>';
 }
@@ -257,7 +271,7 @@ $("nextM").addEventListener("click", () => { viewM++; if (viewM > 11) { viewM = 
 $("detail").addEventListener("click", async (e) => {
   const id = e.target.dataset && e.target.dataset.id; if (!id) return;
   const r = records.find(x => x.id === id); if (!r) return;
-  if (!confirm(jpDate(r.date) + " " + r.size + " × " + r.count + "台 を削除しますか？")) return;
+  if (!confirm(jpDate(r.date) + " " + r.size + " × " + r.count + "台 × " + r.trips + "回 を削除しますか？")) return;
   e.target.disabled = true;
   try {
     await api({ action: "delete", id: id });
