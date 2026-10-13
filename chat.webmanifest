@@ -1,0 +1,12 @@
+{
+  "name": "現場チャット",
+  "short_name": "現場チャット",
+  "start_url": "chat.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#1e5aa8",
+  "icons": [
+    { "src": "dd-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

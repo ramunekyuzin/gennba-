@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>現場チャット</title>
+  <link rel="manifest" href="chat.webmanifest">
+  <link rel="apple-touch-icon" href="dd-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="現場チャット">
+  <meta name="theme-color" content="#1e5aa8">
+  <style>
+    :root {
+      --bg: #f5f6f8; --card: #fff; --text: #222; --sub: #666; --line: #ddd;
+      --primary: #1e5aa8; --danger: #c0392b; --ok: #1a8a3c; --chip: #eef3fb;
+      --mine: #1e5aa8; --mine-text: #fff; --other: #fff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121417; --card: #1e2227; --text: #eaeaea; --sub: #aaa; --line: #3a3f46;
+        --primary: #4a8be0; --danger: #e5695c; --ok: #4fc26f; --chip: #2a3442;
+        --mine: #2f6cc0; --mine-text: #fff; --other: #262b31;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg); color: var(--text); font-size: 16px;
+    }
+    .hidden { display: none !important; }
+    .page { max-width: 640px; margin: 0 auto; padding: 14px; }
+    h1 { font-size: 20px; margin-bottom: 12px; }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    label { display: block; font-size: 14px; margin-bottom: 4px; color: var(--sub); }
+    input, textarea {
+      width: 100%; padding: 12px; font-size: 16px; font-family: inherit;
+      border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px;
+      background: var(--card); color: var(--text);
+    }
+    button {
+      padding: 14px; font-size: 16px; font-weight: bold; width: 100%; font-family: inherit;
+      border: none; border-radius: 10px; background: var(--primary); color: #fff; cursor: pointer;
+    }
+    button:active { opacity: .8; }
+    button:disabled { background: #888; }
+    button.sub { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+    button.danger { background: var(--danger); }
+    button.small { width: auto; padding: 10px 14px; font-size: 15px; font-weight: normal; }
+    .note { font-size: 14px; color: var(--sub); line-height: 1.6; margin-bottom: 10px; }
+    .msg-error { color: var(--danger); font-size: 15px; margin-bottom: 10px; }
+    .msg-ok { color: var(--ok); font-size: 15px; margin-bottom: 10px; }
+
+    /* チャット画面 */
+    #chatView { display: flex; flex-direction: column; height: 100vh; height: 100dvh; max-width: 640px; margin: 0 auto; }
+    header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; padding-top: calc(10px + env(safe-area-inset-top));
+      background: var(--card); border-bottom: 1px solid var(--line);
+    }
+    header .title { flex: 1; font-size: 18px; font-weight: bold; }
+    header .me { font-size: 13px; color: var(--sub); font-weight: normal; display: block; }
+    header button { width: auto; padding: 10px 12px; font-size: 15px; font-weight: normal; }
+    #pushBar {
+      padding: 10px 12px; background: var(--chip); font-size: 15px; line-height: 1.5;
+      display: flex; gap: 8px; align-items: center;
+    }
+    #pushBar span { flex: 1; }
+    #messages { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
+    .day { text-align: center; margin: 12px 0 8px; }
+    .day span { font-size: 13px; color: var(--sub); background: var(--chip); padding: 4px 12px; border-radius: 12px; }
+    .msg { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px; }
+    .msg.mine { align-items: flex-end; }
+    .msg .name { font-size: 13px; color: var(--sub); margin: 0 6px 2px; }
+    .msg .line { display: flex; align-items: flex-end; gap: 6px; max-width: 85%; }
+    .msg.mine .line { flex-direction: row-reverse; }
+    .bubble {
+      background: var(--other); color: var(--text); padding: 10px 12px; border-radius: 16px;
+      font-size: 16px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+      box-shadow: 0 1px 2px rgba(0,0,0,.1);
+    }
+    .msg.mine .bubble { background: var(--mine); color: var(--mine-text); }
+    .msg .time { font-size: 12px; color: var(--sub); white-space: nowrap; }
+    .empty { text-align: center; color: var(--sub); margin-top: 40px; }
+    #composer {
+      display: flex; gap: 8px; align-items: flex-end;
+      padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom));
+      background: var(--card); border-top: 1px solid var(--line);
+    }
+    #composer textarea { margin: 0; resize: none; max-height: 140px; line-height: 1.4; }
+    #composer button { width: auto; padding: 12px 18px; flex-shrink: 0; }
+
+    /* 管理画面 */
+    #adminView { position: fixed; inset: 0; background: var(--bg); overflow-y: auto; z-index: 10; }
+    .member { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .member:last-child { border-bottom: none; }
+    .member .info { flex: 1; min-width: 0; }
+    .member .mname { font-size: 16px; font-weight: bold; }
+    .member .mmail { font-size: 14px; color: var(--sub); word-break: break-all; }
+  </style>
+</head>
+<body>
+
+<!-- 読み込み中 -->
+<div id="loadingView" class="page">
+  <p class="note">読み込み中…</p>
+</div>
+
+<!-- ログイン -->
+<div id="loginView" class="page hidden">
+  <h1>現場チャット</h1>
+  <div class="card" id="stepEmail">
+    <label for="loginEmail">招待されたメールアドレス</label>
+    <input id="loginEmail" type="email" autocomplete="email" inputmode="email" placeholder="example@example.com">
+    <div id="emailMsg"></div>
+    <button id="sendCodeBtn">ログインコードを送る</button>
+    <p class="note" style="margin-top:10px">メールに6けたのコードが届きます。招待されていないアドレスには届きません。</p>
+  </div>
+  <div class="card hidden" id="stepCode">
+    <p class="note"><b id="codeEmail"></b> にコードを送りました。メールに書いてある6けたの数字を入れてください(10分間有効)。</p>
+    <label for="loginCode">ログインコード</label>
+    <input id="loginCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+    <div id="codeMsg"></div>
+    <button id="loginBtn">ログイン</button>
+    <button id="backBtn" class="sub" style="margin-top:8px">メールアドレスを入れ直す</button>
+  </div>
+</div>
+
+<!-- メンバーから外されている -->
+<div id="deniedView" class="page hidden">
+  <h1>現場チャット</h1>
+  <div class="card">
+    <p class="note">このアカウントは使えません(メンバーから外されています)。管理者に確認してください。</p>
+    <button id="deniedLogoutBtn" class="sub">ログアウト</button>
+  </div>
+</div>
+
+<!-- エラー -->
+<div id="errorView" class="page hidden">
+  <h1>現場チャット</h1>
+  <div class="card">
+    <p class="msg-error" id="errorText"></p>
+    <button onclick="location.reload()">読み込み直す</button>
+  </div>
+</div>
+
+<!-- チャット -->
+<div id="chatView" class="hidden">
+  <header>
+    <div class="title">現場チャット<span class="me" id="meName"></span></div>
+    <button id="adminBtn" class="sub hidden">管理</button>
+    <button id="logoutBtn" class="sub">ログアウト</button>
+  </header>
+  <div id="pushBar" class="hidden">
+    <span id="pushText">通知をONにすると、新しいメッセージが来たときにお知らせします。</span>
+    <button id="pushBtn" class="small">通知ON</button>
+  </div>
+  <div id="messages"><p class="empty">読み込み中…</p></div>
+  <div id="composer">
+    <textarea id="input" rows="1" placeholder="メッセージを入力" aria-label="メッセージ"></textarea>
+    <button id="sendBtn">送信</button>
+  </div>
+</div>
+
+<!-- 管理 -->
+<div id="adminView" class="hidden">
+  <div class="page">
+    <h1 style="display:flex;justify-content:space-between;align-items:center">
+      メンバー管理
+      <button id="adminCloseBtn" class="small sub">もどる</button>
+    </h1>
+    <div class="card">
+      <label for="invName">名前(チャットに出る名前)</label>
+      <input id="invName" type="text" maxlength="20" placeholder="山田(職長)">
+      <label for="invEmail">メールアドレス</label>
+      <input id="invEmail" type="email" inputmode="email" placeholder="example@example.com">
+      <div id="invMsg"></div>
+      <button id="inviteBtn">招待メールを送る</button>
+      <p class="note" style="margin-top:10px">同じメールアドレスでもう一度送ると、名前を変えられます。</p>
+    </div>
+    <div class="card">
+      <label>メンバー</label>
+      <div id="memberList"><p class="note">読み込み中…</p></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getAuth, onAuthStateChanged, signInWithCustomToken, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  import {
+    getFirestore, collection, query, orderBy, limitToLast, onSnapshot,
+    addDoc, serverTimestamp, doc, getDoc, setDoc, deleteDoc
+  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+  import { getMessaging, getToken, deleteToken, isSupported } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
+
+  // GASのWebアプリのURL(デプロイしたら入れる)
+  const GAS_URL = '';
+
+  const $ = id => document.getElementById(id);
+  const views = ['loadingView', 'loginView', 'deniedView', 'errorView', 'chatView'];
+  function show(id) { views.forEach(v => $(v).classList.toggle('hidden', v !== id)); }
+  function showError(text) { $('errorText').textContent = text; show('errorView'); }
+  function setMsg(el, text, ok) { el.className = ok ? 'msg-ok' : 'msg-error'; el.textContent = text || ''; }
+
+  function store(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* 使えなくてもOK */ } }
+  function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function forget(key) { try { localStorage.removeItem(key); } catch (e) { /* 使えなくてもOK */ } }
+
+  function gas(payload) {
+    return fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload) })
+      .then(r => r.json())
+      .then(res => { if (!res.ok) throw new Error(res.error); return res.result; });
+  }
+
+  // Firebaseの設定はGASからもらう(リポジトリに置かないため)。2回目からは覚えたものですぐ始める
+  async function getConfig() {
+    const fresh = fetch(GAS_URL + '?action=config').then(r => r.json()).then(res => {
+      if (!res.ok) throw new Error(res.error);
+      store('chatConfig', JSON.stringify(res.result));
+      return res.result;
+    });
+    const cached = load('chatConfig');
+    if (cached) { fresh.catch(() => {}); return JSON.parse(cached); }
+    return fresh;
+  }
+
+  let auth, db, messaging, config;
+  let me = null;          // { uid(メール), name, admin }
+  let unsubMessages = null, unsubMembers = null;
+
+  async function start() {
+    if (!GAS_URL) { showError('GASのURLがまだ入っていません(chat.html の GAS_URL)。'); return; }
+    try {
+      config = await getConfig();
+    } catch (e) {
+      showError('設定を読み込めませんでした。電波のいいところで読み込み直してください。');
+      return;
+    }
+    const app = initializeApp(config.firebase);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    onAuthStateChanged(auth, onUser);
+  }
+
+  // ===== ログイン =====
+  const params = new URLSearchParams(location.search);
+  if (params.get('email')) $('loginEmail').value = params.get('email');
+  else if (load('chatEmail')) $('loginEmail').value = load('chatEmail');
+
+  let loginEmail = '';
+  $('sendCodeBtn').onclick = async () => {
+    const email = $('loginEmail').value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg($('emailMsg'), 'メールアドレスを正しく入れてください。'); return; }
+    $('sendCodeBtn').disabled = true;
+    setMsg($('emailMsg'), '');
+    try {
+      await gas({ action: 'requestCode', email });
+      loginEmail = email;
+      store('chatEmail', email);
+      $('codeEmail').textContent = email;
+      $('loginCode').value = '';
+      setMsg($('codeMsg'), '');
+      $('stepEmail').classList.add('hidden');
+      $('stepCode').classList.remove('hidden');
+      $('loginCode').focus();
+    } catch (e) {
+      setMsg($('emailMsg'), e.message || '送れませんでした。もう一度ためしてください。');
+    }
+    $('sendCodeBtn').disabled = false;
+  };
+
+  $('backBtn').onclick = () => {
+    $('stepCode').classList.add('hidden');
+    $('stepEmail').classList.remove('hidden');
+  };
+
+  $('loginBtn').onclick = async () => {
+    const code = $('loginCode').value.replace(/\D/g, '');
+    if (code.length !== 6) { setMsg($('codeMsg'), '6けたの数字を入れてください。'); return; }
+    $('loginBtn').disabled = true;
+    setMsg($('codeMsg'), '');
+    try {
+      const token = await gas({ action: 'verifyCode', email: loginEmail, code });
+      await signInWithCustomToken(auth, token);
+    } catch (e) {
+      setMsg($('codeMsg'), e.message || 'ログインできませんでした。');
+    }
+    $('loginBtn').disabled = false;
+  };
+  $('loginCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
+  $('loginEmail').addEventListener('keydown', e => { if (e.key === 'Enter') $('sendCodeBtn').click(); });
+
+  async function onUser(user) {
+    stopListeners();
+    if (!user) { me = null; show('loginView'); return; }
+    let member;
+    try {
+      const snap = await getDoc(doc(db, 'members', user.uid));
+      member = snap.exists() ? snap.data() : null;
+    } catch (e) {
+      member = null;   // メンバーでなければ読めないルールなので、読めない=外されている
+    }
+    if (!member) { show('deniedView'); return; }
+    let admin = false;
+    try { admin = (await getDoc(doc(db, 'admins', user.uid))).exists(); } catch (e) { /* 管理者でない */ }
+    me = { uid: user.uid, name: member.name, admin };
+    $('meName').textContent = me.name + ' としてログイン中';
+    $('adminBtn').classList.toggle('hidden', !admin);
+    show('chatView');
+    listenMessages();
+    setupPush(false);
+  }
+
+  function stopListeners() {
+    if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+    if (unsubMembers) { unsubMembers(); unsubMembers = null; }
+  }
+
+  async function logout() {
+    if (!confirm('ログアウトしますか?(このスマホに通知が来なくなります)')) return;
+    const token = load('chatPushToken');
+    if (token) {
+      try { await deleteDoc(doc(db, 'tokens', token)); } catch (e) { /* 消せなくてもOK */ }
+      try { if (messaging) await deleteToken(messaging); } catch (e) { /* 消せなくてもOK */ }
+      forget('chatPushToken');
+    }
+    stopListeners();
+    $('adminView').classList.add('hidden');
+    await signOut(auth);
+  }
+  $('logoutBtn').onclick = logout;
+  $('deniedLogoutBtn').onclick = () => signOut(auth);
+
+  // ===== メッセージ =====
+  const box = $('messages');
+  const nearBottom = () => box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  let forceScroll = true;
+
+  function listenMessages() {
+    const q = query(collection(db, 'messages'), orderBy('createdAt'), limitToLast(200));
+    forceScroll = true;
+    unsubMessages = onSnapshot(q, snap => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+      const stick = forceScroll || nearBottom();
+      render(list);
+      if (stick) box.scrollTop = box.scrollHeight;
+      forceScroll = false;
+    }, err => {
+      console.error(err);
+      box.innerHTML = '';
+      const p = document.createElement('p');
+      p.className = 'empty';
+      p.textContent = 'メッセージを読めませんでした。読み込み直してください。';
+      box.appendChild(p);
+    });
+  }
+
+  const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+  function dayLabel(d) {
+    const today = new Date();
+    const y = d.getFullYear() !== today.getFullYear() ? d.getFullYear() + '年' : '';
+    return y + (d.getMonth() + 1) + '月' + d.getDate() + '日(' + WEEK[d.getDay()] + ')';
+  }
+  function timeLabel(d) { return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+  function render(list) {
+    box.innerHTML = '';
+    if (!list.length) {
+      const p = document.createElement('p');
+      p.className = 'empty';
+      p.textContent = 'まだメッセージはありません';
+      box.appendChild(p);
+      return;
+    }
+    let lastDay = '';
+    list.forEach(m => {
+      const d = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate() : new Date();
+      const day = dayLabel(d);
+      if (day !== lastDay) {
+        const div = document.createElement('div');
+        div.className = 'day';
+        const span = document.createElement('span');
+        span.textContent = day;
+        div.appendChild(span);
+        box.appendChild(div);
+        lastDay = day;
+      }
+      const mine = m.uid === me.uid;
+      const wrap = document.createElement('div');
+      wrap.className = 'msg' + (mine ? ' mine' : '');
+      if (!mine) {
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = m.name;
+        wrap.appendChild(name);
+      }
+      const line = document.createElement('div');
+      line.className = 'line';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = m.text;
+      const time = document.createElement('span');
+      time.className = 'time';
+      time.textContent = timeLabel(d);
+      line.appendChild(bubble);
+      line.appendChild(time);
+      wrap.appendChild(line);
+      box.appendChild(wrap);
+    });
+  }
+
+  const input = $('input');
+  function autoGrow() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight + 2, 140) + 'px'; }
+  input.addEventListener('input', autoGrow);
+  // スマホはEnterで改行。パソコンは Ctrl+Enter(Macは⌘+Enter)で送信
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } });
+  $('sendBtn').onclick = send;
+
+  async function send() {
+    const text = input.value.trim();
+    if (!text || !me) return;
+    if (text.length > 2000) { alert('長すぎます(2000文字まで)'); return; }
+    $('sendBtn').disabled = true;
+    try {
+      forceScroll = true;
+      const ref = await addDoc(collection(db, 'messages'), {
+        uid: me.uid, name: me.name, text, createdAt: serverTimestamp()
+      });
+      input.value = '';
+      autoGrow();
+      // 通知はGASにまかせる(失敗してもメッセージは届いている)
+      auth.currentUser.getIdToken()
+        .then(idToken => gas({ action: 'notify', idToken, id: ref.id }))
+        .catch(e => console.warn('通知を送れませんでした', e));
+    } catch (e) {
+      console.error(e);
+      alert('送れませんでした。電波を確認してもう一度送ってください。');
+    }
+    $('sendBtn').disabled = false;
+    input.focus();
+  }
+
+  // ===== 通知 =====
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+
+  function pushBar(text, button) {
+    $('pushText').textContent = text;
+    $('pushBtn').classList.toggle('hidden', !button);
+    $('pushBar').classList.remove('hidden');
+  }
+
+  // ask=true のときはボタンから(許可を聞く)。false のときは、すでに許可済みならトークンだけ更新する
+  async function setupPush(ask) {
+    $('pushBar').classList.add('hidden');
+    const supported = 'serviceWorker' in navigator && 'Notification' in window && await isSupported().catch(() => false);
+    if (!supported) {
+      if (isIOS && !isStandalone) pushBar('通知を受けるには、共有ボタン →「ホーム画面に追加」してから、ホーム画面のアイコンで開いてください。', false);
+      else pushBar('このブラウザでは通知が使えません。', false);
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      pushBar('通知がブロックされています。スマホの設定でこのアプリの通知を許可してください。', false);
+      return;
+    }
+    if (Notification.permission !== 'granted') {
+      if (!ask) { pushBar('通知をONにすると、新しいメッセージが来たときにお知らせします。', true); return; }
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setupPush(false); return; }
+    }
+    try {
+      const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+      await navigator.serviceWorker.ready;
+      if (!messaging) messaging = getMessaging();
+      const token = await getToken(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: reg });
+      const old = load('chatPushToken');
+      if (old && old !== token) { try { await deleteDoc(doc(db, 'tokens', old)); } catch (e) { /* 消せなくてもOK */ } }
+      await setDoc(doc(db, 'tokens', token), { uid: me.uid, updatedAt: serverTimestamp() });
+      store('chatPushToken', token);
+    } catch (e) {
+      console.error(e);
+      pushBar('通知の設定に失敗しました。もう一度ためしてください。', true);
+    }
+  }
+  $('pushBtn').onclick = () => setupPush(true);
+
+  // ===== 管理 =====
+  $('adminBtn').onclick = () => {
+    $('adminView').classList.remove('hidden');
+    if (!unsubMembers) {
+      unsubMembers = onSnapshot(collection(db, 'members'), snap => {
+        const list = snap.docs.map(d => ({ email: d.id, ...d.data() }))
+          .sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
+        renderMembers(list);
+      });
+    }
+  };
+  $('adminCloseBtn').onclick = () => $('adminView').classList.add('hidden');
+
+  function renderMembers(list) {
+    const el = $('memberList');
+    el.innerHTML = '';
+    list.forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'member';
+      const info = document.createElement('div');
+      info.className = 'info';
+      const n = document.createElement('div');
+      n.className = 'mname';
+      n.textContent = m.name;
+      const mail = document.createElement('div');
+      mail.className = 'mmail';
+      mail.textContent = m.email;
+      info.appendChild(n);
+      info.appendChild(mail);
+      row.appendChild(info);
+      if (m.email !== me.uid) {
+        const btn = document.createElement('button');
+        btn.className = 'small danger';
+        btn.textContent = '外す';
+        btn.onclick = () => removeMember(m, btn);
+        row.appendChild(btn);
+      }
+      el.appendChild(row);
+    });
+  }
+
+  $('inviteBtn').onclick = async () => {
+    const name = $('invName').value.trim();
+    const email = $('invEmail').value.trim().toLowerCase();
+    if (!name) { setMsg($('invMsg'), '名前を入れてください。'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg($('invMsg'), 'メールアドレスを正しく入れてください。'); return; }
+    $('inviteBtn').disabled = true;
+    setMsg($('invMsg'), '');
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      await gas({ action: 'invite', idToken, name, email });
+      setMsg($('invMsg'), name + ' さんに招待メールを送りました。', true);
+      $('invName').value = '';
+      $('invEmail').value = '';
+    } catch (e) {
+      setMsg($('invMsg'), e.message || '送れませんでした。');
+    }
+    $('inviteBtn').disabled = false;
+  };
+
+  async function removeMember(m, btn) {
+    if (!confirm(m.name + ' さんをメンバーから外しますか?')) return;
+    btn.disabled = true;
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      await gas({ action: 'remove', idToken, email: m.email });
+    } catch (e) {
+      alert(e.message || '外せませんでした。');
+      btn.disabled = false;
+    }
+  }
+
+  start();
+</script>
+</body>
+</html>
