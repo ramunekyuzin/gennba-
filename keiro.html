@@ -582,7 +582,12 @@ h2{font-size:17px;margin-bottom:8px}
       var ex = childLocal(a, 'ext');
       to = { x: from.x + (ex ? +ex.getAttribute('cx') : 0), y: from.y + (ex ? +ex.getAttribute('cy') : 0) };
     }
-    return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2, top: from.y, bottom: to.y };
+    return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2, top: from.y, bottom: to.y, left: from.x, right: to.x };
+  }
+  function at(c, extra) {
+    var o = { x: c.x, y: c.y, top: c.top, bottom: c.bottom, left: c.left, right: c.right };
+    Object.keys(extra).forEach(function (k) { o[k] = extra[k]; });
+    return o;
   }
   function readDrawing(zip, drawPath, sheetNo) {
     return Promise.all([xmlDoc(zip, drawPath), relsOf(zip, drawPath)]).then(function (r) {
@@ -597,13 +602,17 @@ h2{font-size:17px;margin-bottom:8px}
         byLocal(a, 'pic').forEach(function (pic) {
           var blip = byLocal(pic, 'blip')[0];
           var id = blip && attrEnd(blip, 'embed');
-          if (id && rels[id]) pics.push({ x: c.x, y: c.y, top: c.top, bottom: c.bottom, path: rels[id].target });
+          if (id && rels[id]) pics.push(at(c, { path: rels[id].target }));
         });
         byLocal(a, 'sp').forEach(function (sp) {
+          // 四角い図形の中に写真を「塗りつぶし」で貼ったものも写真として扱う
+          var blip = byLocal(sp, 'blip')[0];
+          var bid = blip && attrEnd(blip, 'embed');
+          if (bid && rels[bid]) pics.push(at(c, { path: rels[bid].target }));
           var lines = byLocal(sp, 'p').map(function (p) {
             return byLocal(p, 't').map(function (t) { return t.textContent; }).join('').trim();
           }).filter(function (s) { return s; });
-          if (lines.length) texts.push({ x: c.x, y: c.y, top: c.top, bottom: c.bottom, lines: lines });
+          if (lines.length) texts.push(at(c, { lines: lines }));
         });
       }
       return { pics: pics, texts: texts };
@@ -627,27 +636,36 @@ h2{font-size:17px;margin-bottom:8px}
       });
     });
   }
-  // 写真を四角と組み合わせ、四角ごとに1件にする。同じ高さにある四角を優先し、なければ一番近い四角にする
+  // 写真を四角と組み合わせ、四角ごとに1件にする。
+  // 写真と同じ高さで、写真の右側にある四角と組にする(写真の上に重ねた説明の四角とは組にしない)
   function groupEntries(pics, texts) {
-    var entries = texts.map(function (t) { return { x: t.x, y: t.y, top: t.top, bottom: t.bottom, lines: t.lines, pics: [] }; });
+    var all = texts.map(function (t) {
+      return { x: t.x, y: t.y, top: t.top, bottom: t.bottom, left: t.left, lines: t.lines, pics: [],
+        route: t.lines.some(function (s) { return PLACE_RE.test(s) || /(右折|左折|通過)/.test(s); }) };
+    });
+    var entries = all.filter(function (e) { return e.route; });
     pics.forEach(function (p) {
-      var side = entries.filter(function (e) { return e.top < p.bottom && e.bottom > p.top; });
+      var side = all.filter(function (e) { return e.top < p.bottom && e.bottom > p.top && e.left >= (p.left + p.right) / 2; });
       var cands = side.length ? side : entries;
       var best = null, bd = Infinity;
       cands.forEach(function (e) { var d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; best = e; } });
-      if (best) best.pics.push(p); else entries.push({ x: p.x, y: p.y, lines: [], pics: [p] });
+      // 横の四角がルートと関係ないもの(車両情報など)のときは、その写真は使わない
+      if (!best || !best.route) return;
+      if (!best.pics.some(function (q) { return q.path === p.path; })) best.pics.push(p);
     });
     entries.forEach(function (e) { e.pics.sort(function (a, b) { return a.x - b.x || a.y - b.y; }); });
-    // 写真のない四角は、場所らしい文字があるときだけ残す(表題などは外す)
-    entries = entries.filter(function (e) { return e.pics.length || e.lines.some(function (s) { return PLACE_RE.test(s); }); });
     return entries.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
   }
-  // 四角の文字を「場所」と「コメント」に分ける(「追跡」のような短い見出しは外す)。交差点などの行を先に選ぶ
+  // 四角の文字を「場所」と「コメント」に分ける(「追跡」のような短い見出しは外す)。
+  // 場所に選ぶ順:交差点などの行 → 右折・左折の行 → 地名・道路名の行(「通過中」の行はなるべく選ばない)
   function splitText(lines) {
     var ls = lines.filter(function (s) { return s.replace(/\s/g, '').length > 2; });
     var i = -1;
-    ls.forEach(function (s, k) { if (i < 0 && POINT_RE.test(s)) i = k; });
-    ls.forEach(function (s, k) { if (i < 0 && PLACE_RE.test(s)) i = k; });
+    var pick = function (test) { ls.forEach(function (s, k) { if (i < 0 && test(s)) i = k; }); };
+    pick(function (s) { return POINT_RE.test(s) && !/通過/.test(s); });
+    pick(function (s) { return /(右折|左折)/.test(s); });
+    pick(function (s) { return PLACE_RE.test(s) && !/通過/.test(s); });
+    pick(function (s) { return PLACE_RE.test(s); });
     if (i < 0) i = 0;
     return { place: ls[i] || '', comment: ls.filter(function (s, k) { return k !== i; }).join(' ') };
   }
@@ -669,6 +687,7 @@ h2{font-size:17px;margin-bottom:8px}
             return Promise.all([loadImage(blob).catch(function () { return null; }), readMeta(blob)]).then(function (r) {
               var m = r[1];
               var ok = typeof m.latitude === 'number' && typeof m.longitude === 'number' && isFinite(m.latitude) && isFinite(m.longitude);
+              if (r[0]) r[0]._path = p.path;
               return r[0] ? { img: r[0], gps: ok ? L.latLng(m.latitude, m.longitude) : null } : null;
             });
           });
@@ -677,13 +696,30 @@ h2{font-size:17px;margin-bottom:8px}
           var t = splitText(e.lines);
           var gps = null;
           imgs.forEach(function (x) { if (!gps && x.gps) gps = x.gps; });
-          // 右折・左折が書いてある件だけ、最初から「ルートに使う」にする(通過中などは写真だけ)
+          // 右折・左折があって、交差点名などもある件だけ、最初から「ルートに使う」にする
+          // (通過中や、道路名だけの件は写真だけ。場所が1点に決まらず、ルートが遠回りになるため)
+          var turn = /(右折|左折)/.test(e.lines.join(' '));
+          var named = e.lines.some(function (s) { return POINT_RE.test(s) && !/通過/.test(s); });
           return { imgs: imgs.map(function (x) { return x.img; }), place: t.place, comment: t.comment, gps: gps,
-            use: /(右折|左折)/.test(e.lines.join(' ')) };
+            use: !!gps || (turn && named) };
         });
       }));
     }).then(function (items) {
-      prItems = items.filter(function (it) { return it.imgs.length || it.place; });
+      // 同じ文字の件が続いたときは1件にまとめる(写真はまとめた件に全部つける)
+      var merged = [];
+      items.forEach(function (it) {
+        var last = merged[merged.length - 1];
+        if (last && last.place === it.place && last.comment === it.comment) {
+          it.imgs.forEach(function (img) {
+            if (!last.imgs.some(function (x) { return x._path === img._path; })) last.imgs.push(img);
+          });
+          last.gps = last.gps || it.gps;
+          last.use = last.use || it.use;
+          return;
+        }
+        merged.push(it);
+      });
+      prItems = merged.filter(function (it) { return it.imgs.length || it.place; });
       renderPrList();
       $('prBox').classList.toggle('show', prItems.length > 0);
       if (!prItems.length) { setPrStatus('写真や四角の文字が見つかりませんでした。写真と、横の四角に場所を書いたExcelを選んでください。', true); return; }
@@ -804,7 +840,10 @@ h2{font-size:17px;margin-bottom:8px}
         '&q=' + encodeURIComponent(q);
       return fetch(url).then(function (r) { return r.json(); });
     }).then(function (data) {
-      return (data || []).map(function (d) { return L.latLng(+d.lat, +d.lon); });
+      // バス停・駅のホームなどは、交差点と同じ名前でも場所がずれるので使わない
+      return (data || []).filter(function (d) {
+        return d.category !== 'public_transport' && ['bus_stop', 'platform', 'stop_position', 'station', 'halt'].indexOf(d.type) < 0;
+      }).map(function (d) { return L.latLng(+d.lat, +d.lon); });
     }).catch(function () { return []; });
   }
   // 地点を探す。OpenStreetMap を先に使い、「交差点」などを外した名前でも探す。ref に一番近い候補を選ぶ
