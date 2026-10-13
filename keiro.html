@@ -44,7 +44,20 @@ h2{font-size:17px;margin-bottom:8px}
 #searchStatus{margin-top:8px;color:var(--muted)}
 #searchStatus:empty,#routeStatus:empty{display:none}
 .ng{color:var(--error)}
-#photoInput{display:none}
+#photoInput,#excelInput{display:none}
+#prBox{display:none;margin-top:10px;border-top:1px solid var(--line)}
+#prBox.show{display:block}
+#prList{list-style:none}
+#prStatus:empty{display:none}
+.pr-item{padding:12px 0;border-bottom:1px solid var(--line)}
+.pr-thumbs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.pr-thumbs img{width:64px;height:64px;object-fit:cover;border-radius:8px}
+.pr-meta{font-size:16px;color:var(--muted)}
+.pr-gps{display:inline-block;font-size:16px;background:var(--soft);color:var(--accent);border-radius:6px;padding:0 8px;margin-left:4px}
+.side .pr-item label{margin:6px 0 2px}
+.side .pr-item input[type=text]{padding:10px}
+.pr-ops{display:flex;gap:6px;margin-top:6px}
+.pr-ops .btn{width:auto;min-width:48px;min-height:44px;padding:6px 10px}
 .footer{text-align:center;font-size:16px;color:var(--muted);margin:20px 0 8px}
 #map.drawing,#map.drawing .leaflet-grab{cursor:crosshair}
 
@@ -109,6 +122,17 @@ h2{font-size:17px;margin-bottom:8px}
       </div>
       <p class="note">ONにして地図をタップすると、その順に青い線でつながります。「道なり」は道路に沿って、「直線」はまっすぐつなぎます。切り替えは次にタップする点から効きます。</p>
       <p class="note" id="routeStatus" role="status"></p>
+      <label for="excelInput" class="btn sub" style="margin:12px 0 0;color:var(--ink);font-weight:500">Excelからルートを作る</label>
+      <input type="file" id="excelInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <p class="note">追跡のExcel(写真と、横の四角に書いた場所)を選ぶと、上から順に読み取って一覧にします。場所を確かめてから「この順でルートを作る」を押してください。</p>
+      <div id="prBox">
+        <ul id="prList"></ul>
+        <div class="row">
+          <button type="button" class="btn" id="prBuild">この順でルートを作る</button>
+          <button type="button" class="btn sub" id="prCancel">やめる</button>
+        </div>
+      </div>
+      <p class="note" id="prStatus" role="status"></p>
       <label for="startLabel">始点のラベル</label>
       <input type="text" id="startLabel" value="現場" maxlength="20">
       <label for="endLabel">終点のラベル</label>
@@ -125,7 +149,7 @@ h2{font-size:17px;margin-bottom:8px}
     <section class="card">
       <h2>保存</h2>
       <button type="button" class="btn" id="saveBtn">PDFで保存</button>
-      <p class="note">いま地図に見えている範囲が、そのままA4のPDFになります。写真やラベルはこの端末の中だけで扱い、どこにも送信しません(「道なり」のときは、道順を調べるためにタップした地点の位置だけを送ります)。</p>
+      <p class="note">いま地図に見えている範囲が、そのままA4のPDFになります。写真やExcelの中身はこの端末の中だけで扱い、どこにも送信しません。道順や場所を調べるときだけ、地点の位置や「場所」の文字を検索サービスに送ります。</p>
     </section>
 
     <p class="footer">経路図づくり</p>
@@ -134,6 +158,8 @@ h2{font-size:17px;margin-bottom:8px}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 (function () {
   var GSI_ATTR = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
@@ -249,7 +275,7 @@ h2{font-size:17px;margin-bottom:8px}
     var ctrl = window.AbortController ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 10000);
     var url = OSRM + prev.ll.lng + ',' + prev.ll.lat + ';' + p.ll.lng + ',' + p.ll.lat + '?overview=full&geometries=geojson';
-    fetch(url, ctrl ? { signal: ctrl.signal } : {})
+    return fetch(url, ctrl ? { signal: ctrl.signal } : {})
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (j.code !== 'Ok' || !j.routes || !j.routes.length) throw new Error('no route');
@@ -370,10 +396,10 @@ h2{font-size:17px;margin-bottom:8px}
     });
   }
 
-  function addPhoto(img) {
+  function addPhoto(img, ll, comment) {
     var off = (photos.length % 5) * 30;
-    var pos = map.containerPointToLatLng(map.getSize().divideBy(2).add([off, off]));
-    var p = { img: img, comment: '', marker: null, arrow: null };
+    var pos = ll || map.containerPointToLatLng(map.getSize().divideBy(2).add([off, off]));
+    var p = { img: img, comment: comment || '', marker: null, arrow: null };
 
     var wrap = document.createElement('div');
     wrap.className = 'pc';
@@ -383,6 +409,7 @@ h2{font-size:17px;margin-bottom:8px}
     wrap.querySelector('img').src = img.src;
     var btns = wrap.querySelector('.pc-btns'), input = wrap.querySelector('input');
     var arrowBtn = wrap.querySelector('.pc-arrow');
+    input.value = p.comment;
     stopMapEvents(btns);
     stopMapEvents(input);
     input.addEventListener('input', function () { p.comment = input.value; });
@@ -398,8 +425,10 @@ h2{font-size:17px;margin-bottom:8px}
       icon: L.divIcon({ className: 'pc-icon', iconSize: [0, 0], iconAnchor: [0, 0], html: wrap }),
       draggable: true, keyboard: false, zIndexOffset: 1000
     }).addTo(map);
-    p.marker.on('drag', function () { updateArrow(p); });
+    p.marker.on('drag', function () { updateArrow(p); keepOffset(p); });
+    p.arrowBtn = arrowBtn;
     photos.push(p);
+    return p;
   }
 
   $('photoInput').addEventListener('change', function () {
@@ -407,9 +436,345 @@ h2{font-size:17px;margin-bottom:8px}
     this.value = '';
     files.reduce(function (chain, f) {
       return chain.then(function () {
-        return loadImage(f).then(addPhoto).catch(function () { alert('読み込めない写真がありました:' + f.name); });
+        return loadImage(f).then(function (img) { addPhoto(img); }).catch(function () { alert('読み込めない写真がありました:' + f.name); });
       });
     }, Promise.resolve());
+  });
+
+  // ---------- Excelからルートを作る ----------
+  // 追跡のExcel(写真+横の四角に書いた文字)を読み取り、上から順に1件ずつ並べる
+  var prItems = [];
+  var lastNominatim = 0;
+  var PLACE_RE = /(交差点|信号|ＩＣ|IC|インター|ジャンクション|JCT|橋|駅|入口|入り口|出口|丁目|町|市|村|区|通り|街道|国道|県道|線)/;
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function readMeta(file) {
+    if (!window.exifr) return Promise.resolve({});
+    return exifr.parse(file, { gps: true })
+      .then(function (m) { return m || {}; })
+      .catch(function () { return {}; });
+  }
+  function setPrStatus(text, ng) {
+    $('prStatus').className = 'note' + (ng ? ' ng' : '');
+    $('prStatus').textContent = text;
+  }
+
+  // xlsx の中身(zip)から、シートごとの図形(写真と四角)を位置つきで取り出す
+  function xmlDoc(zip, path) {
+    var f = zip.file(path);
+    if (!f) return Promise.resolve(null);
+    return f.async('string').then(function (s) { return new DOMParser().parseFromString(s, 'application/xml'); });
+  }
+  function byLocal(node, name) {
+    var out = [];
+    var all = node.getElementsByTagName('*');
+    for (var i = 0; i < all.length; i++) if (all[i].localName === name) out.push(all[i]);
+    return out;
+  }
+  function childLocal(node, name) {
+    for (var c = node.firstElementChild; c; c = c.nextElementSibling) if (c.localName === name) return c;
+    return null;
+  }
+  function attrEnd(node, suffix) {
+    for (var i = 0; i < node.attributes.length; i++) {
+      var a = node.attributes[i];
+      if (a.name === suffix || a.name.slice(-suffix.length - 1) === ':' + suffix) return a.value;
+    }
+    return null;
+  }
+  function resolvePath(base, target) {
+    if (target.charAt(0) === '/') return target.slice(1);
+    var parts = base.split('/'); parts.pop();
+    target.split('/').forEach(function (t) { if (t === '..') parts.pop(); else if (t !== '.') parts.push(t); });
+    return parts.join('/');
+  }
+  function relsOf(zip, path) {
+    var parts = path.split('/'), name = parts.pop();
+    var relPath = parts.join('/') + '/_rels/' + name + '.rels';
+    return xmlDoc(zip, relPath).then(function (doc) {
+      var map = {};
+      if (doc) byLocal(doc, 'Relationship').forEach(function (r) {
+        map[r.getAttribute('Id')] = { target: resolvePath(path, r.getAttribute('Target')), type: r.getAttribute('Type') || '' };
+      });
+      return map;
+    });
+  }
+  // セルの行・列からおおよその位置(EMU)を出す
+  function cellPos(el) {
+    if (!el) return null;
+    var v = function (n) { var c = childLocal(el, n); return c ? +c.textContent : 0; };
+    return { x: v('col') * 609600 + v('colOff'), y: v('row') * 190500 + v('rowOff') };
+  }
+  function anchorCenter(a) {
+    var from = cellPos(childLocal(a, 'from')), to = cellPos(childLocal(a, 'to'));
+    if (!from) {
+      var pos = childLocal(a, 'pos');
+      from = { x: pos ? +pos.getAttribute('x') : 0, y: pos ? +pos.getAttribute('y') : 0 };
+    }
+    if (!to) {
+      var ex = childLocal(a, 'ext');
+      to = { x: from.x + (ex ? +ex.getAttribute('cx') : 0), y: from.y + (ex ? +ex.getAttribute('cy') : 0) };
+    }
+    return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2, top: from.y, bottom: to.y };
+  }
+  function readDrawing(zip, drawPath, sheetNo) {
+    return Promise.all([xmlDoc(zip, drawPath), relsOf(zip, drawPath)]).then(function (r) {
+      var doc = r[0], rels = r[1], pics = [], texts = [];
+      if (!doc) return { pics: pics, texts: texts };
+      var root = doc.documentElement;
+      for (var a = root.firstElementChild; a; a = a.nextElementSibling) {
+        if (!/Anchor$/.test(a.localName)) continue;
+        var c = anchorCenter(a);
+        var off = sheetNo * 1e12;   // 2枚目以降のシートは後ろに並べる
+        c.y += off; c.top += off; c.bottom += off;
+        byLocal(a, 'pic').forEach(function (pic) {
+          var blip = byLocal(pic, 'blip')[0];
+          var id = blip && attrEnd(blip, 'embed');
+          if (id && rels[id]) pics.push({ x: c.x, y: c.y, top: c.top, bottom: c.bottom, path: rels[id].target });
+        });
+        byLocal(a, 'sp').forEach(function (sp) {
+          var lines = byLocal(sp, 'p').map(function (p) {
+            return byLocal(p, 't').map(function (t) { return t.textContent; }).join('').trim();
+          }).filter(function (s) { return s; });
+          if (lines.length) texts.push({ x: c.x, y: c.y, top: c.top, bottom: c.bottom, lines: lines });
+        });
+      }
+      return { pics: pics, texts: texts };
+    });
+  }
+  function readExcel(file) {
+    return JSZip.loadAsync(file).then(function (zip) {
+      var wbPath = 'xl/workbook.xml';
+      return Promise.all([xmlDoc(zip, wbPath), relsOf(zip, wbPath)]).then(function (r) {
+        var sheets = r[0] ? byLocal(r[0], 'sheet').map(function (s) { var rel = r[1][attrEnd(s, 'id')]; return rel && rel.target; }).filter(Boolean) : [];
+        return Promise.all(sheets.map(function (sp, n) {
+          return relsOf(zip, sp).then(function (rels) {
+            var draws = Object.keys(rels).filter(function (k) { return /\/drawing$/.test(rels[k].type); }).map(function (k) { return rels[k].target; });
+            return Promise.all(draws.map(function (d) { return readDrawing(zip, d, n); }));
+          });
+        }));
+      }).then(function (bySheet) {
+        var pics = [], texts = [];
+        bySheet.forEach(function (ds) { ds.forEach(function (d) { pics = pics.concat(d.pics); texts = texts.concat(d.texts); }); });
+        return { zip: zip, pics: pics, texts: texts };
+      });
+    });
+  }
+  // 写真を四角と組み合わせ、四角ごとに1件にする。同じ高さにある四角を優先し、なければ一番近い四角にする
+  function groupEntries(pics, texts) {
+    var entries = texts.map(function (t) { return { x: t.x, y: t.y, top: t.top, bottom: t.bottom, lines: t.lines, pics: [] }; });
+    pics.forEach(function (p) {
+      var side = entries.filter(function (e) { return e.top < p.bottom && e.bottom > p.top; });
+      var cands = side.length ? side : entries;
+      var best = null, bd = Infinity;
+      cands.forEach(function (e) { var d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; best = e; } });
+      if (best) best.pics.push(p); else entries.push({ x: p.x, y: p.y, lines: [], pics: [p] });
+    });
+    entries.forEach(function (e) { e.pics.sort(function (a, b) { return a.x - b.x || a.y - b.y; }); });
+    // 写真のない四角は、場所らしい文字があるときだけ残す(表題などは外す)
+    entries = entries.filter(function (e) { return e.pics.length || e.lines.some(function (s) { return PLACE_RE.test(s); }); });
+    return entries.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+  }
+  // 四角の文字を「場所」と「コメント」に分ける(「追跡」のような短い見出しは外す)
+  function splitText(lines) {
+    var ls = lines.filter(function (s) { return s.replace(/\s/g, '').length > 2; });
+    var i = -1;
+    ls.forEach(function (s, k) { if (i < 0 && PLACE_RE.test(s)) i = k; });
+    if (i < 0) i = 0;
+    return { place: ls[i] || '', comment: ls.filter(function (s, k) { return k !== i; }).join(' ') };
+  }
+
+  $('excelInput').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    this.value = '';
+    if (!file) return;
+    if (!/\.xlsx$/i.test(file.name)) { setPrStatus('読み込めるのは .xlsx のファイルだけです。Excelで「.xlsx」形式で保存し直してください。', true); return; }
+    if (!window.JSZip) { setPrStatus('Excelを読む部品を読み込めませんでした。電波を確認して、ページを開き直してください。', true); return; }
+    setPrStatus('Excelを読み込んでいます…');
+    readExcel(file).then(function (res) {
+      var entries = groupEntries(res.pics, res.texts);
+      return Promise.all(entries.map(function (e) {
+        return Promise.all(e.pics.map(function (p) {
+          var f = res.zip.file(p.path);
+          if (!f) return null;
+          return f.async('blob').then(function (blob) {
+            return Promise.all([loadImage(blob).catch(function () { return null; }), readMeta(blob)]).then(function (r) {
+              var m = r[1];
+              var ok = typeof m.latitude === 'number' && typeof m.longitude === 'number' && isFinite(m.latitude) && isFinite(m.longitude);
+              return r[0] ? { img: r[0], gps: ok ? L.latLng(m.latitude, m.longitude) : null } : null;
+            });
+          });
+        })).then(function (imgs) {
+          imgs = imgs.filter(Boolean);
+          var t = splitText(e.lines);
+          var gps = null;
+          imgs.forEach(function (x) { if (!gps && x.gps) gps = x.gps; });
+          return { imgs: imgs.map(function (x) { return x.img; }), place: t.place, comment: t.comment, gps: gps };
+        });
+      }));
+    }).then(function (items) {
+      prItems = items.filter(function (it) { return it.imgs.length || it.place; });
+      renderPrList();
+      $('prBox').classList.toggle('show', prItems.length > 0);
+      if (!prItems.length) { setPrStatus('写真や四角の文字が見つかりませんでした。写真と、横の四角に場所を書いたExcelを選んでください。', true); return; }
+      setPrStatus(prItems.length + '件読み取りました。場所が合っているか確かめて、違うところは直してください。');
+    }).catch(function (err) {
+      console.error(err);
+      setPrStatus('Excelを読み込めませんでした。ファイルが壊れていないか、.xlsx 形式かを確かめてください。', true);
+    });
+  });
+
+  function renderPrList() {
+    var list = $('prList');
+    list.innerHTML = '';
+    prItems.forEach(function (it, i) {
+      var li = document.createElement('li');
+      li.className = 'pr-item';
+      li.innerHTML = '<div class="pr-meta"></div><div class="pr-thumbs"></div>' +
+        '<label>場所(地名・交差点名)</label><input type="text" maxlength="60" class="pr-place">' +
+        '<label>コメント</label><input type="text" maxlength="40" class="pr-comment">' +
+        '<div class="pr-ops"><button type="button" class="btn sub" aria-label="上へ">↑</button>' +
+        '<button type="button" class="btn sub" aria-label="下へ">↓</button>' +
+        '<button type="button" class="btn sub" aria-label="一覧から外す">×</button></div>';
+      var meta = li.querySelector('.pr-meta');
+      meta.textContent = (i + 1) + '件目' + (it.imgs.length ? '(写真' + it.imgs.length + '枚)' : '(写真なし)');
+      if (it.gps) {
+        var badge = document.createElement('span');
+        badge.className = 'pr-gps'; badge.textContent = '写真の位置あり';
+        meta.appendChild(badge);
+      }
+      var thumbs = li.querySelector('.pr-thumbs');
+      it.imgs.forEach(function (img) { var t = document.createElement('img'); t.alt = ''; t.src = img.src; thumbs.appendChild(t); });
+      var place = li.querySelector('.pr-place'), comment = li.querySelector('.pr-comment');
+      place.value = it.place; comment.value = it.comment;
+      place.setAttribute('aria-label', (i + 1) + '件目の場所');
+      comment.setAttribute('aria-label', (i + 1) + '件目のコメント');
+      place.addEventListener('input', function () { it.place = place.value; });
+      comment.addEventListener('input', function () { it.comment = comment.value; });
+      var ops = li.querySelectorAll('.pr-ops .btn');
+      ops[0].disabled = i === 0;
+      ops[1].disabled = i === prItems.length - 1;
+      ops[0].addEventListener('click', function () { movePr(i, -1); });
+      ops[1].addEventListener('click', function () { movePr(i, 1); });
+      ops[2].addEventListener('click', function () {
+        prItems.splice(i, 1);
+        renderPrList();
+        if (!prItems.length) { $('prBox').classList.remove('show'); setPrStatus(''); }
+      });
+      list.appendChild(li);
+    });
+  }
+  function movePr(i, d) {
+    var j = i + d;
+    if (j < 0 || j >= prItems.length) return;
+    var t = prItems[i]; prItems[i] = prItems[j]; prItems[j] = t;
+    renderPrList();
+  }
+
+  // 地名から場所を探す。OpenStreetMap を先に使い、国土地理院は名前がそのまま含まれる結果だけ使う。ref に一番近い候補を選ぶ
+  function nearest(cands, ref) {
+    var best = null, bd = Infinity;
+    cands.forEach(function (ll) { var d = ref.distanceTo(ll); if (d < bd) { bd = d; best = ll; } });
+    return best;
+  }
+  function gsiSearch(q) {
+    return fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        return (data || []).filter(function (d) { return d.properties && d.properties.title && d.properties.title.indexOf(q) >= 0; })
+          .map(function (d) { return L.latLng(d.geometry.coordinates[1], d.geometry.coordinates[0]); });
+      })
+      .catch(function () { return []; });
+  }
+  function nominatimSearch(q) {
+    // 利用ルールに合わせて1秒に1件まで
+    var gap = lastNominatim + 1100 - Date.now();
+    return wait(gap > 0 ? gap : 0).then(function () {
+      lastNominatim = Date.now();
+      var b = map.getBounds();
+      var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=ja&countrycodes=jp' +
+        '&viewbox=' + b.getWest() + ',' + b.getNorth() + ',' + b.getEast() + ',' + b.getSouth() + '&q=' + encodeURIComponent(q);
+      return fetch(url).then(function (r) { return r.json(); });
+    }).then(function (data) {
+      return (data || []).map(function (d) { return L.latLng(+d.lat, +d.lon); });
+    }).catch(function () { return []; });
+  }
+  function geocode(q, ref) {
+    // 「○○交差点」は交差点・信号などを外した名前でも探す
+    var short = q.replace(/\s+/g, ' ').replace(/(交差点|信号機?|付近|前)$/, '').trim();
+    return nominatimSearch(q).then(function (n) {
+      if (n.length || short === q || !short) return n;
+      return nominatimSearch(short);
+    }).then(function (n) {
+      return gsiSearch(short || q).then(function (g) { return nearest(n.concat(g), ref); });
+    });
+  }
+
+  $('prCancel').addEventListener('click', function () {
+    prItems = [];
+    $('prBox').classList.remove('show');
+    setPrStatus('');
+  });
+
+  $('prBuild').addEventListener('click', function () {
+    if (!prItems.length) return;
+    if (pending) { alert('ルート検索中です。線が出てから、もう一度押してください。'); return; }
+    if (pts.length && !confirm('今のルートを消して、この順に引き直します。よろしいですか?')) return;
+    var btns = [$('prBuild'), $('prCancel')];
+    btns.forEach(function (b) { b.disabled = true; });
+    var items = prItems.slice();
+    var found = [], missing = [];
+    var ref = map.getCenter();
+
+    items.reduce(function (chain, it, i) {
+      return chain.then(function () {
+        setPrStatus('場所を探しています…(' + (i + 1) + '/' + items.length + ')');
+        var name = it.place.trim();
+        if (it.gps) return it.gps;
+        if (!name) return null;
+        return geocode(name, ref);
+      }).then(function (ll) {
+        if (ll) { found.push({ it: it, ll: ll }); ref = ll; }
+        else { missing.push((i + 1) + '件目(' + (it.place.trim() || '場所が空欄') + ')'); }
+      });
+    }, Promise.resolve()).then(function () {
+      btns.forEach(function (b) { b.disabled = false; });
+      if (!found.length) {
+        setPrStatus('場所が1つも見つかりませんでした。場所の書き方を変えるか、地図を走った地域の近くに動かしてから、もう一度ためしてください。', true);
+        return;
+      }
+      pts = found.map(function (f) { return { ll: f.ll, mode: 'road', path: null, failed: false }; });
+      renderRoute();
+      // 写真カードを置く余白を残して全体が見えるようにする(地図が小さいときは余白も小さく)
+      var size = map.getSize();
+      var shift = Math.round(Math.min(130, size.y * 0.25));
+      var pad = [Math.round(Math.min(100, size.x * 0.2)), shift + 40];
+      if (found.length === 1) map.setView(found[0].ll, 17, { animate: false });
+      else map.fitBounds(L.latLngBounds(found.map(function (f) { return f.ll; })), { padding: pad, maxZoom: 17, animate: false });
+      // 写真カードがルートを隠さないよう、上下交互にずらして置き(同じ場所の写真は横に並べる)、赤い矢印で場所を指す
+      found.forEach(function (f, i) {
+        var n = f.it.imgs.length;
+        f.it.imgs.forEach(function (img, j) {
+          var cp = map.latLngToContainerPoint(f.ll).add([(j - (n - 1) / 2) * 180, i % 2 ? shift : -shift]);
+          var p = addPhoto(img, map.containerPointToLatLng(cp), j === 0 ? (f.it.place.trim() + ' ' + f.it.comment.trim()).trim() : '');
+          toggleArrow(p, p.arrowBtn, f.ll);
+        });
+      });
+      prItems = [];
+      $('prBox').classList.remove('show');
+      setPrStatus(found.length + '件の場所でルートを作りました。' +
+        (missing.length ? '見つからなかった件:' + missing.join('、') : ''), missing.length > 0);
+      // 道なりの線は1区間ずつ順番に問い合わせ、全区間が終わるまで「ルート検索中」のままにしておく
+      var seq = pts.slice();
+      pending++;
+      setRouteStatus();
+      seq.slice(1).reduce(function (chain, p, i) {
+        return chain.then(function () { return findRoad(p, seq[i]); });
+      }, Promise.resolve()).then(function () {
+        pending--;
+        setRouteStatus();
+      });
+    });
   });
 
   // ---------- 赤い矢印 ----------
@@ -419,7 +784,7 @@ h2{font-size:17px;margin-bottom:8px}
       html: '<svg width="44" height="44" viewBox="0 0 44 44"><polygon points="22,22 0,10 0,34" fill="' + RED + '" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>'
     });
   }
-  function toggleArrow(p, btn) {
+  function toggleArrow(p, btn, tipAt) {
     if (p.arrow) {
       map.removeLayer(p.arrow.line);
       map.removeLayer(p.arrow.tip);
@@ -428,14 +793,27 @@ h2{font-size:17px;margin-bottom:8px}
       return;
     }
     var cp = map.latLngToContainerPoint(p.marker.getLatLng());
-    var tipLL = map.containerPointToLatLng(cp.add([120, 130]));
+    var tipLL = tipAt || map.containerPointToLatLng(cp.add([120, 130]));
     var line = L.polyline([p.marker.getLatLng(), tipLL], { color: RED, weight: 5, interactive: false }).addTo(map);
     var tip = L.marker(tipLL, { icon: tipIcon(), draggable: true, keyboard: false, zIndexOffset: 900 }).addTo(map);
-    tip.on('drag', function () { updateArrow(p); });
-    p.arrow = { line: line, tip: tip };
+    tip.on('drag', function () { updateArrow(p); keepOffset(p); });
+    p.arrow = { line: line, tip: tip, offset: null };
     btn.textContent = '矢印を消す';
     updateArrow(p);
+    keepOffset(p);
   }
+  // 矢印つきのカードは、矢印の先から画面上で同じ距離に置いておく(拡大・縮小してもずれないように)
+  function keepOffset(p) {
+    if (!p.arrow) return;
+    p.arrow.offset = map.latLngToLayerPoint(p.marker.getLatLng()).subtract(map.latLngToLayerPoint(p.arrow.tip.getLatLng()));
+  }
+  map.on('zoomend', function () {
+    photos.forEach(function (p) {
+      if (!p.arrow || !p.arrow.offset) return;
+      p.marker.setLatLng(map.layerPointToLatLng(map.latLngToLayerPoint(p.arrow.tip.getLatLng()).add(p.arrow.offset)));
+      updateArrow(p);
+    });
+  });
   function updateArrow(p) {
     if (!p.arrow) return;
     var a = p.marker.getLatLng(), b = p.arrow.tip.getLatLng();
