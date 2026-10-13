@@ -73,6 +73,13 @@ details.settings>summary::-webkit-details-marker{display:none}
 details.settings>summary::before{content:"▶";font-size:13px;margin-right:8px;transition:transform .15s}
 details.settings[open]>summary::before{transform:rotate(90deg)}
 details.settings[open]>summary{margin-bottom:12px}
+.sechead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.sechead h2{margin:0}
+.reload{min-height:44px;min-width:76px;font:inherit;font-size:16px;font-weight:700;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--ink);cursor:pointer;padding:0 14px}
+.reload:disabled{opacity:.6;cursor:wait}
+#reloadMsg{margin:0 0 6px;min-height:0}
+.range{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px;align-items:center;margin-bottom:14px}
+.range input{min-width:0;padding:12px 8px}
 .pdfbox{border-top:1px solid var(--line);margin-top:8px;padding-top:14px}
 .pdfbox .btn{margin-top:10px}
 #printSheet{display:none}
@@ -93,6 +100,10 @@ details.settings[open]>summary{margin-bottom:12px}
   .ps-sum th,.ps-sum td{border:1px solid #000;padding:3mm 4mm;font-size:13pt}
   .ps-sum th{text-align:left;font-weight:700}
   .ps-sum td{text-align:right;font-weight:700;white-space:nowrap}
+  .ps-day{break-inside:avoid;margin:0 0 7mm}
+  .ps-day h2{font-size:13pt;margin:0 0 2mm}
+  .ps-day .ps-table th,.ps-day .ps-table td{padding:2mm}
+  .ps-daysum{text-align:right;font-weight:700;margin:1.5mm 0 0}
 }
 </style>
 </head>
@@ -134,7 +145,11 @@ details.settings[open]>summary{margin-bottom:12px}
   </section>
 
   <section class="card" aria-labelledby="sumTitle">
-    <h2 id="sumTitle">カレンダー</h2>
+    <div class="sechead">
+      <h2 id="sumTitle">カレンダー</h2>
+      <button type="button" class="reload" id="reload">更新</button>
+    </div>
+    <p class="msg" id="reloadMsg" role="status" aria-live="polite"></p>
     <div class="calnav">
       <button type="button" class="sbtn" id="prevM" aria-label="前の月">◀</button>
       <span id="monthLabel"></span>
@@ -144,6 +159,20 @@ details.settings[open]>summary{margin-bottom:12px}
     <div class="total"><span id="totalLabel">月の合計</span><span><b id="grand">0</b> ㎥</span></div>
     <div id="detail"></div>
     <p class="msg" id="listMsg" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="card" aria-labelledby="rangeTitle">
+    <h2 id="rangeTitle">期間のPDF</h2>
+    <p class="hint">始めの日と終わりの日を選ぶと、その間の記録を日ごとにまとめたPDFを作ります。</p>
+    <div class="range">
+      <input type="date" id="rangeFrom" aria-label="始めの日">
+      <span>〜</span>
+      <input type="date" id="rangeTo" aria-label="終わりの日">
+    </div>
+    <label class="label" for="genbaRange">現場名（PDFに入ります）</label>
+    <input type="text" id="genbaRange" maxlength="60" placeholder="例：〇〇線 道路改良工事">
+    <button type="button" class="btn" id="rangePdfBtn" style="margin-top:12px">期間のPDFを作る</button>
+    <p class="msg" id="rangeMsg" role="status" aria-live="polite"></p>
   </section>
 
   <section class="card">
@@ -294,29 +323,85 @@ function loadGenba(){ try { return localStorage.getItem("dump_genba") || ""; } c
 function saveGenba(v){ try { localStorage.setItem("dump_genba", v); } catch (e) { /* 使えなくてもOK */ } }
 $("detail").addEventListener("input", (e) => { if (e.target.id === "genbaName") saveGenba(e.target.value.trim()); });
 
+function sumOf(recs){ return recs.reduce((a, r) => a + Number(r.total), 0); }
+function fullDate(date){ return date.slice(0, 4) + "年" + jpDate(date).replace("/", "月").replace("（", "日（"); }
+function psTable(recs){
+  return '<table class="ps-table"><thead><tr><th>車格</th><th>積載量</th><th>台数</th><th>回転数</th><th>量</th></tr></thead><tbody>' +
+    recs.map(r => '<tr><td>' + esc(r.size) + '</td><td class="n">' + num(r.load) + '㎥</td><td class="n">' + r.count + '台</td><td class="n">' + r.trips + '回</td><td class="n">' + num(r.total) + '㎥</td></tr>').join("") +
+    '</tbody></table>';
+}
+// 月の合計: その月の1日から、その月の中で last までの合計
+function monthSumRow(last){
+  const [, m, d] = last.split("-").map(Number);
+  const start = last.slice(0, 8) + "01";
+  const sum = sumOf(records.filter(r => r.date >= start && r.date <= last));
+  return '<tr><th>' + m + '月の合計（' + m + '/1〜' + m + '/' + d + '）</th><td>' + num(sum) + '㎥</td></tr>';
+}
+function printSheet(html, fileName){
+  $("printSheet").innerHTML = html;
+  // 保存するときのファイル名になる
+  const title = document.title;
+  document.title = fileName;
+  setTimeout(() => { window.print(); document.title = title; }, 300);
+}
+
 function makePdf(date){
   const recs = records.filter(r => r.date === date);
   if (!recs.length) return;
-  const daySum = recs.reduce((a, r) => a + Number(r.total), 0);
-  const monthStart = date.slice(0, 8) + "01";
-  const monthSum = records.filter(r => r.date >= monthStart && r.date <= date).reduce((a, r) => a + Number(r.total), 0);
-  const [y, m, d] = date.split("-").map(Number);
   const genba = ($("genbaName") ? $("genbaName").value.trim() : loadGenba());
-  $("printSheet").innerHTML =
+  printSheet(
     '<h1 class="ps-title">ダンプ搬出量</h1>' +
-    '<p class="ps-date">' + y + '年' + jpDate(date).replace("/", "月").replace("（", "日（") + '</p>' +
+    '<p class="ps-date">' + fullDate(date) + '</p>' +
     (genba ? '<p class="ps-genba">現場名：' + esc(genba) + '</p>' : "") +
-    '<table class="ps-table"><thead><tr><th>車格</th><th>積載量</th><th>台数</th><th>回転数</th><th>量</th></tr></thead><tbody>' +
-    recs.map(r => '<tr><td>' + esc(r.size) + '</td><td class="n">' + num(r.load) + '㎥</td><td class="n">' + r.count + '台</td><td class="n">' + r.trips + '回</td><td class="n">' + num(r.total) + '㎥</td></tr>').join("") +
-    '</tbody></table>' +
-    '<table class="ps-sum"><tr><th>日の合計</th><td>' + num(daySum) + '㎥</td></tr>' +
-    '<tr><th>' + m + '月の合計（' + m + '/1〜' + m + '/' + d + '）</th><td>' + num(monthSum) + '㎥</td></tr></table>';
-  // 保存するときのファイル名になる
-  const title = document.title;
-  document.title = "ダンプ搬出量_" + date;
-  setTimeout(() => { window.print(); document.title = title; }, 300);
+    psTable(recs) +
+    '<table class="ps-sum"><tr><th>日の合計</th><td>' + num(sumOf(recs)) + '㎥</td></tr>' + monthSumRow(date) + '</table>',
+    "ダンプ搬出量_" + date);
 }
 $("detail").addEventListener("click", (e) => { if (e.target.id === "pdfBtn") makePdf(selDate); });
+
+function makeRangePdf(){
+  const from = $("rangeFrom").value, to = $("rangeTo").value;
+  if (!from || !to) return setMsg($("rangeMsg"), "始めの日と終わりの日を選んでください", "ng");
+  if (from > to)    return setMsg($("rangeMsg"), "終わりの日が始めの日より前になっています", "ng");
+  const recs = records.filter(r => r.date >= from && r.date <= to);
+  if (!recs.length) return setMsg($("rangeMsg"), "この期間の記録はありません", "ng");
+  setMsg($("rangeMsg"), "");
+  const byDay = {};
+  recs.forEach(r => (byDay[r.date] = byDay[r.date] || []).push(r));
+  const dates = Object.keys(byDay).sort();
+  // 月ごとの合計は、期間の中でその月の最後の日まで
+  const monthLast = {};
+  dates.forEach(d => { const k = d.slice(0, 7); monthLast[k] = (to.slice(0, 7) === k) ? to : d.slice(0, 8) + String(new Date(Number(d.slice(0, 4)), Number(d.slice(5, 7)), 0).getDate()).padStart(2, "0"); });
+  const genba = $("genbaRange").value.trim();
+  printSheet(
+    '<h1 class="ps-title">ダンプ搬出量</h1>' +
+    '<p class="ps-date">' + fullDate(from) + ' 〜 ' + fullDate(to) + '</p>' +
+    (genba ? '<p class="ps-genba">現場名：' + esc(genba) + '</p>' : "") +
+    dates.map(d => '<div class="ps-day"><h2>' + fullDate(d) + '</h2>' + psTable(byDay[d]) +
+      '<p class="ps-daysum">日の合計　' + num(sumOf(byDay[d])) + '㎥</p></div>').join("") +
+    '<table class="ps-sum"><tr><th>期間の合計（' + dates.length + '日分）</th><td>' + num(sumOf(recs)) + '㎥</td></tr>' +
+    Object.keys(monthLast).sort().map(k => monthSumRow(monthLast[k])).join("") + '</table>',
+    "ダンプ搬出量_" + from + "_" + to);
+}
+$("genbaRange").addEventListener("input", (e) => saveGenba(e.target.value.trim()));
+$("rangePdfBtn").addEventListener("click", makeRangePdf);
+
+// ---------- 更新(スプレッドシートから読み直す) ----------
+async function reload(){
+  $("reload").disabled = true; $("reload").textContent = "更新中…"; setMsg($("reloadMsg"), "");
+  try {
+    const res = await api({ action: "init" });
+    sizes = res.sizes; records = res.records;
+    renderSizes(); renderSetRows(); renderDays();
+    const t = new Date();
+    setMsg($("reloadMsg"), t.getHours() + ":" + String(t.getMinutes()).padStart(2, "0") + " 更新しました", "ok");
+  } catch (err) {
+    setMsg($("reloadMsg"), "更新できませんでした: " + err.message, "ng");
+  } finally {
+    $("reload").disabled = false; $("reload").textContent = "更新";
+  }
+}
+$("reload").addEventListener("click", reload);
 $("cal").addEventListener("click", (e) => {
   const cell = e.target.closest(".cell"); if (!cell || !cell.dataset.date) return;
   selDate = cell.dataset.date; setMsg($("listMsg"), "");
@@ -373,6 +458,9 @@ $("saveSet").addEventListener("click", async () => {
   const now = new Date();
   $("date").value = ymd(now);
   viewY = now.getFullYear(); viewM = now.getMonth();
+  $("rangeFrom").value = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+  $("rangeTo").value = ymd(now);
+  $("genbaRange").value = loadGenba();
   renderDays();
   try {
     const res = await api({ action: "init" });
