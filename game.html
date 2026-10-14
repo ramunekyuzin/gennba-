@@ -3,58 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
     <title>装備合成バトル</title>
     <style>
-      :root {
-        color-scheme: light dark;
-        --bg: #eef0f6;
-        --app-bg: #ffffff;
-        --panel-bg: #f4f5fa;
-        --sub-bg: #e6e9f2;
-        --board-bg: #d5d9e6;
-        --cell-bg: #ffffff;
-        --cell-border: #9aa3bf;
-        --hole-bg: #b4bacb;
-        --text: #1b1d2a;
-        --muted: #555c70;
-        --accent: #a8650a;
-        --accent2: #1d6fa5;
-        --ok: #087f5b;
-        --ok-bg: #d3f5e8;
-        --ng: #c92a2a;
-        --ng-bg: #fbe0e0;
-        --btn-bg: #ffd166;
-        --btn-text: #1b1d2a;
-        --btn-disabled-bg: #c8ccd6;
-        --btn-disabled-text: #6b7080;
-        --log-bg: #ffffff;
-        --line: #d5d9e6;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #1b1d2a;
-          --app-bg: #262a3d;
-          --panel-bg: #313650;
-          --sub-bg: #3e4560;
-          --board-bg: #1b1d2a;
-          --cell-bg: #2a2f47;
-          --cell-border: #5c6485;
-          --hole-bg: #111320;
-          --text: #f2f2f2;
-          --muted: #bdbdbd;
-          --accent: #ffd166;
-          --accent2: #8ecae6;
-          --ok: #06d6a0;
-          --ok-bg: #2f5d55;
-          --ng: #ff595e;
-          --ng-bg: #4a2030;
-          --btn-disabled-bg: #555;
-          --btn-disabled-text: #aaa;
-          --log-bg: #1b1d2a;
-          --line: #3e4560;
-        }
-      }
       * {
         box-sizing: border-box;
         margin: 0;
@@ -62,19 +12,18 @@
       }
       body {
         font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
-        font-size: 16px;
-        background: var(--bg);
-        color: var(--text);
+        background: #1b1d2a;
+        color: #f2f2f2;
         min-height: 100vh;
         display: flex;
         justify-content: center;
-        align-items: flex-start;
+        align-items: center;
         padding: 8px;
       }
       #app {
         width: 100%;
         max-width: 1100px;
-        background: var(--app-bg);
+        background: #262a3d;
         border-radius: 12px;
         padding: 12px;
         display: flex;
@@ -89,21 +38,21 @@
         gap: 6px;
       }
       h1 {
-        font-size: 1.4rem;
-        color: var(--accent);
+        font-size: 1.3rem;
+        color: #ffd166;
       }
       #status {
-        font-size: 1rem;
+        font-size: 0.95rem;
       }
       #legend-banner {
         min-height: 1.6em;
         text-align: center;
         font-weight: bold;
-        color: var(--accent);
+        color: #ffd166;
         font-size: 1rem;
       }
       #legend-banner.active {
-        color: var(--ng);
+        color: #ff595e;
         text-shadow: 0 0 8px #ffd166;
         animation: pulse 1.2s infinite alternate;
       }
@@ -121,7 +70,7 @@
         gap: 10px;
       }
       .panel {
-        background: var(--panel-bg);
+        background: #313650;
         border-radius: 10px;
         padding: 10px;
         display: flex;
@@ -130,11 +79,11 @@
         min-width: 0;
       }
       .panel h2 {
-        font-size: 1.1rem;
-        color: var(--accent2);
+        font-size: 1rem;
+        color: #8ecae6;
       }
       .sub-panel {
-        background: var(--sub-bg);
+        background: #3e4560;
         border-radius: 8px;
         padding: 8px;
         display: flex;
@@ -142,12 +91,12 @@
         gap: 6px;
       }
       .sub-panel h3 {
-        font-size: 1rem;
-        color: var(--accent);
+        font-size: 0.95rem;
+        color: #ffd166;
       }
       .hint {
-        font-size: 1rem;
-        color: var(--muted);
+        font-size: 0.8rem;
+        color: #bdbdbd;
       }
 
       .board-wrap {
@@ -159,7 +108,7 @@
       #board {
         display: grid;
         gap: 4px;
-        background: var(--board-bg);
+        background: #1b1d2a;
         padding: 6px;
         border-radius: 8px;
         width: 100%;
@@ -167,42 +116,156 @@
       }
       .cell {
         aspect-ratio: 1 / 1;
-        background: var(--cell-bg);
-        border: 2px dashed var(--cell-border);
+        background: #2a2f47;
+        border: 2px dashed #5c6485;
         border-radius: 6px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        font-size: 1rem;
-        line-height: 1.1;
+        font-size: 0.7rem;
         text-align: center;
         cursor: pointer;
         user-select: none;
-        color: var(--muted);
-        padding: 1px;
+        color: #bdbdbd;
+        padding: 2px;
         overflow: hidden;
         position: relative;
-        min-width: 0;
       }
       .cell.hole {
-        background: var(--hole-bg);
-        border: 2px solid var(--hole-bg);
+        background: #111320;
+        border: 2px solid #111320;
         cursor: default;
       }
       .cell.drop-target {
-        border-color: var(--ok);
-        background: var(--ok-bg);
+        border-color: #06d6a0;
+        background: #2f5d55;
       }
       .cell.drop-invalid {
-        border-color: var(--ng);
-        background: var(--ng-bg);
+        border-color: #ff595e;
+        background: #4a2030;
+      }
+      .cell.empty {
+        border-color: #5c6485;
+      }
+      .cell.empty.target {
+        border-color: #ffd166;
+        background: #3a3450;
+      }
+      .cell.empty:hover:not(.hole) {
+        border-color: #ffd166;
+      }
+      .cell.placed {
+        border: 2px solid #8ecae6;
+        background: #2f3a5a;
+        color: #f2f2f2;
+      }
+      .cell.placed.legendary {
+        border-color: #ff595e;
+        box-shadow: 0 0 8px #ffd166;
+      }
+      .cell.dragging {
+        opacity: 0.4;
+      }
+      .cell:focus-visible {
+        outline: 2px solid #ffd166;
+      }
+      .cell .icon {
+        font-size: 1.2rem;
+        line-height: 1.1;
+      }
+      .cell .sname {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+      .cell .fit-mark {
+        position: absolute;
+        top: 2px;
+        right: 4px;
+        font-size: 0.7rem;
+        color: #06d6a0;
+        font-weight: bold;
+      }
+      .cell .cell-shape {
+        font-size: 0.6rem;
+        color: #8ecae6;
+      }
+      .cell .piece-cell {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .gear-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+        gap: 6px;
+        max-height: 260px;
+        overflow-y: auto;
+      }
+      .item {
+        background: #3e4560;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        padding: 6px;
+        cursor: pointer;
+        text-align: center;
+        color: #f2f2f2;
+        font-size: 0.8rem;
+        user-select: none;
+        position: relative;
       }
       .item[draggable="true"] {
         cursor: grab;
       }
+      .item:hover {
+        border-color: #ffd166;
+      }
+      .item.selected {
+        border-color: #06d6a0;
+        background: #2f5d55;
+      }
+      .item.selected::after {
+        content: "✔";
+        display: block;
+        color: #06d6a0;
+        font-weight: bold;
+      }
       .item.dragging {
         opacity: 0.4;
+      }
+      .item:focus-visible {
+        outline: 2px solid #ffd166;
+      }
+      .item.legendary {
+        border-color: #ff595e;
+        box-shadow: 0 0 10px #ffd166;
+      }
+      .item.legendary.selected {
+        border-color: #06d6a0;
+      }
+      .item .rank {
+        font-weight: bold;
+        font-size: 1rem;
+      }
+      .item .name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .item .icon {
+        font-size: 1.4rem;
+        line-height: 1.2;
+      }
+      .item .tag {
+        font-size: 0.7rem;
+        color: #ffd166;
+      }
+      .item .shape-info {
+        font-size: 0.7rem;
+        color: #8ecae6;
       }
       .item .shape-preview {
         display: grid;
@@ -219,118 +282,23 @@
       .item .shape-preview-cell.empty-slot {
         background: transparent;
       }
-      .item .weapon-art {
-        font-size: 1.8rem;
-        line-height: 1.1;
-        filter: drop-shadow(0 0 4px #ffd166);
-      }
-      .cell.empty.target {
-        border-color: var(--accent);
-        border-style: solid;
-      }
-      .cell.empty:hover {
-        border-color: var(--accent);
-      }
-      .cell.placed {
-        border: 2px solid #8ecae6;
-        color: #f2f2f2;
-      }
-      .cell.placed.legendary {
-        border-color: #ff595e;
-        box-shadow: 0 0 8px #ffd166;
-      }
-      .cell:focus-visible {
-        outline: 2px solid var(--accent);
-      }
-      .cell .icon {
-        font-size: 1.2rem;
-        line-height: 1.1;
-      }
-      .cell .crank {
-        font-weight: bold;
-        white-space: nowrap;
-      }
-      .cell .fit-mark {
-        font-size: 1rem;
-        color: var(--accent);
-        font-weight: bold;
-      }
-
-      .gear-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 6px;
-        max-height: 380px;
-        overflow-y: auto;
-      }
-      .item {
-        border: 2px solid transparent;
-        border-radius: 8px;
-        padding: 6px;
-        cursor: pointer;
-        text-align: center;
-        color: #f2f2f2;
-        font-size: 1rem;
-        line-height: 1.4;
-        user-select: none;
-        position: relative;
-        min-width: 0;
-      }
-      .item:hover {
-        border-color: #ffd166;
-      }
-      .item.selected {
-        border-color: #06d6a0;
-        box-shadow: 0 0 0 2px #06d6a0;
-      }
-      .item.selected::after {
-        content: "✔ 選択中";
-        display: block;
-        color: #06d6a0;
-        font-weight: bold;
-      }
-      .item:focus-visible {
-        outline: 2px solid #ffd166;
-      }
-      .item.legendary {
-        border-color: #ff595e;
-        box-shadow: 0 0 10px #ffd166;
-      }
-      .item.legendary.selected {
-        border-color: #06d6a0;
-      }
-      .item .rank {
-        font-weight: bold;
-        font-size: 1.1rem;
-      }
-      .item .name {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .item .tag {
-        color: #ffd166;
-      }
-      .item .shape-info {
-        color: #8ecae6;
-      }
       .rank-C {
-        color: #e0d2bc;
+        color: #e8d5b0;
       }
       .rank-B {
-        color: #b9f6c6;
+        color: #80ed99;
       }
       .rank-A {
-        color: #bfeeff;
+        color: #4cc9f0;
       }
       .rank-S {
-        color: #ead6ff;
+        color: #c77dff;
       }
       .rank-SS {
-        color: #fff1d6;
+        color: #ff9f1c;
       }
       .rank-SSS {
-        color: #ffffff;
+        color: #ff595e;
         text-shadow: 0 0 6px #ffd166;
       }
 
@@ -340,92 +308,128 @@
         flex-wrap: wrap;
       }
       button {
-        background: var(--btn-bg);
-        color: var(--btn-text);
+        background: #ffd166;
+        color: #1b1d2a;
         border: none;
-        border-radius: 8px;
-        padding: 10px 12px;
-        min-height: 44px;
+        border-radius: 6px;
+        padding: 8px 12px;
         font-weight: bold;
         cursor: pointer;
-        font-size: 1rem;
-        font-family: inherit;
+        font-size: 0.9rem;
       }
       button:hover:not(:disabled) {
         filter: brightness(1.1);
       }
       button:disabled {
-        background: var(--btn-disabled-bg);
-        color: var(--btn-disabled-text);
+        background: #555;
+        color: #aaa;
         cursor: not-allowed;
+      }
+      button.small {
+        padding: 5px 8px;
+        font-size: 0.8rem;
       }
 
       #battle-log {
-        background: var(--log-bg);
-        border: 1px solid var(--line);
+        background: #1b1d2a;
         border-radius: 8px;
         padding: 8px;
-        height: 160px;
+        height: 150px;
         overflow-y: auto;
-        font-size: 1rem;
+        font-size: 0.9rem;
         line-height: 1.5;
       }
-      #battle-log .win {
-        color: var(--ok);
-      }
-      #battle-log .lose {
-        color: var(--ng);
-      }
-      #battle-log .bonus {
-        color: var(--accent);
-      }
       .stat {
-        font-size: 1rem;
+        font-size: 0.9rem;
         line-height: 1.6;
       }
       #feedback {
         min-height: 1.4em;
         font-weight: bold;
-        color: var(--accent);
+        color: #ffd166;
       }
       .work-result {
-        font-size: 1rem;
+        font-size: 0.9rem;
         min-height: 1.4em;
       }
       #bonus-info {
-        font-size: 1rem;
-        color: var(--ok);
+        font-size: 0.85rem;
+        color: #80ed99;
       }
-      .best-score {
-        font-size: 1.8rem;
+      #ranking-list {
+        list-style: none;
+        font-size: 0.85rem;
+        max-height: 180px;
+        overflow-y: auto;
+      }
+      #ranking-list li {
+        padding: 3px 4px;
+        border-bottom: 1px solid #3e4560;
+        display: flex;
+        justify-content: space-between;
+      }
+      #ranking-list li.self {
+        color: #06d6a0;
         font-weight: bold;
-        color: var(--ok);
+      }
+      #name-input {
+        padding: 6px;
+        border-radius: 6px;
+        border: none;
+        font-size: 0.9rem;
+        flex: 1;
+        min-width: 120px;
       }
       #save-error {
-        color: var(--ng);
-        font-size: 1rem;
+        color: #ff595e;
+        font-size: 0.85rem;
         min-height: 1.2em;
+      }
+      .hidden {
+        display: none !important;
       }
 
       @media (max-width: 800px) {
         #main {
           grid-template-columns: 1fr;
         }
+        .gear-grid {
+          max-height: 200px;
+        }
+        body {
+          align-items: flex-start;
+        }
         #app {
           padding: 8px;
           gap: 8px;
         }
         h1 {
-          font-size: 1.2rem;
+          font-size: 1.1rem;
         }
         #board {
           max-width: 100%;
         }
+        .cell {
+          font-size: 0.6rem;
+        }
         .controls button {
           flex: 1 1 auto;
+          padding: 10px 8px;
+          font-size: 0.85rem;
+        }
+        button.small {
+          padding: 6px 8px;
         }
         #battle-log {
-          height: 140px;
+          height: 120px;
+        }
+        #ranking-list {
+          max-height: 150px;
+        }
+        #name-input {
+          min-width: 0;
+          width: 100%;
+          flex-basis: 100%;
         }
       }
       @media (max-width: 480px) {
@@ -433,17 +437,39 @@
           padding: 4px;
         }
         .gear-grid {
-          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-          max-height: 420px;
+          grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+          max-height: 220px;
         }
         .item {
+          font-size: 0.7rem;
           padding: 4px;
         }
-        .item .weapon-art {
-          font-size: 1.5rem;
+        .item .icon {
+          font-size: 1.4rem;
         }
-        .cell .icon {
-          font-size: 1rem;
+        .shape-preview-cell {
+          width: 8px !important;
+          height: 8px !important;
+        }
+        #status {
+          font-size: 0.85rem;
+        }
+        .hint {
+          font-size: 0.75rem;
+        }
+      }
+      @media (max-height: 500px) {
+        #battle-log {
+          height: 100px;
+        }
+        #app {
+          gap: 6px;
+        }
+        h1 {
+          font-size: 1.1rem;
+        }
+        #board {
+          max-width: 300px;
         }
       }
     </style>
@@ -467,7 +493,6 @@
             装備中の攻撃力: <span id="equip-power">0</span> ／ 装備数:
             <span id="slot-count">0</span>
           </div>
-          <div class="hint">装備を選んで ◎ のマスをタップするとはめられます。はめた装備をタップすると外せます。</div>
           <div class="board-wrap">
             <div id="board"></div>
           </div>
@@ -478,7 +503,7 @@
           </div>
           <div id="bonus-info"></div>
 
-          <h2>所持装備（同じランクを2つ選んで合成）</h2>
+          <h2>所持装備（同じ種類・ランクを2つ選んで合成）</h2>
           <div class="hint">選択中: <span id="selected-count">0</span>個（2つまで）</div>
           <div id="inventory" class="gear-grid" role="listbox" aria-multiselectable="true"></div>
           <div class="controls">
@@ -491,6 +516,7 @@
             <button id="btn-buy-armor">防具を購入 (60G)</button>
             <button id="btn-buy-magic">魔法の杖を購入 (80G)</button>
             <button id="btn-buy-bomb">爆弾を購入 (40G)</button>
+            <button id="btn-buy-gun">銃を購入 (70G)</button>
           </div>
 
           <div class="sub-panel">
@@ -522,9 +548,14 @@
           <div id="battle-log"></div>
 
           <div class="sub-panel">
-            <h3>自分のベスト記録</h3>
-            <div class="hint">スコア = 勝利数×100 + 戦力（対戦のたびに記録）</div>
-            <div class="best-score" id="best-score">0</div>
+            <h3>ランキング（最高スコア: 勝利数×100+戦力）</h3>
+            <div class="controls">
+              <input id="name-input" type="text" maxlength="12" placeholder="ニックネーム" />
+              <button id="btn-rename">名前を設定</button>
+            </div>
+            <ul id="ranking-list">
+              <li>読み込み中...</li>
+            </ul>
             <div id="save-error"></div>
           </div>
         </div>
@@ -534,7 +565,7 @@
         <button id="btn-reset">データを初期化</button>
       </div>
       <div class="hint">
-        データはこのブラウザの中に保存されます。ホーム画面に追加すると、アプリのように起動できます。
+        スマホで遊ぶには、このページのURLをブラウザのアドレスバーからコピーして開いてください。ホーム画面に追加すると、アプリのように起動できます。
       </div>
     </div>
 
@@ -543,6 +574,7 @@
         "use strict";
 
         const RANKS = ["C", "B", "A", "S", "SS", "SSS"];
+        const TYPES = ["weapon", "armor", "magic", "bomb", "gun"];
         const RANK_NAMES = {
           weapon: {
             C: "木の剣",
@@ -576,27 +608,60 @@
             SS: "核爆弾",
             SSS: "神爆弾・ケラウノス",
           },
+          gun: {
+            C: "火縄銃",
+            B: "猟銃",
+            A: "ライフル銃",
+            S: "魔銃",
+            SS: "聖銃ガーンディーヴァ",
+            SSS: "神銃・ピナーカ",
+          },
         };
-        const TYPE_LABEL = { weapon: "武器", armor: "防具", magic: "魔法の杖", bomb: "爆弾" };
+        const TYPE_LABEL = {
+          weapon: "武器",
+          armor: "防具",
+          magic: "魔法の杖",
+          bomb: "爆弾",
+          gun: "銃",
+        };
         const TYPE_ICONS = {
           weapon: { C: "🗡", B: "⚔", A: "🔪", S: "🔱", SS: "✨", SSS: "⚡" },
           armor: { C: "🧥", B: "🛡", A: "🥋", S: "🪖", SS: "👑", SSS: "🏰" },
           magic: { C: "🪄", B: "🔮", A: "📿", S: "🌟", SS: "🌠", SSS: "🌌" },
           bomb: { C: "💣", B: "🧨", A: "🔥", S: "💥", SS: "☢", SSS: "🌩" },
+          gun: { C: "🔫", B: "🎯", A: "🔭", S: "🌀", SS: "🏹", SSS: "☄" },
+        };
+        const MATERIAL_COLORS = {
+          weapon: { C: "木", B: "鉄", A: "鋼", S: "ミスリル", SS: "聖銀", SSS: "神金" },
+          armor: { C: "革", B: "鉄", A: "鋼", S: "ミスリル", SS: "聖銀", SSS: "神金" },
+          magic: { C: "木", B: "魔石", A: "賢者", S: "精霊", SS: "大魔導", SSS: "神秘" },
+          bomb: { C: "紙", B: "鉄", A: "火薬", S: "魔力", SS: "放射", SSS: "雷" },
+          gun: { C: "木", B: "鉄", A: "鋼", S: "魔力", SS: "聖銀", SSS: "神金" },
+        };
+        const MATERIAL_GRADIENT = {
+          木: "linear-gradient(135deg, #5a3a1e, #9a6b3c)",
+          革: "linear-gradient(135deg, #5c3a22, #a06a40)",
+          紙: "linear-gradient(135deg, #7a7057, #c8b98e)",
+          鉄: "linear-gradient(135deg, #3a3f48, #7d8794)",
+          鋼: "linear-gradient(135deg, #2b3f55, #5f86a8)",
+          火薬: "linear-gradient(135deg, #5a2e1a, #b5532a)",
+          魔石: "linear-gradient(135deg, #2c2a6a, #6a5fd0)",
+          賢者: "linear-gradient(135deg, #3b2a5c, #7f5cb8)",
+          ミスリル: "linear-gradient(135deg, #2e4d6b, #8fd3f4)",
+          精霊: "linear-gradient(135deg, #1f5a4a, #7ff0c8)",
+          魔力: "linear-gradient(135deg, #4a1f6a, #c77dff)",
+          聖銀: "linear-gradient(135deg, #5a5a2a, #ffe98a)",
+          大魔導: "linear-gradient(135deg, #5a1f5a, #ff7fd1)",
+          放射: "linear-gradient(135deg, #2f5a1f, #b6ff4a)",
+          神金: "linear-gradient(135deg, #7a4a00, #ffd166)",
+          神秘: "linear-gradient(135deg, #1f1f5a, #ffd166)",
+          雷: "linear-gradient(135deg, #5a4a00, #fff27a)",
         };
         const RANK_POWER = { C: 10, B: 25, A: 60, S: 150, SS: 400, SSS: 1200 };
-        const RANK_GRADIENT = {
-          C: "linear-gradient(135deg, #5c4a32, #8a6d46)",
-          B: "linear-gradient(135deg, #2d5a3d, #4f8f5f)",
-          A: "linear-gradient(135deg, #1f4e79, #3a7bbf)",
-          S: "linear-gradient(135deg, #5b2a86, #9b5de5)",
-          SS: "linear-gradient(135deg, #8a4b08, #c9780f)",
-          SSS: "linear-gradient(135deg, #7a0d1a, #b8862a)",
-        };
-        const BUY_COST = { weapon: 50, armor: 60, magic: 80, bomb: 40 };
+        const BUY_COST = { weapon: 50, armor: 60, magic: 80, bomb: 40, gun: 70 };
         const EXPAND_COST = 150;
-        // 同じサイト内のほかのツールとぶつからない名前にする
-        const SAVE_KEY = "gennbaGameSave";
+        const SAVE_KEY = "save";
+        const BOARD_KEY = "score";
 
         const SHAPES = {
           I1: { name: "1マス", cells: [[0, 0]] },
@@ -651,15 +716,197 @@
               [1, 2],
             ],
           },
+          S4: {
+            name: "S字",
+            cells: [
+              [1, 0],
+              [2, 0],
+              [0, 1],
+              [1, 1],
+            ],
+          },
+          Z4: {
+            name: "Z字",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [2, 1],
+            ],
+          },
+          J4: {
+            name: "J字",
+            cells: [
+              [0, 0],
+              [0, 1],
+              [1, 1],
+              [2, 1],
+            ],
+          },
+          P5: {
+            name: "P字",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [0, 1],
+              [1, 1],
+              [0, 2],
+            ],
+          },
+          ZIG5: {
+            name: "ジグザグ",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [2, 1],
+              [2, 2],
+            ],
+          },
+          HOOK5: {
+            name: "フック",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+              [2, 1],
+              [1, 2],
+            ],
+          },
+          NOTCH6: {
+            name: "ギザ",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+              [0, 1],
+              [2, 1],
+              [2, 2],
+            ],
+          },
+          BOW6: {
+            name: "弓なり",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+              [0, 1],
+              [1, 2],
+              [2, 1],
+            ],
+          },
+          CROOK7: {
+            name: "鉤",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+              [2, 1],
+              [2, 2],
+              [1, 2],
+              [0, 2],
+            ],
+          },
+          ARC7: {
+            name: "アーチ",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+              [0, 1],
+              [2, 1],
+              [0, 2],
+              [2, 2],
+            ],
+          },
+          SHARD8: {
+            name: "破片",
+            cells: [
+              [1, 0],
+              [0, 1],
+              [1, 1],
+              [2, 1],
+              [1, 2],
+              [3, 2],
+              [2, 3],
+              [3, 3],
+            ],
+          },
+          STAR9: {
+            name: "星",
+            cells: [
+              [1, 0],
+              [0, 1],
+              [1, 1],
+              [2, 1],
+              [1, 2],
+              [0, 3],
+              [2, 3],
+              [3, 2],
+              [3, 0],
+            ],
+          },
         };
+
         const SHAPE_BY_TYPE = {
           weapon: "I3",
           armor: "SQ",
           magic: "L3",
           bomb: "T4",
+          gun: "I2",
         };
-        const SHAPE_ORDER_BY_RANK = ["I1", "I2", "I3", "L3", "SQ", "T4", "PLUS"];
+        const RANK_CELL_COUNT = { C: 1, B: 2, A: 3, S: 4, SS: 5, SSS: 7 };
+        const RANDOM_SHAPE_SEEDS = {
+          C: 1,
+          B: 2,
+          A: 3,
+          S: 4,
+          SS: 5,
+          SSS: 6,
+        };
 
+        function generateRandomShape(cellCount) {
+          const cells = [[0, 0]];
+          const seen = new Set(["0,0"]);
+          let guard = 0;
+          while (cells.length < cellCount && guard < 500) {
+            guard++;
+            const base = cells[Math.floor(Math.random() * cells.length)];
+            const dirs = [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ];
+            const d = dirs[Math.floor(Math.random() * dirs.length)];
+            const nx = base[0] + d[0];
+            const ny = base[1] + d[1];
+            const key = nx + "," + ny;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            cells.push([nx, ny]);
+          }
+          const minX = Math.min(...cells.map((c) => c[0]));
+          const minY = Math.min(...cells.map((c) => c[1]));
+          const norm = cells.map((c) => [c[0] - minX, c[1] - minY]);
+          const id = "R" + Math.random().toString(36).slice(2, 10);
+          SHAPES[id] = { name: "不規則" + cellCount + "マス", cells: norm };
+          console.log("random shape generated", id, cellCount);
+          return id;
+        }
+
+        function shapeForRank(type, rank) {
+          const count = RANK_CELL_COUNT[rank] || 1;
+          if (type === "weapon" && rank === "C") return "I1";
+          return generateRandomShape(count);
+        }
+
+        const BOARD_HOLES = [
+          [0, 0],
+          [4, 0],
+          [0, 4],
+          [4, 4],
+        ];
         const BOARD_BASE_SIZE = 5;
         const BOARD_MAX_SIZE = 7;
 
@@ -672,12 +919,15 @@
           selected: [],
           boardSize: BOARD_BASE_SIZE,
           dropBonus: 0,
+          playerName: "",
           nextId: 1,
           legendaryFound: false,
-          bestScore: 0,
         };
 
         let storageOk = true;
+        let lastSavedScore = null;
+        let dragItemId = null;
+        let dragFromBoard = false;
 
         const $ = (id) => document.getElementById(id);
         const els = {
@@ -700,6 +950,7 @@
           btnBuyArmor: $("btn-buy-armor"),
           btnBuyMagic: $("btn-buy-magic"),
           btnBuyBomb: $("btn-buy-bomb"),
+          btnBuyGun: $("btn-buy-gun"),
           btnMine: $("btn-mine"),
           btnQuest: $("btn-quest"),
           workResult: $("work-result"),
@@ -713,7 +964,9 @@
           dropBonus: $("drop-bonus"),
           btnBattle: $("btn-battle"),
           battleLog: $("battle-log"),
-          bestScore: $("best-score"),
+          rankingList: $("ranking-list"),
+          nameInput: $("name-input"),
+          btnRename: $("btn-rename"),
           saveError: $("save-error"),
           btnReset: $("btn-reset"),
         };
@@ -739,17 +992,20 @@
           return { id: state.nextId++, type: type, rank: rank, shape: shapeForRank(type, rank) };
         }
 
-        function shapeForRank(type, rank) {
-          const idx = Math.min(rankIndex(rank), SHAPE_ORDER_BY_RANK.length - 1);
-          return rankIndex(rank) >= 0 ? SHAPE_ORDER_BY_RANK[idx] : SHAPE_BY_TYPE[type];
-        }
-
         function itemName(it) {
           return RANK_NAMES[it.type][it.rank];
         }
 
         function itemIcon(it) {
           return TYPE_ICONS[it.type][it.rank];
+        }
+
+        function itemMaterial(it) {
+          return MATERIAL_COLORS[it.type][it.rank];
+        }
+
+        function itemGradient(it) {
+          return MATERIAL_GRADIENT[itemMaterial(it)] || MATERIAL_GRADIENT["鉄"];
         }
 
         function itemPower(it) {
@@ -789,16 +1045,18 @@
           return wrap;
         }
 
-        // 穴はボードの四隅だけ
-        function holeSet(size) {
+        function holeSet() {
           const set = new Set();
-          const m = size - 1;
-          [
-            [0, 0],
-            [m, 0],
-            [0, m],
-            [m, m],
-          ].forEach(([x, y]) => set.add(x + "," + y));
+          const size = state.boardSize;
+          BOARD_HOLES.forEach(([x, y]) => {
+            if (x < size && y < size) set.add(x + "," + y);
+          });
+          const extra = size - BOARD_BASE_SIZE;
+          if (extra > 0) {
+            for (let i = 0; i < size; i++) {
+              if (i < 2 && extra >= 1) set.add(i + ",2");
+            }
+          }
           return set;
         }
 
@@ -808,33 +1066,18 @@
 
         function ensureBoard() {
           const total = boardCells();
-          const holes = holeSet(state.boardSize);
+          const holes = holeSet();
           const next = new Array(total).fill(null);
-          if (state.board.length === total) {
-            for (let i = 0; i < total; i++) next[i] = state.board[i];
+          for (let i = 0; i < state.board.length && i < total; i++) {
+            next[i] = state.board[i];
           }
           for (let i = 0; i < total; i++) {
-            const [x, y] = cellCoord(i);
+            const x = i % state.boardSize;
+            const y = Math.floor(i / state.boardSize);
             if (holes.has(x + "," + y)) next[i] = "HOLE";
             else if (next[i] === "HOLE") next[i] = null;
           }
           state.board = next;
-        }
-
-        // 拡張しても置いてある装備が同じ位置に残るように、座標で写す
-        function expandBoard() {
-          const oldSize = state.boardSize;
-          const newSize = oldSize + 1;
-          const next = new Array(newSize * newSize).fill(null);
-          for (let y = 0; y < oldSize; y++) {
-            for (let x = 0; x < oldSize; x++) {
-              const v = state.board[y * oldSize + x];
-              if (v && v !== "HOLE") next[y * newSize + x] = v;
-            }
-          }
-          state.boardSize = newSize;
-          state.board = next;
-          ensureBoard();
         }
 
         function isHoleIndex(idx) {
@@ -903,10 +1146,15 @@
 
         function showFeedback(msg) {
           els.feedback.textContent = msg;
+          console.log("[feedback]", msg);
         }
 
         function showSaveError(msg) {
           els.saveError.textContent = msg;
+          console.warn("[save-error]", msg);
+          setTimeout(() => {
+            if (els.saveError.textContent === msg) els.saveError.textContent = "";
+          }, 3000);
         }
 
         function serializeBoard() {
@@ -917,140 +1165,174 @@
           });
         }
 
-        function saveGame() {
+        async function saveGame() {
           if (!storageOk) return;
           try {
-            localStorage.setItem(
-              SAVE_KEY,
-              JSON.stringify({
-                gold: state.gold,
-                wins: state.wins,
-                losses: state.losses,
-                items: state.items,
-                // ボードに置いている装備も保存する(board には id しか入らないため)
-                equipped: equippedItems(),
-                board: serializeBoard(),
-                boardSize: state.boardSize,
-                dropBonus: state.dropBonus,
-                nextId: state.nextId,
-                legendaryFound: state.legendaryFound,
-                bestScore: state.bestScore,
-              }),
-            );
+            await window.appStorage.setItem(SAVE_KEY, {
+              gold: state.gold,
+              wins: state.wins,
+              losses: state.losses,
+              items: state.items,
+              board: serializeBoard(),
+              boardSize: state.boardSize,
+              dropBonus: state.dropBonus,
+              nextId: state.nextId,
+              playerName: state.playerName,
+              legendaryFound: state.legendaryFound,
+            });
+            console.log("game saved", {
+              gold: state.gold,
+              items: state.items.length,
+              equipped: equippedItems().length,
+              boardSize: state.boardSize,
+            });
           } catch (e) {
+            console.error("save failed", e);
             showSaveError("セーブに失敗しました");
           }
         }
 
-        function validItem(it) {
+        function migrateCheck(it) {
           return (
             it &&
             typeof it.id === "number" &&
             RANKS.includes(it.rank) &&
+            TYPES.includes(it.type) &&
             TYPE_ICONS[it.type] !== undefined
           );
         }
 
-        function fixShape(it) {
-          return { ...it, shape: SHAPES[it.shape] ? it.shape : SHAPE_BY_TYPE[it.type] };
-        }
-
-        function num(v, def) {
-          return typeof v === "number" && isFinite(v) ? v : def;
-        }
-
-        function loadGame() {
-          let raw = null;
-          try {
-            raw = localStorage.getItem(SAVE_KEY);
-          } catch (e) {
-            storageOk = false;
-            showSaveError("この端末では保存できません（遊ぶことはできます）");
-            return;
-          }
-          if (!raw) return;
-          let data = null;
-          try {
-            data = JSON.parse(raw);
-          } catch (e) {
-            showSaveError("セーブデータが壊れていたため、最初から始めます");
-            return;
-          }
-          if (!data || typeof data !== "object") return;
-
-          state.gold = num(data.gold, 100);
-          state.wins = num(data.wins, 0);
-          state.losses = num(data.losses, 0);
-          state.bestScore = num(data.bestScore, 0);
-          state.dropBonus = Math.max(0, num(data.dropBonus, 0));
-          state.legendaryFound = data.legendaryFound === true;
-          state.boardSize = Math.min(
-            BOARD_MAX_SIZE,
-            Math.max(BOARD_BASE_SIZE, num(data.boardSize, BOARD_BASE_SIZE)),
-          );
-
-          const equippedById = new Map();
-          (Array.isArray(data.equipped) ? data.equipped : []).filter(validItem).forEach((it) => {
-            equippedById.set(it.id, fixShape(it));
-          });
-
-          const total = state.boardSize * state.boardSize;
-          const board = new Array(total).fill(null);
+        function restoreBoard(data, itemsById) {
+          const total = data.boardSize * data.boardSize;
+          const arr = new Array(total).fill(null);
           if (Array.isArray(data.board)) {
             for (let i = 0; i < total && i < data.board.length; i++) {
               const v = data.board[i];
-              if (typeof v === "number" && equippedById.has(v)) board[i] = equippedById.get(v);
+              if (v === "HOLE") arr[i] = "HOLE";
+              else if (typeof v === "number" && itemsById.has(v)) arr[i] = itemsById.get(v);
             }
           }
-          state.board = board;
-          ensureBoard();
-
-          const onBoard = new Set(equippedItems().map((it) => it.id));
-          state.items = (Array.isArray(data.items) ? data.items : [])
-            .filter(validItem)
-            .filter((it) => !onBoard.has(it.id))
-            .map(fixShape);
-          // 保存されていたのにボードに戻せなかった装備は所持品に戻す
-          equippedById.forEach((it, id) => {
-            if (!onBoard.has(id) && !state.items.some((x) => x.id === id)) state.items.push(it);
-          });
-
-          const maxId = state.items
-            .concat(equippedItems())
-            .reduce((m, it) => Math.max(m, it.id), 0);
-          state.nextId = Math.max(num(data.nextId, 1), maxId + 1);
+          return arr;
         }
 
-        function recordBest() {
-          const score = currentScore();
-          if (score > state.bestScore) {
-            state.bestScore = score;
-            return true;
+        async function loadGame() {
+          try {
+            const data = await window.appStorage.getItem(SAVE_KEY);
+            if (data && typeof data === "object") {
+              state.gold = data.gold ?? 100;
+              state.wins = data.wins ?? 0;
+              state.losses = data.losses ?? 0;
+              state.items = Array.isArray(data.items)
+                ? data.items.filter(migrateCheck).map((it) => ({
+                    ...it,
+                    shape: it.shape || shapeForRank(it.type, it.rank),
+                  }))
+                : [];
+              state.boardSize = Math.min(
+                BOARD_MAX_SIZE,
+                Math.max(BOARD_BASE_SIZE, data.boardSize ?? BOARD_BASE_SIZE),
+              );
+              const itemsById = new Map();
+              state.items.forEach((it) => itemsById.set(it.id, it));
+              const legacy = Array.isArray(data.equipped) ? data.equipped.filter(migrateCheck) : [];
+              legacy.forEach((it) => {
+                if (!itemsById.has(it.id)) {
+                  it.shape = it.shape || shapeForRank(it.type, it.rank);
+                  state.items.push(it);
+                  itemsById.set(it.id, it);
+                }
+              });
+              state.board = restoreBoard(
+                { boardSize: state.boardSize, board: data.board },
+                itemsById,
+              );
+              state.dropBonus = Math.max(0, data.dropBonus ?? 0);
+              state.nextId = data.nextId ?? state.items.length + 1;
+              state.playerName = typeof data.playerName === "string" ? data.playerName : "";
+              state.legendaryFound = data.legendaryFound === true;
+            }
+            console.log("game loaded", {
+              gold: state.gold,
+              items: state.items.length,
+              boardSize: state.boardSize,
+            });
+          } catch (e) {
+            console.error("load failed", e);
+            storageOk = false;
+            showSaveError("セーブデータの読み込みに失敗（保存は無効）");
           }
-          return false;
+        }
+
+        async function submitScore() {
+          const score = currentScore();
+          if (score === lastSavedScore) return;
+          try {
+            const opts = state.playerName ? { playerName: state.playerName } : undefined;
+            await window.appLeaderboard.submitScore(BOARD_KEY, score, opts);
+            lastSavedScore = score;
+            console.log("score submitted", score);
+          } catch (e) {
+            console.warn("leaderboard submit failed", e);
+          }
+          await refreshRanking();
+        }
+
+        async function refreshRanking() {
+          try {
+            const res = await window.appLeaderboard.getRanking(BOARD_KEY, { limit: 10 });
+            renderRanking(res);
+          } catch (e) {
+            console.warn("ranking load failed", e);
+            els.rankingList.innerHTML = "";
+            const li = document.createElement("li");
+            li.textContent = "ランキングを取得できませんでした";
+            els.rankingList.appendChild(li);
+          }
+        }
+
+        function renderRanking(res) {
+          els.rankingList.innerHTML = "";
+          const entries = (res && res.entries) || [];
+          if (entries.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "まだ記録がありません";
+            els.rankingList.appendChild(li);
+            return;
+          }
+          entries.forEach((e) => {
+            const li = document.createElement("li");
+            if (e.isSelf) li.classList.add("self");
+            const left = document.createElement("span");
+            left.textContent = e.rank + ". " + e.playerName;
+            const right = document.createElement("span");
+            right.textContent = String(e.score);
+            li.appendChild(left);
+            li.appendChild(right);
+            els.rankingList.appendChild(li);
+          });
+          if (res.myEntry) {
+            console.log("my ranking", res.myEntry);
+          }
         }
 
         function makeItemDiv(it, onClick) {
           const div = document.createElement("div");
           div.className = "item";
           if (it.rank === "SSS") div.classList.add("legendary");
-          div.style.background = RANK_GRADIENT[it.rank];
+          div.style.background = itemGradient(it);
           div.dataset.itemId = String(it.id);
-          div.setAttribute("role", "option");
-          div.setAttribute("aria-selected", state.selected.includes(it.id) ? "true" : "false");
           const icon = document.createElement("div");
-          icon.className = "weapon-art";
+          icon.className = "icon";
           icon.textContent = itemIcon(it);
           const tag = document.createElement("div");
           tag.className = "tag";
-          tag.textContent = TYPE_LABEL[it.type];
+          tag.textContent = TYPE_LABEL[it.type] + "・" + itemMaterial(it);
           const r = document.createElement("div");
           r.className = "rank rank-" + it.rank;
           r.textContent = it.rank + "ランク";
           const n = document.createElement("div");
           n.className = "name";
           n.textContent = itemName(it);
-          n.title = itemName(it);
           const p = document.createElement("div");
           p.textContent = "攻撃 " + itemPower(it);
           const sh = document.createElement("div");
@@ -1070,6 +1352,8 @@
             ev.dataTransfer.effectAllowed = "move";
             div.classList.add("dragging");
             dragItemId = it.id;
+            dragFromBoard = false;
+            console.log("drag start", it.id);
           });
           div.addEventListener("dragend", () => {
             div.classList.remove("dragging");
@@ -1103,7 +1387,7 @@
 
         function renderBoard() {
           els.board.innerHTML = "";
-          els.board.style.gridTemplateColumns = "repeat(" + state.boardSize + ", minmax(0, 1fr))";
+          els.board.style.gridTemplateColumns = "repeat(" + state.boardSize + ", 1fr)";
           const total = boardCells();
           const selItem = selectedFirstItem();
           for (let i = 0; i < total; i++) {
@@ -1118,26 +1402,28 @@
             if (v) {
               cell.classList.add("placed");
               if (v.rank === "SSS") cell.classList.add("legendary");
+              cell.style.background = itemGradient(v);
               const icon = document.createElement("div");
               icon.className = "icon";
               icon.textContent = itemIcon(v);
-              const rk = document.createElement("div");
-              rk.className = "crank";
-              rk.textContent = v.rank;
+              const n = document.createElement("div");
+              n.className = "sname";
+              n.textContent = v.rank + " " + TYPE_LABEL[v.type];
               cell.appendChild(icon);
-              cell.appendChild(rk);
-              cell.title = v.rank + " " + itemName(v) + "（タップで外す）";
-              cell.setAttribute("aria-label", v.rank + "ランク " + itemName(v) + "。タップで外す");
+              cell.appendChild(n);
+              cell.title = "ドラッグで移動 / クリックで外す";
               cell.tabIndex = 0;
-              cell.style.background = RANK_GRADIENT[v.rank];
               cell.draggable = true;
               cell.addEventListener("dragstart", (ev) => {
                 ev.dataTransfer.setData("text/plain", String(v.id));
                 ev.dataTransfer.effectAllowed = "move";
                 dragItemId = v.id;
                 dragFromBoard = true;
+                console.log("drag start from board", v.id);
+                setTimeout(() => cell.classList.add("dragging"), 0);
               });
               cell.addEventListener("dragend", () => {
+                cell.classList.remove("dragging");
                 dragItemId = null;
                 dragFromBoard = false;
                 clearDropHighlights();
@@ -1153,7 +1439,6 @@
               cell.classList.add("empty");
               cell.tabIndex = 0;
               cell.dataset.idx = String(i);
-              cell.setAttribute("aria-label", "空きマス");
               cell.addEventListener("dragover", (ev) => {
                 if (dragItemId === null) return;
                 ev.preventDefault();
@@ -1174,6 +1459,10 @@
                 mark.textContent = "◎";
                 cell.appendChild(mark);
               }
+              const label = document.createElement("div");
+              label.className = "cell-shape";
+              label.textContent = "空き";
+              cell.appendChild(label);
               cell.addEventListener("click", () => onEmptyCellClick(i));
               cell.addEventListener("keydown", (ev) => {
                 if (ev.key === "Enter" || ev.key === " ") {
@@ -1185,9 +1474,6 @@
             els.board.appendChild(cell);
           }
         }
-
-        let dragItemId = null;
-        let dragFromBoard = false;
 
         function findItemById(id) {
           return state.items.find((i) => i.id === id) || null;
@@ -1245,14 +1531,14 @@
               }
             }
             showFeedback("ここには " + SHAPES[shapeKeyOf(it)].name + " の形がはまりません");
+            console.log("drop rejected", { idx, shape: shapeKeyOf(it) });
             afterChange();
             return;
           }
           placeItem(it, idxs);
           state.selected = state.selected.filter((id) => id !== it.id);
-          showFeedback(
-            itemName(it) + (fromBoard ? " を移動しました" : " をドラッグしてはめました"),
-          );
+          showFeedback(itemName(it) + (fromBoard ? " を移動しました" : " をはめました"));
+          console.log("dropped", { id: it.id, cells: idxs, fromBoard: fromBoard });
           afterChange();
         }
 
@@ -1270,11 +1556,13 @@
           const idxs = placementsFor(it, idx);
           if (!idxs) {
             showFeedback("ここには " + SHAPES[shapeKeyOf(it)].name + " の形がはまりません");
+            console.log("placement rejected", { idx, shape: shapeKeyOf(it) });
             return;
           }
           placeItem(it, idxs);
           state.selected = state.selected.filter((id) => id !== it.id);
           showFeedback(itemName(it) + " をボードにはめました");
+          console.log("placed", { id: it.id, cells: idxs });
           afterChange();
         }
 
@@ -1302,6 +1590,7 @@
           if (!found) return;
           state.items.push(found);
           showFeedback(itemName(found) + " を外しました");
+          console.log("unequipped", found.id);
           afterChange();
         }
 
@@ -1313,11 +1602,13 @@
             if (state.selected.length >= 2) state.selected.shift();
             state.selected.push(id);
           }
+          console.log("selection", state.selected);
           updateUI();
         }
 
         function clearSelection() {
           state.selected = [];
+          console.log("selection cleared");
           updateUI();
         }
 
@@ -1340,7 +1631,10 @@
             placed++;
           }
           state.selected = [];
-          if (placed > 0) showFeedback(placed + "個をボードにはめました");
+          if (placed > 0) {
+            showFeedback(placed + "個をボードにはめました");
+            console.log("auto placed", placed);
+          }
           return placed > 0;
         }
 
@@ -1352,15 +1646,13 @@
           }
           state.items = state.items.concat(items);
           showFeedback("全ての装備を外しました");
+          console.log("unequip all", items.length);
           afterChange();
         }
 
         function setWorkResult(msg) {
           els.workResult.textContent = msg;
-        }
-
-        function earnGold(amount) {
-          state.gold += amount;
+          console.log("[work]", msg);
         }
 
         function updateLegendBanner() {
@@ -1385,7 +1677,6 @@
           els.count.textContent = state.items.length + eq.length;
           els.myPower.textContent = power;
           els.slotCount.textContent = eq.length;
-          els.bestScore.textContent = state.bestScore;
           const best = bestRank();
           els.bestRank.textContent = best ? best + "ランク" : "-";
           const pct = Math.round(Math.min(0.5, state.dropBonus * 0.1) * 100);
@@ -1396,6 +1687,7 @@
           els.btnBuyArmor.disabled = state.gold < BUY_COST.armor;
           els.btnBuyMagic.disabled = state.gold < BUY_COST.magic;
           els.btnBuyBomb.disabled = state.gold < BUY_COST.bomb;
+          els.btnBuyGun.disabled = state.gold < BUY_COST.gun;
           const maxed = state.boardSize >= BOARD_MAX_SIZE;
           els.btnExpand.disabled = state.gold < EXPAND_COST || maxed;
           els.btnExpand.textContent = maxed
@@ -1406,7 +1698,7 @@
           els.btnSell.disabled = state.selected.length === 0;
           els.btnClearSelect.disabled = state.selected.length === 0;
           els.selectedCount.textContent = state.selected.length;
-          els.btnMerge.disabled = !(state.selected.length === 2 && selectedPairValid());
+          els.btnMerge.disabled = !selectedPairValid();
           els.btnBattle.disabled = eq.length === 0;
           updateLegendBanner();
           renderBoard();
@@ -1422,52 +1714,60 @@
           return rankIndex(a.rank) < RANKS.length - 1;
         }
 
-        function afterChange() {
+        async function afterChange() {
           updateUI();
-          saveGame();
+          await saveGame();
         }
 
-        function buyItem(type) {
+        async function buyItem(type) {
           const cost = BUY_COST[type];
           if (state.gold < cost) {
             showFeedback("ゴールドが足りません");
             return;
           }
           state.gold -= cost;
-          const made = makeItem(type, rollDropRank());
+          const rank = rollDropRank();
+          const made = makeItem(type, rank);
           state.items.push(made);
-          state.dropBonus = 0;
+          if (state.dropBonus > 0) {
+            state.dropBonus = 0;
+            console.log("drop bonus consumed");
+          }
           showFeedback(
             TYPE_LABEL[type] + "を購入: " + itemName(made) + "（" + made.rank + "ランク）",
           );
-          afterChange();
+          console.log("purchased", { type: type, rank: made.rank, shape: made.shape });
+          await afterChange();
         }
 
         els.btnBuyWeapon.addEventListener("click", () => buyItem("weapon"));
         els.btnBuyArmor.addEventListener("click", () => buyItem("armor"));
         els.btnBuyMagic.addEventListener("click", () => buyItem("magic"));
         els.btnBuyBomb.addEventListener("click", () => buyItem("bomb"));
+        els.btnBuyGun.addEventListener("click", () => buyItem("gun"));
 
-        els.btnEquip.addEventListener("click", () => {
+        els.btnEquip.addEventListener("click", async () => {
           if (!autoEquipSelected()) {
             updateUI();
             return;
           }
-          afterChange();
+          await afterChange();
         });
 
         els.btnUnequipAll.addEventListener("click", unequipAll);
 
-        els.btnExpand.addEventListener("click", () => {
+        els.btnExpand.addEventListener("click", async () => {
           if (state.boardSize >= BOARD_MAX_SIZE) return;
           if (state.gold < EXPAND_COST) {
             showFeedback("ゴールドが足りません");
             return;
           }
           state.gold -= EXPAND_COST;
-          expandBoard();
+          state.boardSize++;
+          ensureBoard();
           showFeedback("ボードを拡張しました（" + state.boardSize + "×" + state.boardSize + "）");
-          afterChange();
+          console.log("board expanded", state.boardSize);
+          await afterChange();
         });
 
         els.btnClearSelect.addEventListener("click", () => {
@@ -1475,27 +1775,27 @@
           showFeedback("選択を解除しました");
         });
 
-        els.btnMine.addEventListener("click", () => {
+        els.btnMine.addEventListener("click", async () => {
           const gained = 5 + Math.floor(Math.random() * 11);
-          earnGold(gained);
+          state.gold += gained;
           setWorkResult("鉱石を採掘して " + gained + "G 手に入れました");
           showFeedback("採掘成功: +" + gained + "G");
-          afterChange();
+          await afterChange();
         });
 
-        els.btnQuest.addEventListener("click", () => {
+        els.btnQuest.addEventListener("click", async () => {
           if (Math.random() < 0.25) {
             setWorkResult("依頼に失敗しました…（報酬なし）");
             showFeedback("依頼失敗");
           } else {
-            earnGold(40);
+            state.gold += 40;
             setWorkResult("依頼を達成して 40G 獲得しました");
             showFeedback("依頼達成: +40G");
           }
-          afterChange();
+          await afterChange();
         });
 
-        els.btnSell.addEventListener("click", () => {
+        els.btnSell.addEventListener("click", async () => {
           if (state.selected.length === 0) return;
           let gained = 0;
           state.selected.forEach((id) => {
@@ -1508,10 +1808,10 @@
           state.gold += gained;
           state.selected = [];
           showFeedback("売却しました: +" + gained + "G");
-          afterChange();
+          await afterChange();
         });
 
-        els.btnMerge.addEventListener("click", () => {
+        els.btnMerge.addEventListener("click", async () => {
           if (!selectedPairValid()) {
             showFeedback("同じ種類・同じランクの装備を2つ選んでください");
             return;
@@ -1529,45 +1829,59 @@
           } else {
             showFeedback(nextRank + "ランク " + itemName(made) + " に合成成功！");
           }
-          afterChange();
+          console.log("merged", { type: a.type, from: a.rank, to: nextRank, shape: made.shape });
+          await afterChange();
         });
 
-        function addLog(text, cls) {
-          const line = document.createElement("div");
-          line.textContent = text;
-          line.className = cls;
-          els.battleLog.appendChild(line);
-        }
-
-        els.btnBattle.addEventListener("click", () => {
+        els.btnBattle.addEventListener("click", async () => {
           const eq = equippedItems();
           if (eq.length === 0) return;
           const myP = equippedPower();
           const enemyP = Math.max(10, Math.round(myP * (0.6 + Math.random() * 0.8)));
           els.enemyPower.textContent = enemyP;
+          const line = document.createElement("div");
           const win = myP >= enemyP;
           if (win) {
             state.wins++;
             const reward = 30 + Math.floor(enemyP / 10);
             state.gold += reward;
-            addLog("勝利！ あなた " + myP + " vs 相手 " + enemyP + "（+" + reward + "G）", "win");
+            line.textContent =
+              "勝利！ あなた " + myP + " vs 相手 " + enemyP + "（+" + reward + "G）";
+            line.style.color = "#06d6a0";
           } else {
             state.losses++;
-            addLog("敗北… あなた " + myP + " vs 相手 " + enemyP, "lose");
+            line.textContent = "敗北… あなた " + myP + " vs 相手 " + enemyP;
+            line.style.color = "#ff595e";
           }
           state.dropBonus = Math.min(5, state.dropBonus + 1);
-          addLog(
-            "次回の排出ボーナス +" + Math.round(Math.min(0.5, state.dropBonus * 0.1) * 100) + "%",
-            "bonus",
-          );
-          if (recordBest()) addLog("ベスト記録を更新！ " + state.bestScore, "win");
+          const bonusLine = document.createElement("div");
+          bonusLine.textContent =
+            "次回の排出ボーナス +" + Math.round(Math.min(0.5, state.dropBonus * 0.1) * 100) + "%";
+          bonusLine.style.color = "#ffd166";
+          els.battleLog.appendChild(line);
+          els.battleLog.appendChild(bonusLine);
           els.battleLog.scrollTop = els.battleLog.scrollHeight;
           showFeedback(win ? "勝利しました！" : "敗北しました");
-          afterChange();
+          console.log("battle", { myP, enemyP, win, dropBonus: state.dropBonus });
+          await afterChange();
+          await submitScore();
         });
 
-        els.btnReset.addEventListener("click", () => {
-          if (!window.confirm("データを初期化しますか？（ベスト記録も消えます）")) return;
+        els.btnRename.addEventListener("click", async () => {
+          const name = els.nameInput.value.trim();
+          if (!name) {
+            showFeedback("ニックネームを入力してください");
+            return;
+          }
+          state.playerName = name;
+          showFeedback("ニックネームを「" + name + "」に設定しました");
+          await saveGame();
+          lastSavedScore = null;
+          await submitScore();
+        });
+
+        els.btnReset.addEventListener("click", async () => {
+          if (!window.confirm("データを初期化しますか？")) return;
           state.gold = 100;
           state.wins = 0;
           state.losses = 0;
@@ -1578,27 +1892,36 @@
           state.dropBonus = 0;
           state.nextId = 1;
           state.legendaryFound = false;
-          state.bestScore = 0;
           els.battleLog.innerHTML = "";
           els.enemyPower.textContent = "-";
+          lastSavedScore = null;
           ensureBoard();
           state.items.push(makeItem("weapon", "C"));
           showFeedback("データを初期化しました");
-          afterChange();
+          await afterChange();
         });
 
-        function init() {
-          loadGame();
+        async function init() {
+          await loadGame();
           ensureBoard();
           if (
             state.items.length === 0 &&
             equippedItems().length === 0 &&
+            storageOk &&
             state.wins === 0 &&
             state.losses === 0
           ) {
             state.items.push(makeItem("weapon", "C"));
           }
+          els.nameInput.value = state.playerName;
           updateUI();
+          await refreshRanking();
+          console.log("game ready", {
+            gold: state.gold,
+            items: state.items.length,
+            equipped: equippedItems().length,
+            boardSize: state.boardSize,
+          });
         }
 
         init();
