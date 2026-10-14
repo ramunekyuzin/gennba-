@@ -117,6 +117,12 @@
       box-shadow: 0 1px 2px rgba(0,0,0,.1); min-width: 0;
     }
     .msg.mine .bubble { background: var(--mine); color: var(--mine-text); }
+    /* 長押しでメニューを出すので、文字選びと画像の長押しメニューは止める(コピーはメニューから) */
+    .bubble { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    .msg .bubble.deleted, .msg.mine .bubble.deleted {
+      background: transparent; color: var(--sub); border: 1px dashed var(--line); box-shadow: none; font-size: 14px;
+    }
+    #msgSheet .mpreview { font-size: 15px; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
     .msg .time { font-size: 12px; color: var(--sub); white-space: nowrap; }
     .msg .meta { display: flex; flex-direction: column; align-items: flex-start; flex-shrink: 0; }
     .msg.mine .meta { align-items: flex-end; }
@@ -145,8 +151,8 @@
     .newGroup { margin-bottom: 10px; }
 
     /* 下から出るメニュー(個人チャット/電話) */
-    #sheet { position: fixed; inset: 0; background: var(--overlay); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
-    #sheet .panel {
+    #sheet, #msgSheet { position: fixed; inset: 0; background: var(--overlay); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+    #sheet .panel, #msgSheet .panel {
       background: var(--card); width: 100%; max-width: 640px; border-radius: 16px 16px 0 0;
       padding: 18px 16px; padding-bottom: calc(18px + env(safe-area-inset-bottom));
       display: flex; flex-direction: column; gap: 10px; text-align: center;
@@ -345,6 +351,16 @@
   </div>
 </div>
 
+<!-- メッセージを長押ししたときのメニュー -->
+<div id="msgSheet" class="hidden">
+  <div class="panel">
+    <div class="mpreview" id="msgPreview"></div>
+    <button id="msgCopyBtn" class="sub">コピー</button>
+    <button id="msgRetractBtn" class="danger">送信を取り消す</button>
+    <button id="msgCloseBtn" class="sub">閉じる</button>
+  </div>
+</div>
+
 <!-- グループを作る・グループの設定・全体の名前 -->
 <div id="groupView" class="full hidden">
   <div class="page">
@@ -432,7 +448,7 @@
   import { getAuth, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
   import {
     getFirestore, collection, query, where, orderBy, limitToLast, onSnapshot, getDocs,
-    addDoc, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, arrayRemove
+    addDoc, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, arrayRemove, deleteField
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
   import { getMessaging, getToken, deleteToken, isSupported } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
 
@@ -1118,7 +1134,10 @@
       line.className = 'line';
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      if (m.file) {
+      if (m.deleted) {
+        bubble.classList.add('deleted');
+        bubble.textContent = m.deletedBy && m.deletedBy !== m.uid ? '管理者がメッセージを取り消しました' : 'メッセージの送信を取り消しました';
+      } else if (m.file) {
         if (m.file.kind === 'image' && !m.text) bubble.classList.add('photo');
         bubble.appendChild(fileEl(m.file));
         if (m.text) {
@@ -1130,6 +1149,7 @@
       } else {
         bubble.textContent = m.text;
       }
+      if (!m.deleted) onLongPress(bubble, () => openMsgMenu(m));
       const meta = document.createElement('div');
       meta.className = 'meta';
       if (mine) {
@@ -1149,6 +1169,84 @@
       box.appendChild(wrap);
     });
   }
+
+  // ===== 長押しメニュー(コピー・送信取り消し) =====
+  // 長押し(0.5秒)でメニュー。パソコンは右クリックでも出る。長押しのあとのクリック(写真を開くなど)は止める
+  function onLongPress(el, fn) {
+    let timer = null, fired = false, sx = 0, sy = 0;
+    const cancel = () => { clearTimeout(timer); timer = null; };
+    el.addEventListener('pointerdown', e => {
+      fired = false; sx = e.clientX; sy = e.clientY;
+      cancel();
+      timer = setTimeout(() => { fired = true; timer = null; fn(); }, 500);
+    });
+    el.addEventListener('pointermove', e => { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) cancel(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => el.addEventListener(t, cancel));
+    el.addEventListener('click', e => { if (fired) { e.stopPropagation(); e.preventDefault(); fired = false; } }, true);
+    el.addEventListener('contextmenu', e => { e.preventDefault(); cancel(); fired = false; fn(); });
+  }
+
+  let menuMsg = null, menuRoom = null;
+  function openMsgMenu(m) {
+    menuMsg = m;
+    menuRoom = room;
+    const mine = m.uid === me.uid;
+    $('msgPreview').textContent = m.text || (m.file ? (m.file.kind === 'image' ? '📷 写真' : '📄 ' + m.file.name) : '');
+    $('msgCopyBtn').classList.toggle('hidden', !m.text);
+    $('msgRetractBtn').classList.toggle('hidden', !mine && !me.admin);
+    $('msgRetractBtn').textContent = mine ? '送信を取り消す' : 'このメッセージを取り消す(管理者)';
+    $('msgSheet').classList.remove('hidden');
+  }
+  function closeMsgMenu() { $('msgSheet').classList.add('hidden'); }
+  $('msgCloseBtn').onclick = closeMsgMenu;
+  $('msgSheet').addEventListener('click', e => { if (e.target === $('msgSheet')) closeMsgMenu(); });
+
+  $('msgCopyBtn').onclick = async () => {
+    const text = menuMsg ? menuMsg.text : '';
+    closeMsgMenu();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('コピーしました');
+    } catch (e) {
+      // 古いブラウザ向け
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast('コピーしました'); } catch (e2) { toast('コピーできませんでした'); }
+      ta.remove();
+    }
+  };
+
+  $('msgRetractBtn').onclick = async () => {
+    const m = menuMsg, r = menuRoom;
+    if (!m || !r || r.type === 'list') return;
+    const mine = m.uid === me.uid;
+    if (!confirm(mine
+      ? 'このメッセージの送信を取り消しますか?(相手のスマホにもう出ている通知は消えません)'
+      : 'このメッセージを取り消しますか?(管理者として取り消します)')) return;
+    closeMsgMenu();
+    try {
+      await updateDoc(doc(messagesRef(r), m.id), { text: '', file: deleteField(), deleted: true, deletedBy: me.uid });
+      // 一覧に出ている「最後のメッセージ」がこれなら、取り消しの文にする
+      const last = r.type === 'dm' ? dms[r.pairId] : r.type === 'group' ? groups[r.gid] : null;
+      if (last && last.lastFrom === m.uid && millis(last.lastAt) === millis(m.createdAt)) {
+        const ref = r.type === 'dm' ? doc(db, 'dms', r.pairId) : doc(db, 'groups', r.gid);
+        updateDoc(ref, { lastText: '(送信取り消し)' }).catch(e => console.warn(e));
+      }
+      // 写真・PDFはドライブのゴミ箱へ
+      if (m.file) {
+        auth.currentUser.getIdToken()
+          .then(idToken => gas({ action: 'deleteFile', idToken, id: m.file.id }))
+          .catch(e => console.warn('ファイルを消せませんでした', e));
+      }
+      searchCache.delete(roomKey(r));
+      toast('取り消しました');
+    } catch (e) {
+      console.error(e);
+      alert('取り消せませんでした。もう一度ためしてください。');
+    }
+  };
 
   // ===== 既読 =====
   let readMap = {};          // メール → 最後に読んだ時刻(ミリ秒)
