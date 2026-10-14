@@ -15,7 +15,7 @@ self.addEventListener('push', event => {
   const body = n.body || data.body || '新しいメッセージがあります';
   event.waitUntil(self.registration.showNotification(title, {
     body: body,
-    icon: 'dd-icon.png',
+    icon: 'chat-icon.png',
     tag: 'genba-chat',
     renotify: true,
     data: { url: data.url || 'chat.html' }
