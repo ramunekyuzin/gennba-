@@ -1,0 +1,1608 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>装備合成バトル</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #eef0f6;
+        --app-bg: #ffffff;
+        --panel-bg: #f4f5fa;
+        --sub-bg: #e6e9f2;
+        --board-bg: #d5d9e6;
+        --cell-bg: #ffffff;
+        --cell-border: #9aa3bf;
+        --hole-bg: #b4bacb;
+        --text: #1b1d2a;
+        --muted: #555c70;
+        --accent: #a8650a;
+        --accent2: #1d6fa5;
+        --ok: #087f5b;
+        --ok-bg: #d3f5e8;
+        --ng: #c92a2a;
+        --ng-bg: #fbe0e0;
+        --btn-bg: #ffd166;
+        --btn-text: #1b1d2a;
+        --btn-disabled-bg: #c8ccd6;
+        --btn-disabled-text: #6b7080;
+        --log-bg: #ffffff;
+        --line: #d5d9e6;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1b1d2a;
+          --app-bg: #262a3d;
+          --panel-bg: #313650;
+          --sub-bg: #3e4560;
+          --board-bg: #1b1d2a;
+          --cell-bg: #2a2f47;
+          --cell-border: #5c6485;
+          --hole-bg: #111320;
+          --text: #f2f2f2;
+          --muted: #bdbdbd;
+          --accent: #ffd166;
+          --accent2: #8ecae6;
+          --ok: #06d6a0;
+          --ok-bg: #2f5d55;
+          --ng: #ff595e;
+          --ng-bg: #4a2030;
+          --btn-disabled-bg: #555;
+          --btn-disabled-text: #aaa;
+          --log-bg: #1b1d2a;
+          --line: #3e4560;
+        }
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+        font-size: 16px;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 8px;
+      }
+      #app {
+        width: 100%;
+        max-width: 1100px;
+        background: var(--app-bg);
+        border-radius: 12px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      h1 {
+        font-size: 1.4rem;
+        color: var(--accent);
+      }
+      #status {
+        font-size: 1rem;
+      }
+      #legend-banner {
+        min-height: 1.6em;
+        text-align: center;
+        font-weight: bold;
+        color: var(--accent);
+        font-size: 1rem;
+      }
+      #legend-banner.active {
+        color: var(--ng);
+        text-shadow: 0 0 8px #ffd166;
+        animation: pulse 1.2s infinite alternate;
+      }
+      @keyframes pulse {
+        from {
+          opacity: 0.6;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      #main {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .panel {
+        background: var(--panel-bg);
+        border-radius: 10px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+      .panel h2 {
+        font-size: 1.1rem;
+        color: var(--accent2);
+      }
+      .sub-panel {
+        background: var(--sub-bg);
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .sub-panel h3 {
+        font-size: 1rem;
+        color: var(--accent);
+      }
+      .hint {
+        font-size: 1rem;
+        color: var(--muted);
+      }
+
+      .board-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+      }
+      #board {
+        display: grid;
+        gap: 4px;
+        background: var(--board-bg);
+        padding: 6px;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 420px;
+      }
+      .cell {
+        aspect-ratio: 1 / 1;
+        background: var(--cell-bg);
+        border: 2px dashed var(--cell-border);
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        line-height: 1.1;
+        text-align: center;
+        cursor: pointer;
+        user-select: none;
+        color: var(--muted);
+        padding: 1px;
+        overflow: hidden;
+        position: relative;
+        min-width: 0;
+      }
+      .cell.hole {
+        background: var(--hole-bg);
+        border: 2px solid var(--hole-bg);
+        cursor: default;
+      }
+      .cell.drop-target {
+        border-color: var(--ok);
+        background: var(--ok-bg);
+      }
+      .cell.drop-invalid {
+        border-color: var(--ng);
+        background: var(--ng-bg);
+      }
+      .item[draggable="true"] {
+        cursor: grab;
+      }
+      .item.dragging {
+        opacity: 0.4;
+      }
+      .item .shape-preview {
+        display: grid;
+        gap: 2px;
+        justify-content: center;
+        margin: 4px auto;
+      }
+      .item .shape-preview-cell {
+        width: 10px;
+        height: 10px;
+        background: #8ecae6;
+        border-radius: 2px;
+      }
+      .item .shape-preview-cell.empty-slot {
+        background: transparent;
+      }
+      .item .weapon-art {
+        font-size: 1.8rem;
+        line-height: 1.1;
+        filter: drop-shadow(0 0 4px #ffd166);
+      }
+      .cell.empty.target {
+        border-color: var(--accent);
+        border-style: solid;
+      }
+      .cell.empty:hover {
+        border-color: var(--accent);
+      }
+      .cell.placed {
+        border: 2px solid #8ecae6;
+        color: #f2f2f2;
+      }
+      .cell.placed.legendary {
+        border-color: #ff595e;
+        box-shadow: 0 0 8px #ffd166;
+      }
+      .cell:focus-visible {
+        outline: 2px solid var(--accent);
+      }
+      .cell .icon {
+        font-size: 1.2rem;
+        line-height: 1.1;
+      }
+      .cell .crank {
+        font-weight: bold;
+        white-space: nowrap;
+      }
+      .cell .fit-mark {
+        font-size: 1rem;
+        color: var(--accent);
+        font-weight: bold;
+      }
+
+      .gear-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 6px;
+        max-height: 380px;
+        overflow-y: auto;
+      }
+      .item {
+        border: 2px solid transparent;
+        border-radius: 8px;
+        padding: 6px;
+        cursor: pointer;
+        text-align: center;
+        color: #f2f2f2;
+        font-size: 1rem;
+        line-height: 1.4;
+        user-select: none;
+        position: relative;
+        min-width: 0;
+      }
+      .item:hover {
+        border-color: #ffd166;
+      }
+      .item.selected {
+        border-color: #06d6a0;
+        box-shadow: 0 0 0 2px #06d6a0;
+      }
+      .item.selected::after {
+        content: "✔ 選択中";
+        display: block;
+        color: #06d6a0;
+        font-weight: bold;
+      }
+      .item:focus-visible {
+        outline: 2px solid #ffd166;
+      }
+      .item.legendary {
+        border-color: #ff595e;
+        box-shadow: 0 0 10px #ffd166;
+      }
+      .item.legendary.selected {
+        border-color: #06d6a0;
+      }
+      .item .rank {
+        font-weight: bold;
+        font-size: 1.1rem;
+      }
+      .item .name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .item .tag {
+        color: #ffd166;
+      }
+      .item .shape-info {
+        color: #8ecae6;
+      }
+      .rank-C {
+        color: #e0d2bc;
+      }
+      .rank-B {
+        color: #b9f6c6;
+      }
+      .rank-A {
+        color: #bfeeff;
+      }
+      .rank-S {
+        color: #ead6ff;
+      }
+      .rank-SS {
+        color: #fff1d6;
+      }
+      .rank-SSS {
+        color: #ffffff;
+        text-shadow: 0 0 6px #ffd166;
+      }
+
+      .controls {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      button {
+        background: var(--btn-bg);
+        color: var(--btn-text);
+        border: none;
+        border-radius: 8px;
+        padding: 10px 12px;
+        min-height: 44px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 1rem;
+        font-family: inherit;
+      }
+      button:hover:not(:disabled) {
+        filter: brightness(1.1);
+      }
+      button:disabled {
+        background: var(--btn-disabled-bg);
+        color: var(--btn-disabled-text);
+        cursor: not-allowed;
+      }
+
+      #battle-log {
+        background: var(--log-bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px;
+        height: 160px;
+        overflow-y: auto;
+        font-size: 1rem;
+        line-height: 1.5;
+      }
+      #battle-log .win {
+        color: var(--ok);
+      }
+      #battle-log .lose {
+        color: var(--ng);
+      }
+      #battle-log .bonus {
+        color: var(--accent);
+      }
+      .stat {
+        font-size: 1rem;
+        line-height: 1.6;
+      }
+      #feedback {
+        min-height: 1.4em;
+        font-weight: bold;
+        color: var(--accent);
+      }
+      .work-result {
+        font-size: 1rem;
+        min-height: 1.4em;
+      }
+      #bonus-info {
+        font-size: 1rem;
+        color: var(--ok);
+      }
+      .best-score {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: var(--ok);
+      }
+      #save-error {
+        color: var(--ng);
+        font-size: 1rem;
+        min-height: 1.2em;
+      }
+
+      @media (max-width: 800px) {
+        #main {
+          grid-template-columns: 1fr;
+        }
+        #app {
+          padding: 8px;
+          gap: 8px;
+        }
+        h1 {
+          font-size: 1.2rem;
+        }
+        #board {
+          max-width: 100%;
+        }
+        .controls button {
+          flex: 1 1 auto;
+        }
+        #battle-log {
+          height: 140px;
+        }
+      }
+      @media (max-width: 480px) {
+        body {
+          padding: 4px;
+        }
+        .gear-grid {
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          max-height: 420px;
+        }
+        .item {
+          padding: 4px;
+        }
+        .item .weapon-art {
+          font-size: 1.5rem;
+        }
+        .cell .icon {
+          font-size: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>装備合成バトル</h1>
+        <div id="status">
+          ゴールド: <span id="gold">0</span> / 勝利: <span id="wins">0</span> / 敗北:
+          <span id="losses">0</span>
+        </div>
+      </header>
+
+      <div id="legend-banner"></div>
+
+      <div id="main">
+        <div class="panel">
+          <h2>装備ボード（形のマスにはめ込む）</h2>
+          <div class="hint">
+            装備中の攻撃力: <span id="equip-power">0</span> ／ 装備数:
+            <span id="slot-count">0</span>
+          </div>
+          <div class="hint">装備を選んで ◎ のマスをタップするとはめられます。はめた装備をタップすると外せます。</div>
+          <div class="board-wrap">
+            <div id="board"></div>
+          </div>
+          <div class="controls">
+            <button id="btn-equip" disabled>選択を装備（空きマスへ）</button>
+            <button id="btn-unequip-all">全て外す</button>
+            <button id="btn-expand" disabled>ボード拡張 (150G)</button>
+          </div>
+          <div id="bonus-info"></div>
+
+          <h2>所持装備（同じランクを2つ選んで合成）</h2>
+          <div class="hint">選択中: <span id="selected-count">0</span>個（2つまで）</div>
+          <div id="inventory" class="gear-grid" role="listbox" aria-multiselectable="true"></div>
+          <div class="controls">
+            <button id="btn-merge" disabled>選択した2つを合成</button>
+            <button id="btn-sell" disabled>選択を売却</button>
+            <button id="btn-clear-select" disabled>選択解除</button>
+          </div>
+          <div class="controls">
+            <button id="btn-buy-weapon">武器を購入 (50G)</button>
+            <button id="btn-buy-armor">防具を購入 (60G)</button>
+            <button id="btn-buy-magic">魔法の杖を購入 (80G)</button>
+            <button id="btn-buy-bomb">爆弾を購入 (40G)</button>
+          </div>
+
+          <div class="sub-panel">
+            <h3>かせぐ：鉱石採掘・依頼</h3>
+            <div class="controls">
+              <button id="btn-mine">鉱石を採掘 (+5〜15G)</button>
+              <button id="btn-quest">依頼をうける (+40G/失敗あり)</button>
+            </div>
+            <div id="work-result" class="work-result"></div>
+          </div>
+          <div id="feedback"></div>
+          <div class="stat">
+            <div>戦力（装備中の攻撃力合計）: <span id="power">0</span></div>
+            <div>所持数: <span id="count">0</span></div>
+            <div>最高ランク: <span id="best-rank">-</span></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>対戦</h2>
+          <div class="stat">
+            <div>あなたの戦力: <span id="my-power">0</span></div>
+            <div>相手の戦力: <span id="enemy-power">-</span></div>
+            <div>次回対戦の排出ボーナス: <span id="drop-bonus">なし</span></div>
+          </div>
+          <div class="controls">
+            <button id="btn-battle" disabled>相手と戦う</button>
+          </div>
+          <div id="battle-log"></div>
+
+          <div class="sub-panel">
+            <h3>自分のベスト記録</h3>
+            <div class="hint">スコア = 勝利数×100 + 戦力（対戦のたびに記録）</div>
+            <div class="best-score" id="best-score">0</div>
+            <div id="save-error"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="btn-reset">データを初期化</button>
+      </div>
+      <div class="hint">
+        データはこのブラウザの中に保存されます。ホーム画面に追加すると、アプリのように起動できます。
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        const RANKS = ["C", "B", "A", "S", "SS", "SSS"];
+        const RANK_NAMES = {
+          weapon: {
+            C: "木の剣",
+            B: "鉄の剣",
+            A: "鋼の剣",
+            S: "ミスリルの剣",
+            SS: "聖剣エクスカリバー",
+            SSS: "神話の武器・ミョルニル",
+          },
+          armor: {
+            C: "革の鎧",
+            B: "鉄の鎧",
+            A: "鋼の鎧",
+            S: "ミスリルの鎧",
+            SS: "聖騎士の鎧",
+            SSS: "神話の鎧・アイギス",
+          },
+          magic: {
+            C: "木の杖",
+            B: "魔石の杖",
+            A: "賢者の杖",
+            S: "精霊の杖",
+            SS: "大魔導の杖",
+            SSS: "伝説の杖・ロッド・オブ・ヘルメス",
+          },
+          bomb: {
+            C: "小爆弾",
+            B: "中爆弾",
+            A: "大爆弾",
+            S: "魔爆弾",
+            SS: "核爆弾",
+            SSS: "神爆弾・ケラウノス",
+          },
+        };
+        const TYPE_LABEL = { weapon: "武器", armor: "防具", magic: "魔法の杖", bomb: "爆弾" };
+        const TYPE_ICONS = {
+          weapon: { C: "🗡", B: "⚔", A: "🔪", S: "🔱", SS: "✨", SSS: "⚡" },
+          armor: { C: "🧥", B: "🛡", A: "🥋", S: "🪖", SS: "👑", SSS: "🏰" },
+          magic: { C: "🪄", B: "🔮", A: "📿", S: "🌟", SS: "🌠", SSS: "🌌" },
+          bomb: { C: "💣", B: "🧨", A: "🔥", S: "💥", SS: "☢", SSS: "🌩" },
+        };
+        const RANK_POWER = { C: 10, B: 25, A: 60, S: 150, SS: 400, SSS: 1200 };
+        const RANK_GRADIENT = {
+          C: "linear-gradient(135deg, #5c4a32, #8a6d46)",
+          B: "linear-gradient(135deg, #2d5a3d, #4f8f5f)",
+          A: "linear-gradient(135deg, #1f4e79, #3a7bbf)",
+          S: "linear-gradient(135deg, #5b2a86, #9b5de5)",
+          SS: "linear-gradient(135deg, #8a4b08, #c9780f)",
+          SSS: "linear-gradient(135deg, #7a0d1a, #b8862a)",
+        };
+        const BUY_COST = { weapon: 50, armor: 60, magic: 80, bomb: 40 };
+        const EXPAND_COST = 150;
+        // 同じサイト内のほかのツールとぶつからない名前にする
+        const SAVE_KEY = "gennbaGameSave";
+
+        const SHAPES = {
+          I1: { name: "1マス", cells: [[0, 0]] },
+          I2: {
+            name: "横2マス",
+            cells: [
+              [0, 0],
+              [1, 0],
+            ],
+          },
+          I3: {
+            name: "横3マス",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+            ],
+          },
+          L3: {
+            name: "L字",
+            cells: [
+              [0, 0],
+              [0, 1],
+              [1, 1],
+            ],
+          },
+          SQ: {
+            name: "正方形",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [0, 1],
+              [1, 1],
+            ],
+          },
+          T4: {
+            name: "T字",
+            cells: [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+              [1, 1],
+            ],
+          },
+          PLUS: {
+            name: "十字",
+            cells: [
+              [1, 0],
+              [0, 1],
+              [1, 1],
+              [2, 1],
+              [1, 2],
+            ],
+          },
+        };
+        const SHAPE_BY_TYPE = {
+          weapon: "I3",
+          armor: "SQ",
+          magic: "L3",
+          bomb: "T4",
+        };
+        const SHAPE_ORDER_BY_RANK = ["I1", "I2", "I3", "L3", "SQ", "T4", "PLUS"];
+
+        const BOARD_BASE_SIZE = 5;
+        const BOARD_MAX_SIZE = 7;
+
+        const state = {
+          gold: 100,
+          wins: 0,
+          losses: 0,
+          items: [],
+          board: [],
+          selected: [],
+          boardSize: BOARD_BASE_SIZE,
+          dropBonus: 0,
+          nextId: 1,
+          legendaryFound: false,
+          bestScore: 0,
+        };
+
+        let storageOk = true;
+
+        const $ = (id) => document.getElementById(id);
+        const els = {
+          gold: $("gold"),
+          wins: $("wins"),
+          losses: $("losses"),
+          inventory: $("inventory"),
+          board: $("board"),
+          slotCount: $("slot-count"),
+          equipPower: $("equip-power"),
+          bonusInfo: $("bonus-info"),
+          legendBanner: $("legend-banner"),
+          btnEquip: $("btn-equip"),
+          btnUnequipAll: $("btn-unequip-all"),
+          btnExpand: $("btn-expand"),
+          btnMerge: $("btn-merge"),
+          btnSell: $("btn-sell"),
+          btnClearSelect: $("btn-clear-select"),
+          btnBuyWeapon: $("btn-buy-weapon"),
+          btnBuyArmor: $("btn-buy-armor"),
+          btnBuyMagic: $("btn-buy-magic"),
+          btnBuyBomb: $("btn-buy-bomb"),
+          btnMine: $("btn-mine"),
+          btnQuest: $("btn-quest"),
+          workResult: $("work-result"),
+          selectedCount: $("selected-count"),
+          feedback: $("feedback"),
+          power: $("power"),
+          count: $("count"),
+          bestRank: $("best-rank"),
+          myPower: $("my-power"),
+          enemyPower: $("enemy-power"),
+          dropBonus: $("drop-bonus"),
+          btnBattle: $("btn-battle"),
+          battleLog: $("battle-log"),
+          bestScore: $("best-score"),
+          saveError: $("save-error"),
+          btnReset: $("btn-reset"),
+        };
+
+        function rankIndex(r) {
+          return RANKS.indexOf(r);
+        }
+
+        function randomRank(bonus) {
+          const roll = Math.random() - bonus;
+          if (roll < 0.6) return "C";
+          if (roll < 0.85) return "B";
+          if (roll < 0.95) return "A";
+          return "S";
+        }
+
+        function rollDropRank() {
+          const bonus = Math.min(0.5, state.dropBonus * 0.1);
+          return randomRank(bonus);
+        }
+
+        function makeItem(type, rank) {
+          return { id: state.nextId++, type: type, rank: rank, shape: shapeForRank(type, rank) };
+        }
+
+        function shapeForRank(type, rank) {
+          const idx = Math.min(rankIndex(rank), SHAPE_ORDER_BY_RANK.length - 1);
+          return rankIndex(rank) >= 0 ? SHAPE_ORDER_BY_RANK[idx] : SHAPE_BY_TYPE[type];
+        }
+
+        function itemName(it) {
+          return RANK_NAMES[it.type][it.rank];
+        }
+
+        function itemIcon(it) {
+          return TYPE_ICONS[it.type][it.rank];
+        }
+
+        function itemPower(it) {
+          return RANK_POWER[it.rank];
+        }
+
+        function shapeCells(shapeKey) {
+          const s = SHAPES[shapeKey] || SHAPES.I1;
+          return s.cells;
+        }
+
+        function shapeNormalize(cells) {
+          const minX = Math.min(...cells.map((c) => c[0]));
+          const minY = Math.min(...cells.map((c) => c[1]));
+          return cells.map((c) => [c[0] - minX, c[1] - minY]);
+        }
+
+        function shapeKeyOf(item) {
+          return item.shape || SHAPE_BY_TYPE[item.type];
+        }
+
+        function shapePreviewEl(shapeKey) {
+          const cells = shapeNormalize(shapeCells(shapeKey));
+          const maxX = Math.max(...cells.map((c) => c[0]));
+          const maxY = Math.max(...cells.map((c) => c[1]));
+          const wrap = document.createElement("div");
+          wrap.className = "shape-preview";
+          wrap.style.gridTemplateColumns = "repeat(" + (maxX + 1) + ", 10px)";
+          for (let y = 0; y <= maxY; y++) {
+            for (let x = 0; x <= maxX; x++) {
+              const c = document.createElement("div");
+              const on = cells.some((p) => p[0] === x && p[1] === y);
+              c.className = on ? "shape-preview-cell" : "shape-preview-cell empty-slot";
+              wrap.appendChild(c);
+            }
+          }
+          return wrap;
+        }
+
+        // 穴はボードの四隅だけ
+        function holeSet(size) {
+          const set = new Set();
+          const m = size - 1;
+          [
+            [0, 0],
+            [m, 0],
+            [0, m],
+            [m, m],
+          ].forEach(([x, y]) => set.add(x + "," + y));
+          return set;
+        }
+
+        function boardCells() {
+          return state.boardSize * state.boardSize;
+        }
+
+        function ensureBoard() {
+          const total = boardCells();
+          const holes = holeSet(state.boardSize);
+          const next = new Array(total).fill(null);
+          if (state.board.length === total) {
+            for (let i = 0; i < total; i++) next[i] = state.board[i];
+          }
+          for (let i = 0; i < total; i++) {
+            const [x, y] = cellCoord(i);
+            if (holes.has(x + "," + y)) next[i] = "HOLE";
+            else if (next[i] === "HOLE") next[i] = null;
+          }
+          state.board = next;
+        }
+
+        // 拡張しても置いてある装備が同じ位置に残るように、座標で写す
+        function expandBoard() {
+          const oldSize = state.boardSize;
+          const newSize = oldSize + 1;
+          const next = new Array(newSize * newSize).fill(null);
+          for (let y = 0; y < oldSize; y++) {
+            for (let x = 0; x < oldSize; x++) {
+              const v = state.board[y * oldSize + x];
+              if (v && v !== "HOLE") next[y * newSize + x] = v;
+            }
+          }
+          state.boardSize = newSize;
+          state.board = next;
+          ensureBoard();
+        }
+
+        function isHoleIndex(idx) {
+          return state.board[idx] === "HOLE";
+        }
+
+        function cellCoord(idx) {
+          return [idx % state.boardSize, Math.floor(idx / state.boardSize)];
+        }
+
+        function coordIndex(x, y) {
+          return y * state.boardSize + x;
+        }
+
+        function placementsFor(item, anchorIdx) {
+          const cells = shapeCells(shapeKeyOf(item));
+          const [ax, ay] = cellCoord(anchorIdx);
+          const idxs = [];
+          for (const [dx, dy] of cells) {
+            const x = ax + dx;
+            const y = ay + dy;
+            if (x < 0 || y < 0 || x >= state.boardSize || y >= state.boardSize) return null;
+            const idx = coordIndex(x, y);
+            if (isHoleIndex(idx)) return null;
+            if (state.board[idx] !== null) return null;
+            idxs.push(idx);
+          }
+          return idxs;
+        }
+
+        function findFitAnchor(item) {
+          const total = boardCells();
+          for (let i = 0; i < total; i++) {
+            if (placementsFor(item, i)) return i;
+          }
+          return -1;
+        }
+
+        function equippedItems() {
+          const seen = new Set();
+          const list = [];
+          state.board.forEach((v) => {
+            if (v && v !== "HOLE" && !seen.has(v.id)) {
+              seen.add(v.id);
+              list.push(v);
+            }
+          });
+          return list;
+        }
+
+        function equippedPower() {
+          return equippedItems().reduce((sum, it) => sum + itemPower(it), 0);
+        }
+
+        function bestRank() {
+          let best = -1;
+          state.items.concat(equippedItems()).forEach((it) => {
+            best = Math.max(best, rankIndex(it.rank));
+          });
+          return best >= 0 ? RANKS[best] : null;
+        }
+
+        function currentScore() {
+          return state.wins * 100 + equippedPower();
+        }
+
+        function showFeedback(msg) {
+          els.feedback.textContent = msg;
+        }
+
+        function showSaveError(msg) {
+          els.saveError.textContent = msg;
+        }
+
+        function serializeBoard() {
+          return state.board.map((v) => {
+            if (v === null) return null;
+            if (v === "HOLE") return "HOLE";
+            return v.id;
+          });
+        }
+
+        function saveGame() {
+          if (!storageOk) return;
+          try {
+            localStorage.setItem(
+              SAVE_KEY,
+              JSON.stringify({
+                gold: state.gold,
+                wins: state.wins,
+                losses: state.losses,
+                items: state.items,
+                // ボードに置いている装備も保存する(board には id しか入らないため)
+                equipped: equippedItems(),
+                board: serializeBoard(),
+                boardSize: state.boardSize,
+                dropBonus: state.dropBonus,
+                nextId: state.nextId,
+                legendaryFound: state.legendaryFound,
+                bestScore: state.bestScore,
+              }),
+            );
+          } catch (e) {
+            showSaveError("セーブに失敗しました");
+          }
+        }
+
+        function validItem(it) {
+          return (
+            it &&
+            typeof it.id === "number" &&
+            RANKS.includes(it.rank) &&
+            TYPE_ICONS[it.type] !== undefined
+          );
+        }
+
+        function fixShape(it) {
+          return { ...it, shape: SHAPES[it.shape] ? it.shape : SHAPE_BY_TYPE[it.type] };
+        }
+
+        function num(v, def) {
+          return typeof v === "number" && isFinite(v) ? v : def;
+        }
+
+        function loadGame() {
+          let raw = null;
+          try {
+            raw = localStorage.getItem(SAVE_KEY);
+          } catch (e) {
+            storageOk = false;
+            showSaveError("この端末では保存できません（遊ぶことはできます）");
+            return;
+          }
+          if (!raw) return;
+          let data = null;
+          try {
+            data = JSON.parse(raw);
+          } catch (e) {
+            showSaveError("セーブデータが壊れていたため、最初から始めます");
+            return;
+          }
+          if (!data || typeof data !== "object") return;
+
+          state.gold = num(data.gold, 100);
+          state.wins = num(data.wins, 0);
+          state.losses = num(data.losses, 0);
+          state.bestScore = num(data.bestScore, 0);
+          state.dropBonus = Math.max(0, num(data.dropBonus, 0));
+          state.legendaryFound = data.legendaryFound === true;
+          state.boardSize = Math.min(
+            BOARD_MAX_SIZE,
+            Math.max(BOARD_BASE_SIZE, num(data.boardSize, BOARD_BASE_SIZE)),
+          );
+
+          const equippedById = new Map();
+          (Array.isArray(data.equipped) ? data.equipped : []).filter(validItem).forEach((it) => {
+            equippedById.set(it.id, fixShape(it));
+          });
+
+          const total = state.boardSize * state.boardSize;
+          const board = new Array(total).fill(null);
+          if (Array.isArray(data.board)) {
+            for (let i = 0; i < total && i < data.board.length; i++) {
+              const v = data.board[i];
+              if (typeof v === "number" && equippedById.has(v)) board[i] = equippedById.get(v);
+            }
+          }
+          state.board = board;
+          ensureBoard();
+
+          const onBoard = new Set(equippedItems().map((it) => it.id));
+          state.items = (Array.isArray(data.items) ? data.items : [])
+            .filter(validItem)
+            .filter((it) => !onBoard.has(it.id))
+            .map(fixShape);
+          // 保存されていたのにボードに戻せなかった装備は所持品に戻す
+          equippedById.forEach((it, id) => {
+            if (!onBoard.has(id) && !state.items.some((x) => x.id === id)) state.items.push(it);
+          });
+
+          const maxId = state.items
+            .concat(equippedItems())
+            .reduce((m, it) => Math.max(m, it.id), 0);
+          state.nextId = Math.max(num(data.nextId, 1), maxId + 1);
+        }
+
+        function recordBest() {
+          const score = currentScore();
+          if (score > state.bestScore) {
+            state.bestScore = score;
+            return true;
+          }
+          return false;
+        }
+
+        function makeItemDiv(it, onClick) {
+          const div = document.createElement("div");
+          div.className = "item";
+          if (it.rank === "SSS") div.classList.add("legendary");
+          div.style.background = RANK_GRADIENT[it.rank];
+          div.dataset.itemId = String(it.id);
+          div.setAttribute("role", "option");
+          div.setAttribute("aria-selected", state.selected.includes(it.id) ? "true" : "false");
+          const icon = document.createElement("div");
+          icon.className = "weapon-art";
+          icon.textContent = itemIcon(it);
+          const tag = document.createElement("div");
+          tag.className = "tag";
+          tag.textContent = TYPE_LABEL[it.type];
+          const r = document.createElement("div");
+          r.className = "rank rank-" + it.rank;
+          r.textContent = it.rank + "ランク";
+          const n = document.createElement("div");
+          n.className = "name";
+          n.textContent = itemName(it);
+          n.title = itemName(it);
+          const p = document.createElement("div");
+          p.textContent = "攻撃 " + itemPower(it);
+          const sh = document.createElement("div");
+          sh.className = "shape-info";
+          sh.textContent = "形: " + SHAPES[shapeKeyOf(it)].name;
+          div.appendChild(icon);
+          div.appendChild(tag);
+          div.appendChild(r);
+          div.appendChild(n);
+          div.appendChild(p);
+          div.appendChild(shapePreviewEl(shapeKeyOf(it)));
+          div.appendChild(sh);
+          div.tabIndex = 0;
+          div.draggable = true;
+          div.addEventListener("dragstart", (ev) => {
+            ev.dataTransfer.setData("text/plain", String(it.id));
+            ev.dataTransfer.effectAllowed = "move";
+            div.classList.add("dragging");
+            dragItemId = it.id;
+          });
+          div.addEventListener("dragend", () => {
+            div.classList.remove("dragging");
+            dragItemId = null;
+            clearDropHighlights();
+          });
+          div.addEventListener("click", onClick);
+          div.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault();
+              onClick();
+            }
+          });
+          return div;
+        }
+
+        function renderInventory() {
+          els.inventory.innerHTML = "";
+          state.items.forEach((it) => {
+            const div = makeItemDiv(it, () => toggleSelect(it.id));
+            if (state.selected.includes(it.id)) div.classList.add("selected");
+            els.inventory.appendChild(div);
+          });
+          if (state.items.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "hint";
+            empty.textContent = "所持装備がありません。購入してください。";
+            els.inventory.appendChild(empty);
+          }
+        }
+
+        function renderBoard() {
+          els.board.innerHTML = "";
+          els.board.style.gridTemplateColumns = "repeat(" + state.boardSize + ", minmax(0, 1fr))";
+          const total = boardCells();
+          const selItem = selectedFirstItem();
+          for (let i = 0; i < total; i++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            const v = state.board[i];
+            if (v === "HOLE") {
+              cell.classList.add("hole");
+              els.board.appendChild(cell);
+              continue;
+            }
+            if (v) {
+              cell.classList.add("placed");
+              if (v.rank === "SSS") cell.classList.add("legendary");
+              const icon = document.createElement("div");
+              icon.className = "icon";
+              icon.textContent = itemIcon(v);
+              const rk = document.createElement("div");
+              rk.className = "crank";
+              rk.textContent = v.rank;
+              cell.appendChild(icon);
+              cell.appendChild(rk);
+              cell.title = v.rank + " " + itemName(v) + "（タップで外す）";
+              cell.setAttribute("aria-label", v.rank + "ランク " + itemName(v) + "。タップで外す");
+              cell.tabIndex = 0;
+              cell.style.background = RANK_GRADIENT[v.rank];
+              cell.draggable = true;
+              cell.addEventListener("dragstart", (ev) => {
+                ev.dataTransfer.setData("text/plain", String(v.id));
+                ev.dataTransfer.effectAllowed = "move";
+                dragItemId = v.id;
+                dragFromBoard = true;
+              });
+              cell.addEventListener("dragend", () => {
+                dragItemId = null;
+                dragFromBoard = false;
+                clearDropHighlights();
+              });
+              cell.addEventListener("click", () => unequipItem(v.id));
+              cell.addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter" || ev.key === " ") {
+                  ev.preventDefault();
+                  unequipItem(v.id);
+                }
+              });
+            } else {
+              cell.classList.add("empty");
+              cell.tabIndex = 0;
+              cell.dataset.idx = String(i);
+              cell.setAttribute("aria-label", "空きマス");
+              cell.addEventListener("dragover", (ev) => {
+                if (dragItemId === null) return;
+                ev.preventDefault();
+                ev.dataTransfer.dropEffect = "move";
+                highlightDrop(i, findDragItem());
+              });
+              cell.addEventListener("dragleave", (ev) => {
+                if (!cell.contains(ev.relatedTarget)) clearDropHighlights();
+              });
+              cell.addEventListener("drop", (ev) => {
+                ev.preventDefault();
+                handleDrop(i);
+              });
+              if (selItem && placementsFor(selItem, i)) {
+                cell.classList.add("target");
+                const mark = document.createElement("div");
+                mark.className = "fit-mark";
+                mark.textContent = "◎";
+                cell.appendChild(mark);
+              }
+              cell.addEventListener("click", () => onEmptyCellClick(i));
+              cell.addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter" || ev.key === " ") {
+                  ev.preventDefault();
+                  onEmptyCellClick(i);
+                }
+              });
+            }
+            els.board.appendChild(cell);
+          }
+        }
+
+        let dragItemId = null;
+        let dragFromBoard = false;
+
+        function findItemById(id) {
+          return state.items.find((i) => i.id === id) || null;
+        }
+
+        function findDragItem() {
+          if (dragItemId === null) return null;
+          const inBoard = state.board.find((v) => v && v !== "HOLE" && v.id === dragItemId);
+          return inBoard || findItemById(dragItemId);
+        }
+
+        function clearDropHighlights() {
+          els.board.querySelectorAll(".drop-target, .drop-invalid").forEach((c) => {
+            c.classList.remove("drop-target", "drop-invalid");
+          });
+        }
+
+        function highlightDrop(anchorIdx, item) {
+          clearDropHighlights();
+          if (!item || anchorIdx === null) return;
+          const cells = shapeCells(shapeKeyOf(item));
+          const [ax, ay] = cellCoord(anchorIdx);
+          const ok = !!placementsFor(item, anchorIdx);
+          cells.forEach(([dx, dy]) => {
+            const x = ax + dx;
+            const y = ay + dy;
+            if (x < 0 || y < 0 || x >= state.boardSize || y >= state.boardSize) return;
+            const cell = els.board.children[coordIndex(x, y)];
+            if (cell) cell.classList.add(ok ? "drop-target" : "drop-invalid");
+          });
+        }
+
+        function handleDrop(idx) {
+          const it = findDragItem();
+          const fromBoard = dragFromBoard;
+          dragItemId = null;
+          dragFromBoard = false;
+          clearDropHighlights();
+          if (!it) return;
+          if (fromBoard) {
+            for (let i = 0; i < state.board.length; i++) {
+              if (state.board[i] && state.board[i] !== "HOLE" && state.board[i].id === it.id) {
+                state.board[i] = null;
+              }
+            }
+          }
+          const idxs = placementsFor(it, idx);
+          if (!idxs) {
+            if (fromBoard) {
+              const back = findFitAnchor(it);
+              if (back >= 0) {
+                placeItem(it, placementsFor(it, back));
+              } else {
+                state.items.push(it);
+              }
+            }
+            showFeedback("ここには " + SHAPES[shapeKeyOf(it)].name + " の形がはまりません");
+            afterChange();
+            return;
+          }
+          placeItem(it, idxs);
+          state.selected = state.selected.filter((id) => id !== it.id);
+          showFeedback(
+            itemName(it) + (fromBoard ? " を移動しました" : " をドラッグしてはめました"),
+          );
+          afterChange();
+        }
+
+        function selectedFirstItem() {
+          if (state.selected.length === 0) return null;
+          return state.items.find((i) => i.id === state.selected[0]) || null;
+        }
+
+        function onEmptyCellClick(idx) {
+          const it = selectedFirstItem();
+          if (!it) {
+            showFeedback("先に所持装備を選んでください");
+            return;
+          }
+          const idxs = placementsFor(it, idx);
+          if (!idxs) {
+            showFeedback("ここには " + SHAPES[shapeKeyOf(it)].name + " の形がはまりません");
+            return;
+          }
+          placeItem(it, idxs);
+          state.selected = state.selected.filter((id) => id !== it.id);
+          showFeedback(itemName(it) + " をボードにはめました");
+          afterChange();
+        }
+
+        function placeItem(it, idxs) {
+          state.items = state.items.filter((i) => i.id !== it.id);
+          for (let i = 0; i < state.board.length; i++) {
+            if (state.board[i] && state.board[i] !== "HOLE" && state.board[i].id === it.id) {
+              state.board[i] = null;
+            }
+          }
+          idxs.forEach((idx) => {
+            state.board[idx] = it;
+          });
+        }
+
+        function unequipItem(itemId) {
+          let found = null;
+          for (let i = 0; i < state.board.length; i++) {
+            const v = state.board[i];
+            if (v && v !== "HOLE" && v.id === itemId) {
+              found = v;
+              state.board[i] = null;
+            }
+          }
+          if (!found) return;
+          state.items.push(found);
+          showFeedback(itemName(found) + " を外しました");
+          afterChange();
+        }
+
+        function toggleSelect(id) {
+          const idx = state.selected.indexOf(id);
+          if (idx >= 0) {
+            state.selected.splice(idx, 1);
+          } else {
+            if (state.selected.length >= 2) state.selected.shift();
+            state.selected.push(id);
+          }
+          updateUI();
+        }
+
+        function clearSelection() {
+          state.selected = [];
+          updateUI();
+        }
+
+        function autoEquipSelected() {
+          const selIds = state.selected.slice();
+          if (selIds.length === 0) {
+            showFeedback("装備する装備を選んでください");
+            return false;
+          }
+          let placed = 0;
+          for (const id of selIds) {
+            const it = state.items.find((i) => i.id === id);
+            if (!it) continue;
+            const anchor = findFitAnchor(it);
+            if (anchor < 0) {
+              showFeedback(itemName(it) + " がはまる空きマスがありません");
+              continue;
+            }
+            placeItem(it, placementsFor(it, anchor));
+            placed++;
+          }
+          state.selected = [];
+          if (placed > 0) showFeedback(placed + "個をボードにはめました");
+          return placed > 0;
+        }
+
+        function unequipAll() {
+          const items = equippedItems();
+          if (items.length === 0) return;
+          for (let i = 0; i < state.board.length; i++) {
+            if (state.board[i] && state.board[i] !== "HOLE") state.board[i] = null;
+          }
+          state.items = state.items.concat(items);
+          showFeedback("全ての装備を外しました");
+          afterChange();
+        }
+
+        function setWorkResult(msg) {
+          els.workResult.textContent = msg;
+        }
+
+        function earnGold(amount) {
+          state.gold += amount;
+        }
+
+        function updateLegendBanner() {
+          if (state.legendaryFound) {
+            els.legendBanner.textContent = "伝説の武器を入手！ 神話の力が宿っています";
+            els.legendBanner.classList.add("active");
+          } else {
+            els.legendBanner.textContent = "目指せ！ 伝説のSSSランク装備";
+            els.legendBanner.classList.remove("active");
+          }
+        }
+
+        function updateUI() {
+          ensureBoard();
+          const eq = equippedItems();
+          const power = equippedPower();
+          els.gold.textContent = state.gold;
+          els.wins.textContent = state.wins;
+          els.losses.textContent = state.losses;
+          els.power.textContent = power;
+          els.equipPower.textContent = power;
+          els.count.textContent = state.items.length + eq.length;
+          els.myPower.textContent = power;
+          els.slotCount.textContent = eq.length;
+          els.bestScore.textContent = state.bestScore;
+          const best = bestRank();
+          els.bestRank.textContent = best ? best + "ランク" : "-";
+          const pct = Math.round(Math.min(0.5, state.dropBonus * 0.1) * 100);
+          els.bonusInfo.textContent =
+            state.dropBonus > 0 ? "排出ボーナス中: 高ランク率 +" + pct + "%" : "";
+          els.dropBonus.textContent = state.dropBonus > 0 ? "+" + pct + "%" : "なし";
+          els.btnBuyWeapon.disabled = state.gold < BUY_COST.weapon;
+          els.btnBuyArmor.disabled = state.gold < BUY_COST.armor;
+          els.btnBuyMagic.disabled = state.gold < BUY_COST.magic;
+          els.btnBuyBomb.disabled = state.gold < BUY_COST.bomb;
+          const maxed = state.boardSize >= BOARD_MAX_SIZE;
+          els.btnExpand.disabled = state.gold < EXPAND_COST || maxed;
+          els.btnExpand.textContent = maxed
+            ? "ボード拡張（上限）"
+            : "ボード拡張 (" + EXPAND_COST + "G)";
+          els.btnUnequipAll.disabled = eq.length === 0;
+          els.btnEquip.disabled = state.selected.length === 0;
+          els.btnSell.disabled = state.selected.length === 0;
+          els.btnClearSelect.disabled = state.selected.length === 0;
+          els.selectedCount.textContent = state.selected.length;
+          els.btnMerge.disabled = !(state.selected.length === 2 && selectedPairValid());
+          els.btnBattle.disabled = eq.length === 0;
+          updateLegendBanner();
+          renderBoard();
+          renderInventory();
+        }
+
+        function selectedPairValid() {
+          if (state.selected.length !== 2) return false;
+          const a = state.items.find((i) => i.id === state.selected[0]);
+          const b = state.items.find((i) => i.id === state.selected[1]);
+          if (!a || !b) return false;
+          if (a.type !== b.type || a.rank !== b.rank) return false;
+          return rankIndex(a.rank) < RANKS.length - 1;
+        }
+
+        function afterChange() {
+          updateUI();
+          saveGame();
+        }
+
+        function buyItem(type) {
+          const cost = BUY_COST[type];
+          if (state.gold < cost) {
+            showFeedback("ゴールドが足りません");
+            return;
+          }
+          state.gold -= cost;
+          const made = makeItem(type, rollDropRank());
+          state.items.push(made);
+          state.dropBonus = 0;
+          showFeedback(
+            TYPE_LABEL[type] + "を購入: " + itemName(made) + "（" + made.rank + "ランク）",
+          );
+          afterChange();
+        }
+
+        els.btnBuyWeapon.addEventListener("click", () => buyItem("weapon"));
+        els.btnBuyArmor.addEventListener("click", () => buyItem("armor"));
+        els.btnBuyMagic.addEventListener("click", () => buyItem("magic"));
+        els.btnBuyBomb.addEventListener("click", () => buyItem("bomb"));
+
+        els.btnEquip.addEventListener("click", () => {
+          if (!autoEquipSelected()) {
+            updateUI();
+            return;
+          }
+          afterChange();
+        });
+
+        els.btnUnequipAll.addEventListener("click", unequipAll);
+
+        els.btnExpand.addEventListener("click", () => {
+          if (state.boardSize >= BOARD_MAX_SIZE) return;
+          if (state.gold < EXPAND_COST) {
+            showFeedback("ゴールドが足りません");
+            return;
+          }
+          state.gold -= EXPAND_COST;
+          expandBoard();
+          showFeedback("ボードを拡張しました（" + state.boardSize + "×" + state.boardSize + "）");
+          afterChange();
+        });
+
+        els.btnClearSelect.addEventListener("click", () => {
+          clearSelection();
+          showFeedback("選択を解除しました");
+        });
+
+        els.btnMine.addEventListener("click", () => {
+          const gained = 5 + Math.floor(Math.random() * 11);
+          earnGold(gained);
+          setWorkResult("鉱石を採掘して " + gained + "G 手に入れました");
+          showFeedback("採掘成功: +" + gained + "G");
+          afterChange();
+        });
+
+        els.btnQuest.addEventListener("click", () => {
+          if (Math.random() < 0.25) {
+            setWorkResult("依頼に失敗しました…（報酬なし）");
+            showFeedback("依頼失敗");
+          } else {
+            earnGold(40);
+            setWorkResult("依頼を達成して 40G 獲得しました");
+            showFeedback("依頼達成: +40G");
+          }
+          afterChange();
+        });
+
+        els.btnSell.addEventListener("click", () => {
+          if (state.selected.length === 0) return;
+          let gained = 0;
+          state.selected.forEach((id) => {
+            const idx = state.items.findIndex((i) => i.id === id);
+            if (idx >= 0) {
+              gained += Math.floor(itemPower(state.items[idx]) / 2);
+              state.items.splice(idx, 1);
+            }
+          });
+          state.gold += gained;
+          state.selected = [];
+          showFeedback("売却しました: +" + gained + "G");
+          afterChange();
+        });
+
+        els.btnMerge.addEventListener("click", () => {
+          if (!selectedPairValid()) {
+            showFeedback("同じ種類・同じランクの装備を2つ選んでください");
+            return;
+          }
+          const a = state.items.find((i) => i.id === state.selected[0]);
+          const b = state.items.find((i) => i.id === state.selected[1]);
+          const nextRank = RANKS[rankIndex(a.rank) + 1];
+          state.items = state.items.filter((i) => i.id !== a.id && i.id !== b.id);
+          const made = makeItem(a.type, nextRank);
+          state.items.push(made);
+          state.selected = [];
+          if (nextRank === "SSS") {
+            state.legendaryFound = true;
+            showFeedback("伝説の装備 " + itemName(made) + " が誕生！");
+          } else {
+            showFeedback(nextRank + "ランク " + itemName(made) + " に合成成功！");
+          }
+          afterChange();
+        });
+
+        function addLog(text, cls) {
+          const line = document.createElement("div");
+          line.textContent = text;
+          line.className = cls;
+          els.battleLog.appendChild(line);
+        }
+
+        els.btnBattle.addEventListener("click", () => {
+          const eq = equippedItems();
+          if (eq.length === 0) return;
+          const myP = equippedPower();
+          const enemyP = Math.max(10, Math.round(myP * (0.6 + Math.random() * 0.8)));
+          els.enemyPower.textContent = enemyP;
+          const win = myP >= enemyP;
+          if (win) {
+            state.wins++;
+            const reward = 30 + Math.floor(enemyP / 10);
+            state.gold += reward;
+            addLog("勝利！ あなた " + myP + " vs 相手 " + enemyP + "（+" + reward + "G）", "win");
+          } else {
+            state.losses++;
+            addLog("敗北… あなた " + myP + " vs 相手 " + enemyP, "lose");
+          }
+          state.dropBonus = Math.min(5, state.dropBonus + 1);
+          addLog(
+            "次回の排出ボーナス +" + Math.round(Math.min(0.5, state.dropBonus * 0.1) * 100) + "%",
+            "bonus",
+          );
+          if (recordBest()) addLog("ベスト記録を更新！ " + state.bestScore, "win");
+          els.battleLog.scrollTop = els.battleLog.scrollHeight;
+          showFeedback(win ? "勝利しました！" : "敗北しました");
+          afterChange();
+        });
+
+        els.btnReset.addEventListener("click", () => {
+          if (!window.confirm("データを初期化しますか？（ベスト記録も消えます）")) return;
+          state.gold = 100;
+          state.wins = 0;
+          state.losses = 0;
+          state.items = [];
+          state.board = [];
+          state.selected = [];
+          state.boardSize = BOARD_BASE_SIZE;
+          state.dropBonus = 0;
+          state.nextId = 1;
+          state.legendaryFound = false;
+          state.bestScore = 0;
+          els.battleLog.innerHTML = "";
+          els.enemyPower.textContent = "-";
+          ensureBoard();
+          state.items.push(makeItem("weapon", "C"));
+          showFeedback("データを初期化しました");
+          afterChange();
+        });
+
+        function init() {
+          loadGame();
+          ensureBoard();
+          if (
+            state.items.length === 0 &&
+            equippedItems().length === 0 &&
+            state.wins === 0 &&
+            state.losses === 0
+          ) {
+            state.items.push(makeItem("weapon", "C"));
+          }
+          updateUI();
+        }
+
+        init();
+      })();
+    </script>
+  </body>
+</html>
