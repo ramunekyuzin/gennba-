@@ -84,6 +84,7 @@
       border-bottom: 3px solid transparent; font-size: 16px;
     }
     .tabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
+    .loginTabs { border-radius: 12px 12px 0 0; margin-bottom: 12px; }
     .badge {
       display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 10px;
       background: var(--danger); color: #fff; font-size: 13px; margin-left: 4px; vertical-align: middle;
@@ -175,6 +176,19 @@
 <!-- ログイン -->
 <div id="loginView" class="page hidden">
   <h1>現場チャット</h1>
+  <nav class="tabs loginTabs">
+    <button id="modeCodeBtn" class="on">メールのコード</button>
+    <button id="modePwBtn">パスワード</button>
+  </nav>
+  <div class="card hidden" id="stepPw">
+    <label for="pwEmail">メールアドレス</label>
+    <input id="pwEmail" type="email" autocomplete="username" inputmode="email" placeholder="example@example.com">
+    <label for="pwPass">パスワード</label>
+    <input id="pwPass" type="password" autocomplete="current-password">
+    <div id="pwLoginMsg"></div>
+    <button id="pwLoginBtn">ログイン</button>
+    <p class="note" style="margin-top:10px">パスワードは、一度メールのコードでログインしてから「⚙ 設定」で決められます。忘れたときも、メールのコードでログインして決め直してください。</p>
+  </div>
   <div class="card" id="stepEmail">
     <label for="loginEmail">招待されたメールアドレス</label>
     <input id="loginEmail" type="email" autocomplete="email" inputmode="email" placeholder="example@example.com">
@@ -288,6 +302,16 @@
       <p class="note" style="margin-top:10px">登録すると、メンバーがあなたの名前の丸から電話をかけられるようになります。空にして保存すると消せます。</p>
     </div>
     <div class="card">
+      <input id="pwUser" type="email" autocomplete="username" class="hidden" tabindex="-1" aria-hidden="true">
+      <label for="newPw">パスワード(決めると、次からメールとパスワードでログインできます)</label>
+      <input id="newPw" type="password" autocomplete="new-password" maxlength="64" placeholder="8文字以上">
+      <label for="newPw2">もう一度</label>
+      <input id="newPw2" type="password" autocomplete="new-password" maxlength="64">
+      <div id="pwMsg"></div>
+      <button id="pwSaveBtn">パスワードを決める</button>
+      <p class="note" style="margin-top:10px">前に決めたパスワードがあれば、新しいものに変わります。</p>
+    </div>
+    <div class="card">
       <button id="logoutBtn" class="sub">ログアウト</button>
     </div>
   </div>
@@ -318,7 +342,7 @@
 
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-  import { getAuth, onAuthStateChanged, signInWithCustomToken, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  import { getAuth, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
   import {
     getFirestore, collection, query, where, orderBy, limitToLast, onSnapshot,
     addDoc, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, arrayRemove
@@ -387,6 +411,41 @@
   const params = new URLSearchParams(location.search);
   if (params.get('email')) $('loginEmail').value = params.get('email');
   else if (load('chatEmail')) $('loginEmail').value = load('chatEmail');
+  $('pwEmail').value = $('loginEmail').value;
+
+  // 「メールのコード」と「パスワード」の切り替え(前に使ったほうを覚えておく)
+  function setLoginMode(mode) {
+    store('chatLoginMode', mode);
+    $('modeCodeBtn').classList.toggle('on', mode === 'code');
+    $('modePwBtn').classList.toggle('on', mode === 'pw');
+    $('stepPw').classList.toggle('hidden', mode !== 'pw');
+    $('stepEmail').classList.toggle('hidden', mode !== 'code');
+    $('stepCode').classList.add('hidden');
+  }
+  $('modeCodeBtn').onclick = () => setLoginMode('code');
+  $('modePwBtn').onclick = () => setLoginMode('pw');
+  setLoginMode(load('chatLoginMode') === 'pw' ? 'pw' : 'code');
+
+  $('pwLoginBtn').onclick = async () => {
+    const email = $('pwEmail').value.trim().toLowerCase();
+    const password = $('pwPass').value;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg($('pwLoginMsg'), 'メールアドレスを正しく入れてください。'); return; }
+    if (!password) { setMsg($('pwLoginMsg'), 'パスワードを入れてください。'); return; }
+    $('pwLoginBtn').disabled = true;
+    setMsg($('pwLoginMsg'), '');
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      store('chatEmail', email);
+      $('pwPass').value = '';
+    } catch (e) {
+      console.error(e);
+      setMsg($('pwLoginMsg'), e.code === 'auth/too-many-requests'
+        ? '何回も間違えたので、しばらく待ってからためしてください。'
+        : 'メールアドレスかパスワードが違います。まだパスワードを決めていない人は、メールのコードでログインしてから「⚙ 設定」で決めてください。');
+    }
+    $('pwLoginBtn').disabled = false;
+  };
+  $('pwPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('pwLoginBtn').click(); });
 
   let loginEmail = '';
   $('sendCodeBtn').onclick = async () => {
@@ -1040,7 +1099,29 @@
   $('settingsBtn').onclick = () => {
     $('myPhone').value = phoneOf(me.uid);
     setMsg($('phoneMsg'), '');
+    $('pwUser').value = me.uid;
+    $('newPw').value = '';
+    $('newPw2').value = '';
+    setMsg($('pwMsg'), '');
     $('settingsView').classList.remove('hidden');
+  };
+  $('pwSaveBtn').onclick = async () => {
+    const password = $('newPw').value;
+    if (password.length < 8) { setMsg($('pwMsg'), '8文字以上にしてください。'); return; }
+    if (password !== $('newPw2').value) { setMsg($('pwMsg'), '2つのパスワードが違います。'); return; }
+    $('pwSaveBtn').disabled = true;
+    setMsg($('pwMsg'), '');
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      await gas({ action: 'setPassword', idToken, password });
+      $('newPw').value = '';
+      $('newPw2').value = '';
+      store('chatLoginMode', 'pw');
+      setMsg($('pwMsg'), 'パスワードを決めました。次からはログイン画面の「パスワード」で入れます。', true);
+    } catch (e) {
+      setMsg($('pwMsg'), e.message || 'パスワードを決められませんでした。');
+    }
+    $('pwSaveBtn').disabled = false;
   };
   $('settingsCloseBtn').onclick = () => $('settingsView').classList.add('hidden');
   $('phoneSaveBtn').onclick = async () => {
