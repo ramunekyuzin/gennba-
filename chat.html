@@ -164,6 +164,47 @@
     .check:last-child { border-bottom: none; }
     .check input { width: 22px; height: 22px; margin: 0; flex-shrink: 0; }
     .check .avatar { width: 32px; height: 32px; font-size: 14px; cursor: inherit; }
+
+    /* 写真・PDF */
+    #composer #attachBtn { width: auto; padding: 12px 14px; flex-shrink: 0; font-size: 18px; font-weight: normal; }
+    #uploadBar { padding: 8px 12px; background: var(--chip); font-size: 15px; }
+    .bubble.photo { padding: 4px; background: transparent; box-shadow: none; }
+    .bubble img { display: block; max-width: 220px; max-height: 260px; border-radius: 12px; cursor: pointer; background: var(--chip); }
+    .bubble .imgPh { width: 160px; height: 120px; border-radius: 12px; background: var(--chip); color: var(--sub); border: none; font-weight: normal; }
+    .fileRow { display: flex; align-items: center; gap: 8px; background: transparent; color: inherit; padding: 0; font-weight: normal; text-align: left; width: auto; }
+    .fileRow .fname { text-decoration: underline; word-break: break-all; }
+    .fileRow .fsize { font-size: 13px; opacity: .8; white-space: nowrap; }
+    .bubble .cap { margin-top: 6px; }
+    #viewer { position: fixed; inset: 0; background: #000; z-index: 30; display: flex; flex-direction: column; color: #fff; }
+    #viewer .vbar {
+      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      padding-top: calc(10px + env(safe-area-inset-top)); background: rgba(0,0,0,.6);
+    }
+    #viewer .vname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+    #viewer .vbar a.btn, #viewer .vbar button { width: auto; padding: 10px 14px; font-size: 15px; font-weight: normal; }
+    #viewer .vbody { flex: 1; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 8px; }
+    #viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    #viewer .vmsg { text-align: center; line-height: 1.8; }
+
+    /* 検索 */
+    .searchAll { margin-bottom: 10px; }
+    .searchRow { display: flex; gap: 8px; margin-bottom: 10px; }
+    .searchRow input { margin: 0; }
+    .searchRow button { width: auto; flex-shrink: 0; }
+    .result {
+      display: block; width: 100%; text-align: left; background: var(--card); color: var(--text);
+      border-radius: 12px; padding: 12px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); font-weight: normal;
+    }
+    .result .rtop { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--sub); margin-bottom: 4px; }
+    .result .rroom { font-weight: bold; color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .result .rtext { font-size: 15px; line-height: 1.5; word-break: break-word; }
+    mark { background: #ffe066; color: #222; border-radius: 3px; padding: 0 2px; }
+    .msg.flash .bubble { outline: 3px solid #ffb300; }
+    #toast {
+      position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+      background: rgba(0,0,0,.8); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 15px;
+      z-index: 40; max-width: 90%; text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -243,15 +284,51 @@
   <div id="roomBar" class="hidden">
     <button id="roomBackBtn" class="sub" aria-label="一覧にもどる">←</button>
     <div class="rname" id="roomName"></div>
+    <button id="roomSearchBtn" class="sub" aria-label="このチャットの中を検索">🔍</button>
     <a id="roomCallBtn" class="btn sub hidden" href="#">☎ 電話</a>
     <button id="roomEditBtn" class="sub hidden">設定</button>
   </div>
   <div id="messages"><p class="empty">読み込み中…</p></div>
+  <div id="uploadBar" class="hidden"></div>
   <div id="composer">
+    <button id="attachBtn" class="sub" aria-label="写真・PDFを送る">📎</button>
+    <input id="fileInput" type="file" accept="image/*,application/pdf" multiple class="hidden">
     <textarea id="input" rows="1" placeholder="メッセージを入力" aria-label="メッセージ"></textarea>
     <button id="sendBtn">送信</button>
   </div>
 </div>
+
+<!-- 写真・PDFを見る -->
+<div id="viewer" class="hidden">
+  <div class="vbar">
+    <span class="vname" id="viewerName"></span>
+    <a id="viewerSave" class="btn sub hidden" href="#" download>保存</a>
+    <button id="viewerClose">閉じる</button>
+  </div>
+  <div class="vbody">
+    <p class="vmsg" id="viewerMsg">読み込み中…</p>
+    <img id="viewerImg" class="hidden" alt="送られた写真">
+    <a id="viewerOpen" class="btn hidden" href="#" target="_blank" rel="noopener" style="width:auto">📄 PDFを開く</a>
+  </div>
+</div>
+
+<!-- 検索 -->
+<div id="searchView" class="full hidden">
+  <div class="page">
+    <h1 style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span id="searchTitle">検索</span>
+      <button id="searchCloseBtn" class="small sub">もどる</button>
+    </h1>
+    <div class="searchRow">
+      <input id="searchInput" type="search" enterkeyhint="search" placeholder="ことばを入れて検索" aria-label="検索することば">
+      <button id="searchGoBtn" class="small">検索</button>
+    </div>
+    <p class="note" id="searchNote"></p>
+    <div id="searchResults"></div>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
 
 <!-- 個人チャット/電話のメニュー -->
 <div id="sheet" class="hidden">
@@ -344,7 +421,7 @@
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
   import { getAuth, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
   import {
-    getFirestore, collection, query, where, orderBy, limitToLast, onSnapshot,
+    getFirestore, collection, query, where, orderBy, limitToLast, onSnapshot, getDocs,
     addDoc, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, arrayRemove
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
   import { getMessaging, getToken, deleteToken, isSupported } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
@@ -512,10 +589,8 @@
     $('adminBtn').classList.toggle('hidden', !admin);
     show('chatView');
     listenAll();
-    // 最初は全体チャットを開く(←で一覧へ)
-    tab = 'group';
-    setTabButtons();
-    openRoom({ type: 'all' });
+    // 最初は個人チャットの一覧から
+    showTab('dm');
     setupPush(false);
   }
 
@@ -674,6 +749,11 @@
   function renderList() {
     const pane = $('listPane');
     pane.innerHTML = '';
+    const search = document.createElement('button');
+    search.className = 'sub searchAll';
+    search.textContent = '🔍 すべてのチャットから検索';
+    search.onclick = () => openSearch(null);
+    pane.appendChild(search);
     if (tab === 'group') {
       const add = document.createElement('button');
       add.className = 'sub newGroup';
@@ -910,14 +990,26 @@
   const nearBottom = () => box.scrollHeight - box.scrollTop - box.clientHeight < 120;
   let forceScroll = true;
 
-  function messagesRef() {
-    if (room.type === 'dm') return collection(db, 'dms', room.pairId, 'messages');
-    if (room.type === 'group') return collection(db, 'groups', room.gid, 'messages');
+  function messagesRef(r) {
+    if (r.type === 'dm') return collection(db, 'dms', r.pairId, 'messages');
+    if (r.type === 'group') return collection(db, 'groups', r.gid, 'messages');
     return collection(db, 'messages');
   }
+  // GASに渡すチャットの名前(全体=all、グループ=g:ID、個人=d:メール|メール)
+  function roomKey(r) {
+    if (r.type === 'dm') return 'd:' + r.pairId;
+    if (r.type === 'group') return 'g:' + r.gid;
+    return 'all';
+  }
+  function roomLabel(r) {
+    if (r.type === 'dm') return nameOf(r.other) + '(個人)';
+    if (r.type === 'group') return groups[r.gid] ? groups[r.gid].name : 'グループ';
+    return allName;
+  }
+  const sameRoom = (a, b) => a.type === b.type && roomKey(a) === roomKey(b);
 
   function listenMessages() {
-    const q = query(messagesRef(), orderBy('createdAt'), limitToLast(200));
+    const q = query(messagesRef(room), orderBy('createdAt'), limitToLast(200));
     forceScroll = true;
     box.innerHTML = '<p class="empty">読み込み中…</p>';
     const current = room;
@@ -926,7 +1018,16 @@
       const list = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
       const stick = forceScroll || nearBottom();
       render(list);
-      if (stick) box.scrollTop = box.scrollHeight;
+      if (pendingHighlight) {
+        const id = pendingHighlight;
+        pendingHighlight = null;
+        if (!highlight(id)) {
+          box.scrollTop = box.scrollHeight;
+          toast('古いメッセージなので、ここには出ていません。内容は検索結果で見てください。');
+        }
+      } else if (stick) {
+        box.scrollTop = box.scrollHeight;
+      }
       forceScroll = false;
     }, err => {
       if (room !== current) return;
@@ -972,6 +1073,7 @@
       const mine = m.uid === me.uid;
       const wrap = document.createElement('div');
       wrap.className = 'msg' + (mine ? ' mine' : '');
+      wrap.dataset.id = m.id;
       if (!mine) {
         const av = avatarEl(m.uid, m.name);
         av.setAttribute('aria-label', m.name + ' さんのメニュー');
@@ -990,7 +1092,18 @@
       line.className = 'line';
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      bubble.textContent = m.text;
+      if (m.file) {
+        if (m.file.kind === 'image' && !m.text) bubble.classList.add('photo');
+        bubble.appendChild(fileEl(m.file));
+        if (m.text) {
+          const cap = document.createElement('div');
+          cap.className = 'cap';
+          cap.textContent = m.text;
+          bubble.appendChild(cap);
+        }
+      } else {
+        bubble.textContent = m.text;
+      }
       const time = document.createElement('span');
       time.className = 'time';
       time.textContent = timeLabel(d);
@@ -1016,38 +1129,344 @@
     $('sendBtn').disabled = true;
     try {
       forceScroll = true;
-      const data = { uid: me.uid, name: me.name, text, createdAt: serverTimestamp() };
-      const last = { lastAt: serverTimestamp(), lastFrom: me.uid, lastText: text.slice(0, 60) };
-      const extra = {};
-      let id;
-      if (room.type === 'dm' || room.type === 'group') {
-        const ref = doc(messagesRef());
-        const batch = writeBatch(db);
-        batch.set(ref, data);
-        if (room.type === 'dm') {
-          batch.set(doc(db, 'dms', room.pairId), { members: room.pairId.split('|'), ...last });
-          extra.dm = room.pairId;
-        } else {
-          batch.update(doc(db, 'groups', room.gid), last);
-          extra.group = room.gid;
-        }
-        await batch.commit();
-        id = ref.id;
-      } else {
-        id = (await addDoc(collection(db, 'messages'), data)).id;
-      }
+      await postMessage(room, text, null);
       input.value = '';
       autoGrow();
-      // 通知はGASにまかせる(失敗してもメッセージは届いている)
-      auth.currentUser.getIdToken()
-        .then(idToken => gas({ action: 'notify', idToken, id, ...extra }))
-        .catch(e => console.warn('通知を送れませんでした', e));
     } catch (e) {
       console.error(e);
       alert('送れませんでした。電波を確認してもう一度送ってください。');
     }
     $('sendBtn').disabled = false;
     input.focus();
+  }
+
+  // メッセージを書き込んで、通知をGASに頼む(r は送り先のチャット)
+  async function postMessage(r, text, file) {
+    const data = { uid: me.uid, name: me.name, text, createdAt: serverTimestamp() };
+    if (file) data.file = file;
+    const preview = text || (file.kind === 'image' ? '📷 写真' : '📄 ' + file.name);
+    const last = { lastAt: serverTimestamp(), lastFrom: me.uid, lastText: preview.slice(0, 60) };
+    const extra = {};
+    let id;
+    if (r.type === 'dm' || r.type === 'group') {
+      const ref = doc(messagesRef(r));
+      const batch = writeBatch(db);
+      batch.set(ref, data);
+      if (r.type === 'dm') {
+        batch.set(doc(db, 'dms', r.pairId), { members: r.pairId.split('|'), ...last });
+        extra.dm = r.pairId;
+      } else {
+        batch.update(doc(db, 'groups', r.gid), last);
+        extra.group = r.gid;
+      }
+      await batch.commit();
+      id = ref.id;
+    } else {
+      id = (await addDoc(collection(db, 'messages'), data)).id;
+    }
+    // 通知はGASにまかせる(失敗してもメッセージは届いている)
+    auth.currentUser.getIdToken()
+      .then(idToken => gas({ action: 'notify', idToken, id, ...extra }))
+      .catch(e => console.warn('通知を送れませんでした', e));
+  }
+
+  // ===== 写真・PDFを送る =====
+  const PDF_MAX = 10 * 1024 * 1024;
+  $('attachBtn').onclick = () => $('fileInput').click();
+  $('fileInput').onchange = async () => {
+    const files = [...$('fileInput').files];
+    $('fileInput').value = '';
+    if (!files.length || room.type === 'list') return;
+    const r = room;
+    $('attachBtn').disabled = true;
+    for (let i = 0; i < files.length; i++) {
+      const bar = $('uploadBar');
+      bar.textContent = '送信中… ' + (files.length > 1 ? (i + 1) + '/' + files.length + ' ' : '') + files[i].name;
+      bar.classList.remove('hidden');
+      try {
+        forceScroll = true;
+        await sendFile(r, files[i]);
+      } catch (e) {
+        console.error(e);
+        alert('「' + files[i].name + '」を送れませんでした。' + (e.message ? '\n' + e.message : ''));
+      }
+    }
+    $('uploadBar').classList.add('hidden');
+    $('attachBtn').disabled = false;
+  };
+
+  async function sendFile(r, f) {
+    let mime, kind, name, blob, thumb;
+    if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
+      if (f.size > PDF_MAX) throw new Error('PDFは10MBまでです。');
+      mime = 'application/pdf'; kind = 'pdf'; name = f.name || 'file.pdf'; blob = f;
+    } else if (f.type.startsWith('image/')) {
+      const shrunk = await shrinkImage(f);
+      mime = 'image/jpeg'; kind = 'image'; blob = shrunk.blob; thumb = shrunk.thumb;
+      name = (f.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+    } else {
+      throw new Error('写真かPDFだけ送れます。');
+    }
+    const idToken = await auth.currentUser.getIdToken();
+    const data = await toBase64(blob);
+    const up = await gas({ action: 'upload', idToken, room: roomKey(r), name, mime, data });
+    const file = { id: up.id, kind, name: name.slice(0, 100), size: up.size };
+    if (thumb) file.thumb = thumb;
+    await postMessage(r, '', file);
+  }
+
+  function toBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1]);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function loadImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('写真を読み込めませんでした。')); };
+      img.src = url;
+    });
+  }
+
+  function drawScaled(img, max) {
+    const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  // 送る写真(長い辺1600px)と、チャットに出す小さい画像(長い辺320px)を作る
+  async function shrinkImage(file) {
+    const img = await loadImage(file);
+    const big = drawScaled(img, 1600);
+    const blob = await new Promise(res => big.toBlob(res, 'image/jpeg', 0.82));
+    if (!blob) throw new Error('写真を変換できませんでした。');
+    const small = drawScaled(img, 320);
+    let q = 0.6, thumb = small.toDataURL('image/jpeg', q);
+    while (thumb.length > 70000 && q > 0.2) { q -= 0.15; thumb = small.toDataURL('image/jpeg', q); }
+    return { blob, thumb: thumb.length <= 80000 ? thumb : undefined };
+  }
+
+  function fmtSize(n) {
+    if (!n) return '';
+    return n >= 1024 * 1024 ? (n / 1024 / 1024).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB';
+  }
+
+  function fileEl(file) {
+    if (file.kind === 'image') {
+      if (file.thumb) {
+        const img = document.createElement('img');
+        img.src = file.thumb;
+        img.alt = '写真(押すと大きく見られます)';
+        img.onclick = () => openViewer(file);
+        return img;
+      }
+      const ph = document.createElement('button');
+      ph.className = 'imgPh';
+      ph.textContent = '📷 写真を見る';
+      ph.onclick = () => openViewer(file);
+      return ph;
+    }
+    const row = document.createElement('button');
+    row.className = 'fileRow';
+    const icon = document.createElement('span');
+    icon.textContent = '📄';
+    const fname = document.createElement('span');
+    fname.className = 'fname';
+    fname.textContent = file.name;
+    const fsize = document.createElement('span');
+    fsize.className = 'fsize';
+    fsize.textContent = fmtSize(file.size);
+    row.appendChild(icon);
+    row.appendChild(fname);
+    row.appendChild(fsize);
+    row.onclick = () => openViewer(file);
+    return row;
+  }
+
+  // ===== 写真・PDFを見る =====
+  const fileCache = new Map();   // ドライブのID → { url, mime, name }
+  let viewing = null;
+  async function openViewer(file) {
+    viewing = file.id;
+    $('viewerName').textContent = file.name;
+    $('viewerMsg').textContent = '読み込み中…';
+    $('viewerMsg').classList.remove('hidden');
+    ['viewerImg', 'viewerOpen', 'viewerSave'].forEach(id => $(id).classList.add('hidden'));
+    $('viewer').classList.remove('hidden');
+    try {
+      let got = fileCache.get(file.id);
+      if (!got) {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await gas({ action: 'file', idToken, id: file.id });
+        const bin = atob(res.data);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        got = { url: URL.createObjectURL(new Blob([bytes], { type: res.mime })), mime: res.mime, name: res.name };
+        fileCache.set(file.id, got);
+      }
+      if (viewing !== file.id) return;
+      $('viewerMsg').classList.add('hidden');
+      $('viewerSave').href = got.url;
+      $('viewerSave').download = got.name;
+      $('viewerSave').classList.remove('hidden');
+      if (got.mime.startsWith('image/')) {
+        $('viewerImg').src = got.url;
+        $('viewerImg').classList.remove('hidden');
+      } else {
+        $('viewerOpen').href = got.url;
+        $('viewerOpen').classList.remove('hidden');
+        $('viewerMsg').textContent = file.name + '(' + fmtSize(file.size) + ')';
+        $('viewerMsg').classList.remove('hidden');
+      }
+    } catch (e) {
+      if (viewing !== file.id) return;
+      $('viewerMsg').textContent = e.message || '開けませんでした。電波のいいところでもう一度ためしてください。';
+    }
+  }
+  $('viewerClose').onclick = () => {
+    viewing = null;
+    $('viewer').classList.add('hidden');
+    $('viewerImg').removeAttribute('src');
+  };
+
+  // ===== 検索 =====
+  // scope が null なら全部のチャット、チャットなら その中だけ
+  let searchScope = null;
+  let pendingHighlight = null;
+  const searchCache = new Map();   // チャット → { at, list }
+  const SEARCH_LIMIT = 500;
+  const norm = s => String(s || '').normalize('NFKC').toLowerCase();
+
+  function openSearch(scope) {
+    searchScope = scope;
+    $('searchTitle').textContent = scope ? '「' + roomLabel(scope) + '」の中を検索' : 'すべてのチャットから検索';
+    $('searchResults').innerHTML = '';
+    $('searchNote').textContent = '各チャットの最近' + SEARCH_LIMIT + '件の中から、メッセージとPDFの名前を探します。';
+    $('searchView').classList.remove('hidden');
+    $('searchInput').focus();
+  }
+  $('searchCloseBtn').onclick = () => $('searchView').classList.add('hidden');
+  $('roomSearchBtn').onclick = () => { if (room.type !== 'list') openSearch(room); };
+  $('searchGoBtn').onclick = runSearch;
+  $('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
+
+  async function loadForSearch(r) {
+    const key = roomKey(r);
+    const hit = searchCache.get(key);
+    if (hit && Date.now() - hit.at < 3 * 60 * 1000) return hit.list;
+    const snap = await getDocs(query(messagesRef(r), orderBy('createdAt'), limitToLast(SEARCH_LIMIT)));
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    searchCache.set(key, { at: Date.now(), list });
+    return list;
+  }
+
+  async function runSearch() {
+    const q = norm($('searchInput').value.trim());
+    if (!q) return;
+    $('searchInput').blur();
+    $('searchGoBtn').disabled = true;
+    $('searchResults').innerHTML = '';
+    $('searchNote').textContent = '検索中…';
+    const rooms = searchScope ? [searchScope] : [
+      { type: 'all' },
+      ...Object.keys(groups).map(gid => ({ type: 'group', gid })),
+      ...Object.keys(dms).map(pairId => ({ type: 'dm', pairId, other: pairId.split('|').find(u => u !== me.uid) }))
+    ];
+    const results = [];
+    let failed = 0;
+    await Promise.all(rooms.map(async r => {
+      try {
+        (await loadForSearch(r)).forEach(m => {
+          const hay = norm((m.text || '') + ' ' + (m.file ? m.file.name : ''));
+          if (hay.includes(q)) results.push({ r, m });
+        });
+      } catch (e) {
+        console.error(e);
+        failed++;
+      }
+    }));
+    results.sort((a, b) => millis(b.m.createdAt) - millis(a.m.createdAt));
+    $('searchGoBtn').disabled = false;
+    $('searchNote').textContent = (results.length ? results.length + '件見つかりました' + (results.length > 100 ? '(新しい100件を表示)' : '') : '見つかりませんでした')
+      + (failed ? '。読めなかったチャットがあります' : '');
+    results.slice(0, 100).forEach(({ r, m }) => $('searchResults').appendChild(resultEl(r, m, q)));
+  }
+
+  function resultEl(r, m, q) {
+    const el = document.createElement('button');
+    el.className = 'result';
+    const top = document.createElement('div');
+    top.className = 'rtop';
+    const rr = document.createElement('span');
+    rr.className = 'rroom';
+    rr.textContent = searchScope ? m.name : roomLabel(r) + ' / ' + m.name;
+    const when = document.createElement('span');
+    const d = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate() : null;
+    when.textContent = d ? dayLabel(d) + ' ' + timeLabel(d) : '';
+    top.appendChild(rr);
+    top.appendChild(when);
+    const text = document.createElement('div');
+    text.className = 'rtext';
+    appendMarked(text, m.text || (m.file ? (m.file.kind === 'image' ? '📷 写真' : '📄 ' + m.file.name) : ''), q);
+    el.appendChild(top);
+    el.appendChild(text);
+    el.onclick = () => {
+      $('searchView').classList.add('hidden');
+      if (room.type !== 'list' && sameRoom(room, r)) {
+        if (!highlight(m.id)) toast('古いメッセージなので、ここには出ていません。内容は検索結果で見てください。');
+        return;
+      }
+      pendingHighlight = m.id;
+      openRoom(r);
+    };
+    return el;
+  }
+
+  // 見つかったことばに色を付ける(長い文は前後を省く)
+  function appendMarked(el, s, q) {
+    const n = norm(s);
+    let i = n.indexOf(q);
+    if (i < 0 || n.length !== s.length) { el.textContent = s.length > 120 ? s.slice(0, 120) + '…' : s; return; }
+    const start = Math.max(0, i - 40);
+    if (start > 0) el.appendChild(document.createTextNode('…'));
+    let pos = start;
+    const end = Math.min(s.length, i + q.length + 80);
+    while (i >= 0 && i < end) {
+      el.appendChild(document.createTextNode(s.slice(pos, i)));
+      const mark = document.createElement('mark');
+      mark.textContent = s.slice(i, i + q.length);
+      el.appendChild(mark);
+      pos = i + q.length;
+      i = n.indexOf(q, pos);
+    }
+    el.appendChild(document.createTextNode(s.slice(pos, end)));
+    if (end < s.length) el.appendChild(document.createTextNode('…'));
+  }
+
+  function highlight(id) {
+    const el = [...box.querySelectorAll('.msg')].find(x => x.dataset.id === id);
+    if (!el) return false;
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 2500);
+    return true;
+  }
+
+  let toastTimer = null;
+  function toast(text) {
+    $('toast').textContent = text;
+    $('toast').classList.remove('hidden');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $('toast').classList.add('hidden'), 3500);
   }
 
   // ===== 通知 =====
