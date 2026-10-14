@@ -54,6 +54,7 @@
     button.danger { background: var(--danger); }
     button.small { width: auto; padding: 10px 14px; font-size: 15px; font-weight: normal; }
     a.btn.off { background: #888; pointer-events: none; }
+    a.btn.sub.off { background: transparent; color: #888; border-color: #888; }
     .note { font-size: 14px; color: var(--sub); line-height: 1.6; margin-bottom: 10px; }
     .msg-error { color: var(--danger); font-size: 15px; margin-bottom: 10px; }
     .msg-ok { color: var(--ok); font-size: 15px; margin-bottom: 10px; }
@@ -64,6 +65,7 @@
       display: flex; align-items: center; justify-content: center;
       color: #fff; font-weight: bold; font-size: 17px; border: none; padding: 0; cursor: pointer;
     }
+    .avatar.group { border-radius: 12px; }
     .avatar.big { width: 64px; height: 64px; font-size: 26px; margin: 0 auto 8px; cursor: default; }
 
     /* チャット画面 */
@@ -96,7 +98,8 @@
       background: var(--card); border-bottom: 1px solid var(--line);
     }
     #roomBar .rname { flex: 1; font-size: 17px; font-weight: bold; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #roomBar button, #roomBar a.btn { width: auto; padding: 10px 14px; font-size: 15px; font-weight: normal; }
+    #roomBar .rname small { font-size: 13px; color: var(--sub); font-weight: normal; }
+    #roomBar button, #roomBar a.btn { width: auto; padding: 10px 14px; font-size: 15px; font-weight: normal; flex-shrink: 0; }
     #messages { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
     .day { text-align: center; margin: 12px 0 8px; }
     .day span { font-size: 13px; color: var(--sub); background: var(--chip); padding: 4px 12px; border-radius: 12px; }
@@ -114,7 +117,7 @@
     }
     .msg.mine .bubble { background: var(--mine); color: var(--mine-text); }
     .msg .time { font-size: 12px; color: var(--sub); white-space: nowrap; }
-    .empty { text-align: center; color: var(--sub); margin-top: 40px; line-height: 1.6; }
+    .empty { text-align: center; color: var(--sub); margin-top: 40px; line-height: 1.6; white-space: pre-line; }
     #composer {
       display: flex; gap: 8px; align-items: flex-end;
       padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom));
@@ -123,7 +126,7 @@
     #composer textarea { margin: 0; resize: none; max-height: 140px; line-height: 1.4; }
     #composer button { width: auto; padding: 12px 18px; flex-shrink: 0; }
 
-    /* 個人チャットの一覧 */
+    /* グループ・個人チャットの一覧 */
     #listPane { flex: 1; overflow-y: auto; padding: 8px 12px; }
     .person {
       display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
@@ -131,10 +134,11 @@
       margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); font-weight: normal;
     }
     .person .info { flex: 1; min-width: 0; }
-    .person .pname { font-size: 17px; font-weight: bold; }
+    .person .pname { font-size: 17px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .person .last { font-size: 14px; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .person .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--danger); flex-shrink: 0; }
     .hint { background: var(--chip); border-radius: 10px; padding: 10px 12px; font-size: 15px; line-height: 1.5; margin-bottom: 10px; }
+    .newGroup { margin-bottom: 10px; }
 
     /* 下から出るメニュー(個人チャット/電話) */
     #sheet { position: fixed; inset: 0; background: var(--overlay); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
@@ -146,13 +150,17 @@
     #sheet .sname { font-size: 19px; font-weight: bold; }
     #sheet .sphone { font-size: 14px; color: var(--sub); margin-bottom: 4px; }
 
-    /* 管理・設定 */
+    /* 管理・設定・グループ設定 */
     .full { position: fixed; inset: 0; background: var(--bg); overflow-y: auto; z-index: 10; }
     .member { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
     .member:last-child { border-bottom: none; }
     .member .info { flex: 1; min-width: 0; }
     .member .mname { font-size: 16px; font-weight: bold; }
     .member .mmail { font-size: 14px; color: var(--sub); word-break: break-all; }
+    .check { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 16px; color: var(--text); margin: 0; cursor: pointer; }
+    .check:last-child { border-bottom: none; }
+    .check input { width: 22px; height: 22px; margin: 0; flex-shrink: 0; }
+    .check .avatar { width: 32px; height: 32px; font-size: 14px; cursor: inherit; }
   </style>
 </head>
 <body>
@@ -208,7 +216,7 @@
     <button id="settingsBtn" class="sub" aria-label="設定">⚙ 設定</button>
   </header>
   <nav class="tabs">
-    <button id="tabAll" class="on">全体</button>
+    <button id="tabGroup" class="on">グループ<span id="groupBadge" class="badge hidden"></span></button>
     <button id="tabDm">個人<span id="dmBadge" class="badge hidden"></span></button>
   </nav>
   <div id="pushBar" class="hidden">
@@ -219,7 +227,8 @@
   <div id="roomBar" class="hidden">
     <button id="roomBackBtn" class="sub" aria-label="一覧にもどる">←</button>
     <div class="rname" id="roomName"></div>
-    <a id="roomCallBtn" class="btn sub" href="#">☎ 電話</a>
+    <a id="roomCallBtn" class="btn sub hidden" href="#">☎ 電話</a>
+    <button id="roomEditBtn" class="sub hidden">設定</button>
   </div>
   <div id="messages"><p class="empty">読み込み中…</p></div>
   <div id="composer">
@@ -237,6 +246,28 @@
     <button id="sheetChatBtn">💬 個人チャット</button>
     <a id="sheetCallBtn" class="btn" href="#">☎ 電話をかける</a>
     <button id="sheetCloseBtn" class="sub">閉じる</button>
+  </div>
+</div>
+
+<!-- グループを作る・グループの設定・全体の名前 -->
+<div id="groupView" class="full hidden">
+  <div class="page">
+    <h1 style="display:flex;justify-content:space-between;align-items:center">
+      <span id="groupTitle">グループを作る</span>
+      <button id="groupCloseBtn" class="small sub">もどる</button>
+    </h1>
+    <div class="card">
+      <label for="groupName">グループの名前</label>
+      <input id="groupName" type="text" maxlength="20" placeholder="〇〇現場">
+      <p class="note hidden" id="groupNameNote"></p>
+    </div>
+    <div class="card" id="groupMembersCard">
+      <label>メンバー</label>
+      <div id="groupMembers"></div>
+    </div>
+    <div id="groupMsg"></div>
+    <button id="groupSaveBtn">作る</button>
+    <button id="groupLeaveBtn" class="danger hidden" style="margin-top:20px">このグループを抜ける</button>
   </div>
 </div>
 
@@ -288,7 +319,7 @@
   import { getAuth, onAuthStateChanged, signInWithCustomToken, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
   import {
     getFirestore, collection, query, where, orderBy, limitToLast, onSnapshot,
-    addDoc, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch
+    addDoc, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, arrayRemove
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
   import { getMessaging, getToken, deleteToken, isSupported } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
 
@@ -328,9 +359,13 @@
   let me = null;            // { uid(メール), name, admin }
   let members = {};         // メール → { name, phone }
   let dms = {};             // 個人チャットのID → { members, lastAt, lastFrom, lastText }
-  let room = { type: 'all' };   // { type: 'all' } または { type: 'dm', pairId, other }
-  let tab = 'all';          // 'all' または 'dm'
-  let unsubMessages = null, unsubMembers = null, unsubDms = null;
+  let groups = {};          // グループのID → { name, members, owner, lastAt, lastFrom, lastText }
+  let allName = '全体';     // 全体チャットの名前
+  // 今いる場所: { type: 'list' } / { type: 'all' } / { type: 'group', gid } / { type: 'dm', pairId, other }
+  let room = { type: 'list' };
+  let tab = 'group';        // 'group' または 'dm'
+  let unsubs = [];          // 一覧などの見張り
+  let unsubMessages = null; // メッセージの見張り
 
   async function start() {
     try {
@@ -409,18 +444,22 @@
     me = { uid: user.uid, name: member.name, admin };
     members = {};
     dms = {};
+    groups = {};
     $('meName').textContent = me.name + ' としてログイン中';
     $('adminBtn').classList.toggle('hidden', !admin);
     show('chatView');
-    listenMembers();
-    listenDms();
-    showTab('all');
+    listenAll();
+    // 最初は全体チャットを開く(←で一覧へ)
+    tab = 'group';
+    setTabButtons();
+    openRoom({ type: 'all' });
     setupPush(false);
   }
 
   function stopListeners() {
-    [unsubMessages, unsubMembers, unsubDms].forEach(fn => { if (fn) fn(); });
-    unsubMessages = unsubMembers = unsubDms = null;
+    unsubs.forEach(fn => fn());
+    unsubs = [];
+    if (unsubMessages) { unsubMessages(); unsubMessages = null; }
   }
 
   async function logout() {
@@ -432,79 +471,146 @@
       forget('chatPushToken');
     }
     stopListeners();
-    $('adminView').classList.add('hidden');
-    $('settingsView').classList.add('hidden');
+    ['adminView', 'settingsView', 'groupView'].forEach(id => $(id).classList.add('hidden'));
     await signOut(auth);
   }
   $('logoutBtn').onclick = logout;
   $('deniedLogoutBtn').onclick = () => signOut(auth);
 
-  // ===== メンバーと個人チャットの一覧 =====
-  function listenMembers() {
-    unsubMembers = onSnapshot(collection(db, 'members'), snap => {
+  // ===== メンバー・グループ・個人チャットの見張り =====
+  function listenAll() {
+    unsubs.push(onSnapshot(collection(db, 'members'), snap => {
       members = {};
       snap.docs.forEach(d => { members[d.id] = d.data(); });
       if (members[me.uid]) me.name = members[me.uid].name;
-      if (tab === 'dm' && room.type !== 'dm') renderList();
-      if (room.type === 'dm') updateRoomBar();
+      refresh();
       if (!$('adminView').classList.contains('hidden')) renderMembers();
-    }, err => console.error(err));
-  }
+    }, err => console.error(err)));
 
-  function listenDms() {
-    const q = query(collection(db, 'dms'), where('members', 'array-contains', me.uid));
-    unsubDms = onSnapshot(q, snap => {
+    unsubs.push(onSnapshot(doc(db, 'settings', 'all'), snap => {
+      allName = (snap.exists() && snap.data().name) || '全体';
+      refresh();
+    }, err => console.error(err)));
+
+    unsubs.push(onSnapshot(query(collection(db, 'groups'), where('members', 'array-contains', me.uid)), snap => {
+      groups = {};
+      snap.docs.forEach(d => { groups[d.id] = d.data({ serverTimestamps: 'estimate' }); });
+      // 抜けた・外されたグループを開いていたら一覧にもどす
+      if (room.type === 'group' && !groups[room.gid]) { updateBadges(); showTab('group'); return; }
+      if (room.type === 'group' && isVisible()) markRead('g:' + room.gid);
+      refresh();
+    }, err => console.error(err)));
+
+    unsubs.push(onSnapshot(query(collection(db, 'dms'), where('members', 'array-contains', me.uid)), snap => {
       dms = {};
       snap.docs.forEach(d => { dms[d.id] = d.data({ serverTimestamps: 'estimate' }); });
-      if (room.type === 'dm' && isVisible()) markRead(room.pairId);
-      updateBadge();
-      if (tab === 'dm' && room.type !== 'dm') renderList();
-    }, err => console.error(err));
+      if (room.type === 'dm' && isVisible()) markRead('d:' + room.pairId);
+      refresh();
+    }, err => console.error(err)));
+  }
+
+  // 一覧・バッジ・上の帯をいまのデータで描き直す
+  function refresh() {
+    updateBadges();
+    if (room.type === 'list') renderList();
+    else updateRoomBar();
   }
 
   const pairOf = other => [me.uid, other].sort().join('|');
   const millis = t => (t && t.toMillis ? t.toMillis() : 0);
   const isVisible = () => document.visibilityState === 'visible';
-  function isUnread(pairId) {
-    const d = dms[pairId];
+  // key は 'g:グループID' か 'd:個人チャットID'
+  function lastOf(key) { return key.startsWith('g:') ? groups[key.slice(2)] : dms[key.slice(2)]; }
+  function isUnread(key) {
+    const d = lastOf(key);
     if (!d || d.lastFrom === me.uid) return false;
-    return millis(d.lastAt) > Number(load('chatRead:' + pairId) || 0);
+    return millis(d.lastAt) > Number(load('chatRead:' + key) || 0);
   }
-  function markRead(pairId) {
-    const d = dms[pairId];
-    store('chatRead:' + pairId, String(Math.max(Date.now(), millis(d && d.lastAt))));
-    updateBadge();
+  function markRead(key) {
+    const d = lastOf(key);
+    store('chatRead:' + key, String(Math.max(Date.now(), millis(d && d.lastAt))));
+    updateBadges();
   }
-  function updateBadge() {
-    const n = Object.keys(dms).filter(isUnread).length;
-    $('dmBadge').textContent = n;
-    $('dmBadge').classList.toggle('hidden', n === 0);
+  function setBadge(el, n) { el.textContent = n; el.classList.toggle('hidden', n === 0); }
+  function updateBadges() {
+    setBadge($('groupBadge'), Object.keys(groups).filter(id => isUnread('g:' + id)).length);
+    setBadge($('dmBadge'), Object.keys(dms).filter(id => isUnread('d:' + id)).length);
   }
   document.addEventListener('visibilitychange', () => {
-    if (isVisible() && me && room.type === 'dm') markRead(room.pairId);
+    if (!isVisible() || !me) return;
+    if (room.type === 'dm') markRead('d:' + room.pairId);
+    if (room.type === 'group') markRead('g:' + room.gid);
   });
 
-  // 名前の丸の色(人ごとに決まった色)
+  // 名前の丸の色(人ごと・グループごとに決まった色)
   const COLORS = ['#1e5aa8', '#1a8a3c', '#c0392b', '#8e44ad', '#d35400', '#16808a', '#7f6a00', '#b03a6f'];
-  function colorOf(uid) {
+  function colorOf(key) {
     let h = 0;
-    for (const c of String(uid)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    for (const c of String(key)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
     return COLORS[h % COLORS.length];
   }
-  function avatarEl(uid, name, tag) {
+  function avatarEl(key, name, tag, isGroup) {
     const el = document.createElement(tag || 'button');
-    el.className = 'avatar';
-    el.style.background = colorOf(uid);
+    el.className = 'avatar' + (isGroup ? ' group' : '');
+    el.style.background = colorOf(key);
     el.textContent = String(name || '?').trim().charAt(0) || '?';
     return el;
   }
   const nameOf = uid => (members[uid] && members[uid].name) || '(外れたメンバー)';
   const phoneOf = uid => (members[uid] && members[uid].phone) || '';
   const telHref = phone => 'tel:' + phone.replace(/[^0-9+]/g, '');
+  const canManage = g => g && (g.owner === me.uid || me.admin);
+
+  function lastLine(d, emptyText) {
+    if (!d || !d.lastText) return emptyText;
+    return (d.lastFrom === me.uid ? 'あなた' : nameOf(d.lastFrom)) + ': ' + d.lastText;
+  }
+
+  function listRow(avatar, title, sub, unread, onclick) {
+    const row = document.createElement('button');
+    row.className = 'person';
+    row.appendChild(avatar);
+    const info = document.createElement('div');
+    info.className = 'info';
+    const n = document.createElement('div');
+    n.className = 'pname';
+    n.textContent = title;
+    const last = document.createElement('div');
+    last.className = 'last';
+    last.textContent = sub;
+    info.appendChild(n);
+    info.appendChild(last);
+    row.appendChild(info);
+    if (unread) {
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.setAttribute('aria-label', '未読');
+      row.appendChild(dot);
+    }
+    row.onclick = onclick;
+    return row;
+  }
 
   function renderList() {
     const pane = $('listPane');
     pane.innerHTML = '';
+    if (tab === 'group') {
+      const add = document.createElement('button');
+      add.className = 'sub newGroup';
+      add.textContent = '+ グループを作る';
+      add.onclick = () => openGroupView('create');
+      pane.appendChild(add);
+      pane.appendChild(listRow(avatarEl('all', allName, 'span', true), allName, 'メンバー全員', false, () => openRoom({ type: 'all' })));
+      Object.keys(groups)
+        .sort((a, b) => millis(groups[b].lastAt) - millis(groups[a].lastAt))
+        .forEach(gid => {
+          const g = groups[gid];
+          pane.appendChild(listRow(avatarEl(gid, g.name, 'span', true), g.name + '(' + g.members.length + '人)',
+            lastLine(g, 'まだメッセージはありません'), isUnread('g:' + gid), () => openRoom({ type: 'group', gid })));
+        });
+      return;
+    }
+    // 個人タブ
     if (!phoneOf(me.uid)) {
       const hint = document.createElement('div');
       hint.className = 'hint';
@@ -528,65 +634,66 @@
     });
     others.forEach(uid => {
       const pairId = pairOf(uid);
-      const d = dms[pairId];
-      const row = document.createElement('button');
-      row.className = 'person';
-      row.appendChild(avatarEl(uid, nameOf(uid), 'span'));
-      const info = document.createElement('div');
-      info.className = 'info';
-      const n = document.createElement('div');
-      n.className = 'pname';
-      n.textContent = nameOf(uid);
-      const last = document.createElement('div');
-      last.className = 'last';
-      last.textContent = d && d.lastText ? (d.lastFrom === me.uid ? 'あなた: ' : '') + d.lastText : 'タップして個人チャット・電話';
-      info.appendChild(n);
-      info.appendChild(last);
-      row.appendChild(info);
-      if (isUnread(pairId)) {
-        const dot = document.createElement('span');
-        dot.className = 'dot';
-        dot.setAttribute('aria-label', '未読');
-        row.appendChild(dot);
-      }
-      row.onclick = () => openSheet(uid);
-      pane.appendChild(row);
+      pane.appendChild(listRow(avatarEl(uid, nameOf(uid), 'span'), nameOf(uid),
+        lastLine(dms[pairId], 'タップして個人チャット・電話'), isUnread('d:' + pairId), () => openSheet(uid)));
     });
   }
 
   // ===== 画面の切り替え =====
+  function setTabButtons() {
+    $('tabGroup').classList.toggle('on', tab === 'group');
+    $('tabDm').classList.toggle('on', tab === 'dm');
+  }
   function showTab(name) {
     tab = name;
-    $('tabAll').classList.toggle('on', name === 'all');
-    $('tabDm').classList.toggle('on', name === 'dm');
-    if (name === 'all') openRoom({ type: 'all' });
-    else showList();
-  }
-  $('tabAll').onclick = () => showTab('all');
-  $('tabDm').onclick = () => showTab('dm');
-
-  function showList() {
+    setTabButtons();
     if (unsubMessages) { unsubMessages(); unsubMessages = null; }
     room = { type: 'list' };
     $('listPane').classList.remove('hidden');
     ['roomBar', 'messages', 'composer'].forEach(id => $(id).classList.add('hidden'));
     renderList();
   }
+  $('tabGroup').onclick = () => showTab('group');
+  $('tabDm').onclick = () => showTab('dm');
+  $('roomBackBtn').onclick = () => showTab(tab);
 
   function openRoom(r) {
     if (unsubMessages) { unsubMessages(); unsubMessages = null; }
     room = r;
+    tab = r.type === 'dm' ? 'dm' : 'group';
+    setTabButtons();
     $('listPane').classList.add('hidden');
-    $('messages').classList.remove('hidden');
-    $('composer').classList.remove('hidden');
-    $('roomBar').classList.toggle('hidden', r.type !== 'dm');
-    if (r.type === 'dm') { updateRoomBar(); markRead(r.pairId); }
+    ['roomBar', 'messages', 'composer'].forEach(id => $(id).classList.remove('hidden'));
+    updateRoomBar();
+    if (r.type === 'dm') markRead('d:' + r.pairId);
+    if (r.type === 'group') markRead('g:' + r.gid);
     listenMessages();
   }
 
   function updateRoomBar() {
-    $('roomName').textContent = nameOf(room.other);
-    setCallLink($('roomCallBtn'), room.other);
+    const nameEl = $('roomName');
+    nameEl.textContent = '';
+    let call = false, edit = false;
+    if (room.type === 'all') {
+      nameEl.textContent = allName;
+      edit = me.admin;
+      $('roomEditBtn').textContent = '名前変更';
+    } else if (room.type === 'group') {
+      const g = groups[room.gid];
+      if (!g) return;
+      nameEl.textContent = g.name;
+      const small = document.createElement('small');
+      small.textContent = ' ' + g.members.length + '人';
+      nameEl.appendChild(small);
+      edit = true;
+      $('roomEditBtn').textContent = '設定';
+    } else if (room.type === 'dm') {
+      nameEl.textContent = nameOf(room.other);
+      call = true;
+      setCallLink($('roomCallBtn'), room.other);
+    }
+    $('roomCallBtn').classList.toggle('hidden', !call);
+    $('roomEditBtn').classList.toggle('hidden', !edit);
   }
   function setCallLink(a, uid) {
     const phone = phoneOf(uid);
@@ -594,7 +701,10 @@
     a.classList.toggle('off', !phone);
     a.setAttribute('aria-disabled', phone ? 'false' : 'true');
   }
-  $('roomBackBtn').onclick = () => showTab('dm');
+  $('roomEditBtn').onclick = () => {
+    if (room.type === 'all') openGroupView('all');
+    else if (room.type === 'group') openGroupView('edit', room.gid);
+  };
 
   // 名前の丸を押したときのメニュー
   let sheetUid = null;
@@ -619,10 +729,100 @@
   $('sheetChatBtn').onclick = () => {
     const uid = sheetUid;
     closeSheet();
-    tab = 'dm';
-    $('tabAll').classList.remove('on');
-    $('tabDm').classList.add('on');
     openRoom({ type: 'dm', pairId: pairOf(uid), other: uid });
+  };
+
+  // ===== グループを作る・設定 =====
+  // mode: 'create'(作る) / 'edit'(グループの設定) / 'all'(全体の名前)
+  let groupMode = 'create', groupId = null;
+  function openGroupView(mode, gid) {
+    groupMode = mode;
+    groupId = gid || null;
+    const g = gid ? groups[gid] : null;
+    const manage = mode === 'create' || mode === 'all' || canManage(g);
+    $('groupTitle').textContent = mode === 'create' ? 'グループを作る' : mode === 'all' ? '全体チャットの名前' : 'グループの設定';
+    $('groupName').value = mode === 'all' ? allName : g ? g.name : '';
+    $('groupName').disabled = !manage;
+    const note = $('groupNameNote');
+    note.textContent = '名前やメンバーを変えられるのは、作った人(' + (g ? nameOf(g.owner) : '') + ')と管理者です。';
+    note.classList.toggle('hidden', manage || mode !== 'edit');
+    $('groupMembersCard').classList.toggle('hidden', mode === 'all');
+    $('groupSaveBtn').textContent = mode === 'create' ? '作る' : '保存';
+    $('groupSaveBtn').classList.toggle('hidden', !manage);
+    $('groupLeaveBtn').classList.toggle('hidden', mode !== 'edit');
+    setMsg($('groupMsg'), '');
+    renderGroupMembers(g, manage);
+    $('groupView').classList.remove('hidden');
+  }
+  $('groupCloseBtn').onclick = () => $('groupView').classList.add('hidden');
+
+  function renderGroupMembers(g, manage) {
+    const box = $('groupMembers');
+    box.innerHTML = '';
+    const inGroup = g ? g.members : [me.uid];
+    const list = manage ? Object.keys(members) : inGroup.slice();
+    list.sort((a, b) => (a === me.uid ? -1 : b === me.uid ? 1 : nameOf(a).localeCompare(nameOf(b), 'ja')));
+    list.forEach(uid => {
+      const row = document.createElement('label');
+      row.className = 'check';
+      if (manage) {
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = uid;
+        cb.checked = inGroup.indexOf(uid) >= 0;
+        // 自分は外せない(抜けるときは「抜ける」ボタン)
+        if (uid === me.uid) cb.disabled = true;
+        row.appendChild(cb);
+      }
+      row.appendChild(avatarEl(uid, nameOf(uid), 'span'));
+      const n = document.createElement('span');
+      n.textContent = nameOf(uid) + (uid === me.uid ? '(自分)' : '');
+      row.appendChild(n);
+      box.appendChild(row);
+    });
+  }
+
+  $('groupSaveBtn').onclick = async () => {
+    const name = $('groupName').value.trim();
+    if (!name || name.length > 20) { setMsg($('groupMsg'), '名前は1〜20文字で入れてください。'); return; }
+    const picked = [...$('groupMembers').querySelectorAll('input:checked')].map(cb => cb.value);
+    if (groupMode !== 'all' && picked.length < 2) { setMsg($('groupMsg'), '自分のほかに1人以上選んでください。'); return; }
+    $('groupSaveBtn').disabled = true;
+    try {
+      if (groupMode === 'all') {
+        await setDoc(doc(db, 'settings', 'all'), { name });
+        $('groupView').classList.add('hidden');
+      } else if (groupMode === 'create') {
+        const ref = await addDoc(collection(db, 'groups'), {
+          name, members: picked, owner: me.uid,
+          createdAt: serverTimestamp(), lastAt: serverTimestamp(), lastFrom: me.uid, lastText: ''
+        });
+        $('groupView').classList.add('hidden');
+        openRoom({ type: 'group', gid: ref.id });
+      } else {
+        await updateDoc(doc(db, 'groups', groupId), { name, members: picked });
+        $('groupView').classList.add('hidden');
+      }
+    } catch (e) {
+      console.error(e);
+      setMsg($('groupMsg'), '保存できませんでした。もう一度ためしてください。');
+    }
+    $('groupSaveBtn').disabled = false;
+  };
+
+  $('groupLeaveBtn').onclick = async () => {
+    const g = groups[groupId];
+    if (!g || !confirm('「' + g.name + '」を抜けますか?(もう一度入るには、作った人か管理者に入れてもらう必要があります)')) return;
+    $('groupLeaveBtn').disabled = true;
+    try {
+      await updateDoc(doc(db, 'groups', groupId), { members: arrayRemove(me.uid) });
+      $('groupView').classList.add('hidden');
+      showTab('group');
+    } catch (e) {
+      console.error(e);
+      setMsg($('groupMsg'), '抜けられませんでした。もう一度ためしてください。');
+    }
+    $('groupLeaveBtn').disabled = false;
   };
 
   // ===== メッセージ =====
@@ -631,7 +831,9 @@
   let forceScroll = true;
 
   function messagesRef() {
-    return room.type === 'dm' ? collection(db, 'dms', room.pairId, 'messages') : collection(db, 'messages');
+    if (room.type === 'dm') return collection(db, 'dms', room.pairId, 'messages');
+    if (room.type === 'group') return collection(db, 'groups', room.gid, 'messages');
+    return collection(db, 'messages');
   }
 
   function listenMessages() {
@@ -647,6 +849,7 @@
       if (stick) box.scrollTop = box.scrollHeight;
       forceScroll = false;
     }, err => {
+      if (room !== current) return;
       console.error(err);
       box.innerHTML = '';
       const p = document.createElement('p');
@@ -670,7 +873,6 @@
       const p = document.createElement('p');
       p.className = 'empty';
       p.textContent = room.type === 'dm' ? nameOf(room.other) + ' さんとの個人チャットです。\nまだメッセージはありません' : 'まだメッセージはありません';
-      p.style.whiteSpace = 'pre-line';
       box.appendChild(p);
       return;
     }
@@ -729,21 +931,26 @@
 
   async function send() {
     const text = input.value.trim();
-    if (!text || !me || (room.type !== 'all' && room.type !== 'dm')) return;
+    if (!text || !me || room.type === 'list') return;
     if (text.length > 2000) { alert('長すぎます(2000文字まで)'); return; }
     $('sendBtn').disabled = true;
     try {
       forceScroll = true;
       const data = { uid: me.uid, name: me.name, text, createdAt: serverTimestamp() };
-      let id, dm = null;
-      if (room.type === 'dm') {
-        dm = room.pairId;
-        const ref = doc(collection(db, 'dms', dm, 'messages'));
+      const last = { lastAt: serverTimestamp(), lastFrom: me.uid, lastText: text.slice(0, 60) };
+      const extra = {};
+      let id;
+      if (room.type === 'dm' || room.type === 'group') {
+        const ref = doc(messagesRef());
         const batch = writeBatch(db);
         batch.set(ref, data);
-        batch.set(doc(db, 'dms', dm), {
-          members: dm.split('|'), lastAt: serverTimestamp(), lastFrom: me.uid, lastText: text.slice(0, 60)
-        });
+        if (room.type === 'dm') {
+          batch.set(doc(db, 'dms', room.pairId), { members: room.pairId.split('|'), ...last });
+          extra.dm = room.pairId;
+        } else {
+          batch.update(doc(db, 'groups', room.gid), last);
+          extra.group = room.gid;
+        }
         await batch.commit();
         id = ref.id;
       } else {
@@ -753,7 +960,7 @@
       autoGrow();
       // 通知はGASにまかせる(失敗してもメッセージは届いている)
       auth.currentUser.getIdToken()
-        .then(idToken => gas({ action: 'notify', idToken, id, dm }))
+        .then(idToken => gas({ action: 'notify', idToken, id, ...extra }))
         .catch(e => console.warn('通知を送れませんでした', e));
     } catch (e) {
       console.error(e);
