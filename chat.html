@@ -118,6 +118,9 @@
     }
     .msg.mine .bubble { background: var(--mine); color: var(--mine-text); }
     .msg .time { font-size: 12px; color: var(--sub); white-space: nowrap; }
+    .msg .meta { display: flex; flex-direction: column; align-items: flex-start; flex-shrink: 0; }
+    .msg.mine .meta { align-items: flex-end; }
+    .msg .read { font-size: 12px; color: var(--primary); white-space: nowrap; }
     .empty { text-align: center; color: var(--sub); margin-top: 40px; line-height: 1.6; white-space: pre-line; }
     #composer {
       display: flex; gap: 8px; align-items: flex-end;
@@ -372,6 +375,13 @@
       <button id="settingsCloseBtn" class="small sub">もどる</button>
     </h1>
     <div class="card">
+      <label for="myName">自分の名前(チャットに出る名前)</label>
+      <input id="myName" type="text" maxlength="20" autocomplete="nickname">
+      <div id="nameMsg"></div>
+      <button id="nameSaveBtn">保存</button>
+      <p class="note" style="margin-top:10px">変えると、前に送ったメッセージも新しい名前で表示されます。</p>
+    </div>
+    <div class="card">
       <label for="myPhone">自分の電話番号</label>
       <input id="myPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="090-1234-5678">
       <div id="phoneMsg"></div>
@@ -598,6 +608,7 @@
     unsubs.forEach(fn => fn());
     unsubs = [];
     if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+    stopReads();
   }
 
   async function logout() {
@@ -621,7 +632,14 @@
       members = {};
       snap.docs.forEach(d => { members[d.id] = d.data(); });
       if (members[me.uid]) me.name = members[me.uid].name;
+      $('meName').textContent = me.name + ' としてログイン中';
       refresh();
+      // 名前が変わったときのために、開いているチャットを描き直す(見ている位置はそのまま)
+      if (room.type !== 'list' && shownList.length) {
+        const top = box.scrollTop;
+        render(shownList);
+        box.scrollTop = top;
+      }
       if (!$('adminView').classList.contains('hidden')) renderMembers();
     }, err => console.error(err)));
 
@@ -695,6 +713,7 @@
     if (!isVisible() || !me) return;
     if (room.type === 'dm') markRead('d:' + room.pairId);
     if (room.type === 'group') markRead('g:' + room.gid);
+    markSeen();
   });
 
   // 名前の丸の色(人ごと・グループごとに決まった色)
@@ -808,6 +827,7 @@
     tab = name;
     setTabButtons();
     if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+    stopReads();
     room = { type: 'list' };
     $('listPane').classList.remove('hidden');
     ['roomBar', 'messages', 'composer'].forEach(id => $(id).classList.add('hidden'));
@@ -827,7 +847,9 @@
     updateRoomBar();
     if (r.type === 'dm') markRead('d:' + r.pairId);
     if (r.type === 'group') markRead('g:' + r.gid);
+    shownList = [];
     listenMessages();
+    listenReads(r);
   }
 
   function updateRoomBar() {
@@ -1017,7 +1039,9 @@
       if (room !== current) return;
       const list = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
       const stick = forceScroll || nearBottom();
+      shownList = list;
       render(list);
+      markSeen();
       if (pendingHighlight) {
         const id = pendingHighlight;
         pendingHighlight = null;
@@ -1074,9 +1098,11 @@
       const wrap = document.createElement('div');
       wrap.className = 'msg' + (mine ? ' mine' : '');
       wrap.dataset.id = m.id;
+      // 名前は今の名前で出す(外れたメンバーは送ったときの名前)
+      const who = members[m.uid] ? members[m.uid].name : m.name;
       if (!mine) {
-        const av = avatarEl(m.uid, m.name);
-        av.setAttribute('aria-label', m.name + ' さんのメニュー');
+        const av = avatarEl(m.uid, who);
+        av.setAttribute('aria-label', who + ' さんのメニュー');
         av.onclick = () => openSheet(m.uid);
         wrap.appendChild(av);
       }
@@ -1085,7 +1111,7 @@
       if (!mine && room.type !== 'dm') {
         const name = document.createElement('div');
         name.className = 'name';
-        name.textContent = m.name;
+        name.textContent = who;
         body.appendChild(name);
       }
       const line = document.createElement('div');
@@ -1104,15 +1130,76 @@
       } else {
         bubble.textContent = m.text;
       }
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      if (mine) {
+        const read = document.createElement('span');
+        read.className = 'read';
+        read.textContent = receiptText(m);
+        meta.appendChild(read);
+      }
       const time = document.createElement('span');
       time.className = 'time';
       time.textContent = timeLabel(d);
+      meta.appendChild(time);
       line.appendChild(bubble);
-      line.appendChild(time);
+      line.appendChild(meta);
       body.appendChild(line);
       wrap.appendChild(body);
       box.appendChild(wrap);
     });
+  }
+
+  // ===== 既読 =====
+  let readMap = {};          // メール → 最後に読んだ時刻(ミリ秒)
+  let unsubReads = null;
+  let shownList = [];        // いま画面に出しているメッセージ
+  let lastSeenSent = 0;      // 自分の「ここまで読んだ」を最後に書いた時点のメッセージ時刻
+
+  function listenReads(r) {
+    stopReads();
+    unsubReads = onSnapshot(collection(db, 'reads', roomKey(r), 'users'), snap => {
+      if (!sameRoomOpen(r)) return;
+      readMap = {};
+      snap.docs.forEach(d => { readMap[d.id] = millis(d.data({ serverTimestamps: 'estimate' }).at); });
+      updateReceipts();
+    }, err => console.error(err));
+  }
+  function stopReads() {
+    if (unsubReads) { unsubReads(); unsubReads = null; }
+    readMap = {};
+    lastSeenSent = 0;
+  }
+  const sameRoomOpen = r => room.type !== 'list' && sameRoom(room, r);
+
+  // 個人チャットは「既読」、グループ・全体は読んだ人数
+  function receiptText(m) {
+    const t = millis(m.createdAt);
+    if (!t || room.type === 'list') return '';
+    if (room.type === 'dm') return (readMap[room.other] || 0) >= t ? '既読' : '';
+    const inRoom = room.type === 'group'
+      ? uid => groups[room.gid] && groups[room.gid].members.indexOf(uid) >= 0
+      : uid => !!members[uid];
+    const n = Object.keys(readMap).filter(uid => uid !== me.uid && readMap[uid] >= t && inRoom(uid)).length;
+    return n ? '既読 ' + n : '';
+  }
+  function updateReceipts() {
+    const byId = new Map(shownList.map(m => [m.id, m]));
+    box.querySelectorAll('.msg.mine').forEach(el => {
+      const m = byId.get(el.dataset.id);
+      const read = el.querySelector('.read');
+      if (m && read) read.textContent = receiptText(m);
+    });
+  }
+
+  // 画面に出したら「ここまで読んだ」を記録する(新しいメッセージが来たときだけ書く)
+  function markSeen() {
+    if (room.type === 'list' || !isVisible() || !shownList.length) return;
+    const newest = Math.max(...shownList.map(m => millis(m.createdAt)));
+    if (!newest || newest <= lastSeenSent) return;
+    lastSeenSent = newest;
+    setDoc(doc(db, 'reads', roomKey(room), 'users', me.uid), { at: serverTimestamp() })
+      .catch(e => { console.error(e); lastSeenSent = 0; });
   }
 
   const input = $('input');
@@ -1408,7 +1495,8 @@
     top.className = 'rtop';
     const rr = document.createElement('span');
     rr.className = 'rroom';
-    rr.textContent = searchScope ? m.name : roomLabel(r) + ' / ' + m.name;
+    const who = members[m.uid] ? members[m.uid].name : m.name;
+    rr.textContent = searchScope ? who : roomLabel(r) + ' / ' + who;
     const when = document.createElement('span');
     const d = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate() : null;
     when.textContent = d ? dayLabel(d) + ' ' + timeLabel(d) : '';
@@ -1516,6 +1604,8 @@
 
   // ===== 設定(電話番号) =====
   $('settingsBtn').onclick = () => {
+    $('myName').value = me.name;
+    setMsg($('nameMsg'), '');
     $('myPhone').value = phoneOf(me.uid);
     setMsg($('phoneMsg'), '');
     $('pwUser').value = me.uid;
@@ -1543,6 +1633,20 @@
     $('pwSaveBtn').disabled = false;
   };
   $('settingsCloseBtn').onclick = () => $('settingsView').classList.add('hidden');
+  $('nameSaveBtn').onclick = async () => {
+    const name = $('myName').value.trim();
+    if (!name || name.length > 20) { setMsg($('nameMsg'), '名前は1〜20文字で入れてください。'); return; }
+    $('nameSaveBtn').disabled = true;
+    try {
+      await updateDoc(doc(db, 'members', me.uid), { name });
+      me.name = name;
+      setMsg($('nameMsg'), '名前を変えました。', true);
+    } catch (e) {
+      console.error(e);
+      setMsg($('nameMsg'), '保存できませんでした。もう一度ためしてください。');
+    }
+    $('nameSaveBtn').disabled = false;
+  };
   $('phoneSaveBtn').onclick = async () => {
     const phone = $('myPhone').value.trim();
     if (!/^[0-9+() -]{0,20}$/.test(phone)) { setMsg($('phoneMsg'), '数字とハイフンで入れてください(20文字まで)。'); return; }
