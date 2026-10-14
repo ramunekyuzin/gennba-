@@ -157,6 +157,8 @@
     .member .info { flex: 1; min-width: 0; }
     .member .mname { font-size: 16px; font-weight: bold; }
     .member .mmail { font-size: 14px; color: var(--sub); word-break: break-all; }
+    .member .mbtns { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    .adminTag { font-size: 12px; font-weight: normal; color: #fff; background: var(--primary); border-radius: 8px; padding: 2px 8px; margin-left: 6px; vertical-align: middle; }
     .check { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 16px; color: var(--text); margin: 0; cursor: pointer; }
     .check:last-child { border-bottom: none; }
     .check input { width: 22px; height: 22px; margin: 0; flex-shrink: 0; }
@@ -361,6 +363,7 @@
   let dms = {};             // 個人チャットのID → { members, lastAt, lastFrom, lastText }
   let groups = {};          // グループのID → { name, members, owner, lastAt, lastFrom, lastText }
   let allName = '全体';     // 全体チャットの名前
+  let admins = new Set();   // 管理者のメール(管理者にだけ見える)
   // 今いる場所: { type: 'list' } / { type: 'all' } / { type: 'group', gid } / { type: 'dm', pairId, other }
   let room = { type: 'list' };
   let tab = 'group';        // 'group' または 'dm'
@@ -445,6 +448,7 @@
     members = {};
     dms = {};
     groups = {};
+    admins = new Set();
     $('meName').textContent = me.name + ' としてログイン中';
     $('adminBtn').classList.toggle('hidden', !admin);
     show('chatView');
@@ -487,6 +491,14 @@
       if (!$('adminView').classList.contains('hidden')) renderMembers();
     }, err => console.error(err)));
 
+    if (me.admin) {
+      unsubs.push(onSnapshot(collection(db, 'admins'), snap => {
+        admins = new Set(snap.docs.map(d => d.id));
+        if (!admins.has(me.uid)) setNotAdmin();
+        else if (!$('adminView').classList.contains('hidden')) renderMembers();
+      }, err => { console.error(err); setNotAdmin(); }));
+    }
+
     unsubs.push(onSnapshot(doc(db, 'settings', 'all'), snap => {
       allName = (snap.exists() && snap.data().name) || '全体';
       refresh();
@@ -507,6 +519,15 @@
       if (room.type === 'dm' && isVisible()) markRead('d:' + room.pairId);
       refresh();
     }, err => console.error(err)));
+  }
+
+  // ほかの管理者に管理者から外されたとき
+  function setNotAdmin() {
+    me.admin = false;
+    admins = new Set();
+    $('adminBtn').classList.add('hidden');
+    $('adminView').classList.add('hidden');
+    refresh();
   }
 
   // 一覧・バッジ・上の帯をいまのデータで描き直す
@@ -1056,6 +1077,12 @@
         const n = document.createElement('div');
         n.className = 'mname';
         n.textContent = nameOf(email);
+        if (admins.has(email)) {
+          const tag = document.createElement('span');
+          tag.className = 'adminTag';
+          tag.textContent = '管理者';
+          n.appendChild(tag);
+        }
         const mail = document.createElement('div');
         mail.className = 'mmail';
         mail.textContent = email;
@@ -1063,14 +1090,38 @@
         info.appendChild(mail);
         row.appendChild(info);
         if (email !== me.uid) {
+          const btns = document.createElement('div');
+          btns.className = 'mbtns';
+          const isAdm = admins.has(email);
+          const adm = document.createElement('button');
+          adm.className = 'small sub';
+          adm.textContent = isAdm ? '管理者から外す' : '管理者にする';
+          adm.onclick = () => setAdmin(email, !isAdm, adm);
           const btn = document.createElement('button');
           btn.className = 'small danger';
           btn.textContent = '外す';
           btn.onclick = () => removeMember(email, btn);
-          row.appendChild(btn);
+          btns.appendChild(adm);
+          btns.appendChild(btn);
+          row.appendChild(btns);
         }
         el.appendChild(row);
       });
+  }
+
+  async function setAdmin(email, admin, btn) {
+    const msg = admin
+      ? nameOf(email) + ' さんを管理者にしますか?(招待・メンバーを外す・管理者の変更ができるようになります)'
+      : nameOf(email) + ' さんを管理者から外しますか?';
+    if (!confirm(msg)) return;
+    btn.disabled = true;
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      await gas({ action: 'setAdmin', idToken, email, admin });
+    } catch (e) {
+      alert(e.message || '変更できませんでした。');
+      btn.disabled = false;
+    }
   }
 
   $('inviteBtn').onclick = async () => {
