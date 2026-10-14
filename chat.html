@@ -505,6 +505,7 @@
   let groups = {};          // グループのID → { name, members, owner, lastAt, lastFrom, lastText }
   let allName = '全体';     // 全体チャットの名前
   let admins = new Set();   // 管理者のメール(管理者にだけ見える)
+  let owners = new Set();   // オーナー(ほかの管理者から外せない人)
   // 今いる場所: { type: 'list' } / { type: 'all' } / { type: 'group', gid } / { type: 'dm', pairId, other }
   let room = { type: 'list' };
   let tab = 'group';        // 'group' または 'dm'
@@ -626,6 +627,7 @@
     dms = {};
     groups = {};
     admins = new Set();
+    owners = new Set();
     stopWatch();
     $('meName').textContent = me.name + ' としてログイン中';
     $('adminBtn').classList.toggle('hidden', !admin && !monitor);
@@ -680,6 +682,7 @@
     if (me.admin) {
       unsubs.push(onSnapshot(collection(db, 'admins'), snap => {
         admins = new Set(snap.docs.map(d => d.id));
+        owners = new Set(snap.docs.filter(d => d.data().owner === true).map(d => d.id));
         if (!admins.has(me.uid)) setNotAdmin();
         else if (!$('adminView').classList.contains('hidden')) renderMembers();
       }, err => { console.error(err); setNotAdmin(); }));
@@ -711,7 +714,9 @@
   function setNotAdmin() {
     me.admin = false;
     admins = new Set();
-    $('adminBtn').classList.add('hidden');
+    owners = new Set();
+    // 「すべてのチャットを見る」の人は、管理ボタンを残す(そこから開くため)
+    $('adminBtn').classList.toggle('hidden', !me.monitor);
     $('adminView').classList.add('hidden');
     refresh();
   }
@@ -1864,7 +1869,7 @@
         if (admins.has(email)) {
           const tag = document.createElement('span');
           tag.className = 'adminTag';
-          tag.textContent = '管理者';
+          tag.textContent = owners.has(email) ? 'オーナー' : '管理者';
           n.appendChild(tag);
         }
         const mail = document.createElement('div');
@@ -1873,7 +1878,7 @@
         info.appendChild(n);
         info.appendChild(mail);
         row.appendChild(info);
-        if (email !== me.uid) {
+        if (email !== me.uid && !owners.has(email)) {
           const btns = document.createElement('div');
           btns.className = 'mbtns';
           const isAdm = admins.has(email);
