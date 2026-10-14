@@ -440,6 +440,20 @@
       <label>メンバー</label>
       <div id="memberList"><p class="note">読み込み中…</p></div>
     </div>
+    <div class="card hidden" id="watchCard">
+      <button id="watchOpenBtn" class="sub">すべてのチャットを見る</button>
+    </div>
+  </div>
+</div>
+
+<!-- すべてのチャット(見るだけ) -->
+<div id="watchView" class="full hidden">
+  <div class="page">
+    <h1 style="display:flex;justify-content:space-between;align-items:center">
+      すべてのチャット
+      <button id="watchCloseBtn" class="small sub">もどる</button>
+    </h1>
+    <div id="watchList"><p class="note">読み込み中…</p></div>
   </div>
 </div>
 
@@ -604,15 +618,18 @@
       member = null;   // メンバーでなければ読めないルールなので、読めない=外されている
     }
     if (!member) { show('deniedView'); return; }
-    let admin = false;
+    let admin = false, monitor = false;
     try { admin = (await getDoc(doc(db, 'admins', user.uid))).exists(); } catch (e) { /* 管理者でない */ }
-    me = { uid: user.uid, name: member.name, admin };
+    try { monitor = (await getDoc(doc(db, 'monitors', user.uid))).exists(); } catch (e) { /* 見られない */ }
+    me = { uid: user.uid, name: member.name, admin, monitor };
     members = {};
     dms = {};
     groups = {};
     admins = new Set();
+    stopWatch();
     $('meName').textContent = me.name + ' としてログイン中';
-    $('adminBtn').classList.toggle('hidden', !admin);
+    $('adminBtn').classList.toggle('hidden', !admin && !monitor);
+    $('watchCard').classList.toggle('hidden', !monitor);
     show('chatView');
     listenAll();
     // 最初は個人チャットの一覧から
@@ -625,6 +642,7 @@
     unsubs = [];
     if (unsubMessages) { unsubMessages(); unsubMessages = null; }
     stopReads();
+    stopWatch();
   }
 
   async function logout() {
@@ -636,7 +654,7 @@
       forget('chatPushToken');
     }
     stopListeners();
-    ['adminView', 'settingsView', 'groupView'].forEach(id => $(id).classList.add('hidden'));
+    ['adminView', 'settingsView', 'groupView', 'watchView'].forEach(id => $(id).classList.add('hidden'));
     await signOut(auth);
   }
   $('logoutBtn').onclick = logout;
@@ -676,7 +694,7 @@
       groups = {};
       snap.docs.forEach(d => { groups[d.id] = d.data({ serverTimestamps: 'estimate' }); });
       // 抜けた・外されたグループを開いていたら一覧にもどす
-      if (room.type === 'group' && !groups[room.gid]) { updateBadges(); showTab('group'); return; }
+      if (room.type === 'group' && !room.watch && !groups[room.gid]) { updateBadges(); showTab('group'); return; }
       if (room.type === 'group' && isVisible()) markRead('g:' + room.gid);
       refresh();
     }, err => console.error(err)));
@@ -851,18 +869,24 @@
   }
   $('tabGroup').onclick = () => showTab('group');
   $('tabDm').onclick = () => showTab('dm');
-  $('roomBackBtn').onclick = () => showTab(tab);
+  $('roomBackBtn').onclick = () => {
+    const back = room.watch;
+    showTab(tab);
+    if (back) openWatch();
+  };
 
+  // r.watch が true のときは「すべてのチャットを見る」から開いた見るだけの画面(書き込み・既読はしない)
   function openRoom(r) {
     if (unsubMessages) { unsubMessages(); unsubMessages = null; }
     room = r;
     tab = r.type === 'dm' ? 'dm' : 'group';
     setTabButtons();
     $('listPane').classList.add('hidden');
-    ['roomBar', 'messages', 'composer'].forEach(id => $(id).classList.remove('hidden'));
+    ['roomBar', 'messages'].forEach(id => $(id).classList.remove('hidden'));
+    $('composer').classList.toggle('hidden', !!r.watch);
     updateRoomBar();
-    if (r.type === 'dm') markRead('d:' + r.pairId);
-    if (r.type === 'group') markRead('g:' + r.gid);
+    if (!r.watch && r.type === 'dm') markRead('d:' + r.pairId);
+    if (!r.watch && r.type === 'group') markRead('g:' + r.gid);
     shownList = [];
     listenMessages();
     listenReads(r);
@@ -872,7 +896,9 @@
     const nameEl = $('roomName');
     nameEl.textContent = '';
     let call = false, edit = false;
-    if (room.type === 'all') {
+    if (room.watch) {
+      nameEl.textContent = '👁 ' + roomLabel(room);
+    } else if (room.type === 'all') {
       nameEl.textContent = allName;
       edit = me.admin;
       $('roomEditBtn').textContent = '名前変更';
@@ -1039,9 +1065,11 @@
     if (r.type === 'group') return 'g:' + r.gid;
     return 'all';
   }
+  const groupOf = gid => groups[gid] || watchGroups[gid];
   function roomLabel(r) {
+    if (r.type === 'dm' && r.watch) return r.pairId.split('|').map(nameOf).join(' ⇔ ');
     if (r.type === 'dm') return nameOf(r.other) + '(個人)';
-    if (r.type === 'group') return groups[r.gid] ? groups[r.gid].name : 'グループ';
+    if (r.type === 'group') return groupOf(r.gid) ? groupOf(r.gid).name : 'グループ';
     return allName;
   }
   const sameRoom = (a, b) => a.type === b.type && roomKey(a) === roomKey(b);
@@ -1124,7 +1152,7 @@
       }
       const body = document.createElement('div');
       body.className = 'body';
-      if (!mine && room.type !== 'dm') {
+      if (!mine && (room.type !== 'dm' || room.watch)) {
         const name = document.createElement('div');
         name.className = 'name';
         name.textContent = who;
@@ -1276,7 +1304,7 @@
     if (!t || room.type === 'list') return '';
     if (room.type === 'dm') return (readMap[room.other] || 0) >= t ? '既読' : '';
     const inRoom = room.type === 'group'
-      ? uid => groups[room.gid] && groups[room.gid].members.indexOf(uid) >= 0
+      ? uid => groupOf(room.gid) && groupOf(room.gid).members.indexOf(uid) >= 0
       : uid => !!members[uid];
     const n = Object.keys(readMap).filter(uid => uid !== me.uid && readMap[uid] >= t && inRoom(uid)).length;
     return n ? '既読 ' + n : '';
@@ -1292,7 +1320,7 @@
 
   // 画面に出したら「ここまで読んだ」を記録する(新しいメッセージが来たときだけ書く)
   function markSeen() {
-    if (room.type === 'list' || !isVisible() || !shownList.length) return;
+    if (room.type === 'list' || room.watch || !isVisible() || !shownList.length) return;
     const newest = Math.max(...shownList.map(m => millis(m.createdAt)));
     if (!newest || newest <= lastSeenSent) return;
     lastSeenSent = newest;
@@ -1760,6 +1788,60 @@
   };
 
   // ===== 管理 =====
+  // ===== すべてのチャットを見る(monitors に入っている人だけ。見るだけで、書き込み・既読はしない) =====
+  let watchGroups = {}, watchDms = {}, watchUnsubs = [];
+  function stopWatch() {
+    watchUnsubs.forEach(fn => fn());
+    watchUnsubs = [];
+    watchGroups = {};
+    watchDms = {};
+  }
+  function openWatch() {
+    if (!me || !me.monitor) return;
+    $('adminView').classList.add('hidden');
+    $('watchView').classList.remove('hidden');
+    if (!watchUnsubs.length) {
+      watchUnsubs.push(onSnapshot(collection(db, 'groups'), snap => {
+        watchGroups = {};
+        snap.docs.forEach(d => { watchGroups[d.id] = d.data({ serverTimestamps: 'estimate' }); });
+        renderWatch();
+      }, err => console.error(err)));
+      watchUnsubs.push(onSnapshot(collection(db, 'dms'), snap => {
+        watchDms = {};
+        snap.docs.forEach(d => { watchDms[d.id] = d.data({ serverTimestamps: 'estimate' }); });
+        renderWatch();
+      }, err => console.error(err)));
+    }
+    renderWatch();
+  }
+  $('watchOpenBtn').onclick = openWatch;
+  $('watchCloseBtn').onclick = () => $('watchView').classList.add('hidden');
+
+  function renderWatch() {
+    const box = $('watchList');
+    box.innerHTML = '';
+    const items = [
+      ...Object.keys(watchGroups).map(gid => ({ r: { type: 'group', gid, watch: true }, d: watchGroups[gid], group: true })),
+      ...Object.keys(watchDms).map(pairId => ({ r: { type: 'dm', pairId, watch: true }, d: watchDms[pairId], group: false }))
+    ].sort((a, b) => millis(b.d.lastAt) - millis(a.d.lastAt));
+    if (!items.length) {
+      const p = document.createElement('p');
+      p.className = 'note';
+      p.textContent = 'まだグループや個人チャットはありません。';
+      box.appendChild(p);
+      return;
+    }
+    items.forEach(({ r, d, group }) => {
+      const title = group ? d.name + '(' + d.members.length + '人)' : roomLabel(r);
+      const when = d.lastAt ? (() => { const t = d.lastAt.toDate(); return dayLabel(t) + ' ' + timeLabel(t); })() : '';
+      const sub = (d.lastText ? lastLine(d, '') : 'まだメッセージはありません') + (when ? '  ' + when : '');
+      box.appendChild(listRow(avatarEl(group ? r.gid : r.pairId, group ? d.name : '個', 'span', group), title, sub, false, () => {
+        $('watchView').classList.add('hidden');
+        openRoom(r);
+      }));
+    });
+  }
+
   $('adminBtn').onclick = () => {
     $('adminView').classList.remove('hidden');
     renderMembers();
