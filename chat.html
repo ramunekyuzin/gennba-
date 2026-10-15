@@ -209,6 +209,21 @@
     .result .rtext { font-size: 15px; line-height: 1.5; word-break: break-word; }
     mark { background: #ffe066; color: #222; border-radius: 3px; padding: 0 2px; }
     .msg.flash .bubble { outline: 3px solid #ffb300; }
+    /* ネット通話 */
+    #callView {
+      position: fixed; inset: 0; z-index: 35; background: #16212e; color: #fff;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: calc(40px + env(safe-area-inset-top)) 24px calc(40px + env(safe-area-inset-bottom));
+    }
+    #callView .cbody { text-align: center; margin-top: 40px; }
+    #callView .avatar.big { width: 96px; height: 96px; font-size: 40px; margin-bottom: 16px; }
+    #callView .cname { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+    #callView .cstate { font-size: 17px; opacity: .85; }
+    #callView .cbtns { display: flex; gap: 16px; max-width: 420px; width: 100%; margin: 0 auto; }
+    #callView .cbtns button { padding: 18px; font-size: 18px; border-radius: 40px; }
+    #callView button.ok { background: #1a8a3c; }
+    #callView button.sub { color: #fff; border-color: #fff; }
+    #callView button.sub.on { background: #fff; color: #16212e; }
     #toast {
       position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
       background: rgba(0,0,0,.8); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 15px;
@@ -294,6 +309,7 @@
     <button id="roomBackBtn" class="sub" aria-label="一覧にもどる">←</button>
     <div class="rname" id="roomName"></div>
     <button id="roomSearchBtn" class="sub" aria-label="このチャットの中を検索">🔍</button>
+    <button id="roomNetCallBtn" class="sub hidden" aria-label="ネット通話をかける">📞</button>
     <a id="roomCallBtn" class="btn sub hidden" href="#">☎ 電話</a>
     <button id="roomEditBtn" class="sub hidden">設定</button>
   </div>
@@ -338,6 +354,24 @@
 </div>
 
 <div id="toast" class="hidden"></div>
+
+<!-- ネット通話(呼び出し中・着信・通話中) -->
+<div id="callView" class="hidden">
+  <div class="cbody">
+    <div class="avatar big" id="callAvatar"></div>
+    <div class="cname" id="callName"></div>
+    <div class="cstate" id="callState"></div>
+  </div>
+  <div class="cbtns" id="callIncomingBtns">
+    <button id="callDeclineBtn" class="danger">拒否</button>
+    <button id="callAcceptBtn" class="ok">出る</button>
+  </div>
+  <div class="cbtns hidden" id="callActiveBtns">
+    <button id="callMuteBtn" class="sub">ミュート</button>
+    <button id="callHangupBtn" class="danger">切る</button>
+  </div>
+  <audio id="remoteAudio" autoplay playsinline></audio>
+</div>
 
 <!-- 個人チャット/電話のメニュー -->
 <div id="sheet" class="hidden">
@@ -634,9 +668,16 @@
     $('watchCard').classList.toggle('hidden', !monitor);
     show('chatView');
     listenAll();
+    listenIncomingCalls();
     // 最初は個人チャットの一覧から
     showTab('dm');
     setupPush(false);
+    // 着信の通知から開いたとき
+    const callParam = new URLSearchParams(location.search).get('call');
+    if (callParam) {
+      history.replaceState(null, '', location.pathname);
+      openIncomingById(callParam);
+    }
   }
 
   function stopListeners() {
@@ -649,6 +690,7 @@
 
   async function logout() {
     if (!confirm('ログアウトしますか?(このスマホに通知が来なくなります)')) return;
+    if (activeCall) await hangup();
     const token = load('chatPushToken');
     if (token) {
       try { await deleteDoc(doc(db, 'tokens', token)); } catch (e) { /* 消せなくてもOK */ }
@@ -922,6 +964,7 @@
       setCallLink($('roomCallBtn'), room.other);
     }
     $('roomCallBtn').classList.toggle('hidden', !call);
+    $('roomNetCallBtn').classList.toggle('hidden', !call);
     $('roomEditBtn').classList.toggle('hidden', !edit);
   }
   function setCallLink(a, uid) {
@@ -1943,6 +1986,296 @@
       btn.disabled = false;
     }
   }
+
+  // ===== ネット通話(個人チャットだけ・音声だけ) =====
+  // 声はスマホ同士で直接やりとりする。Firestore の calls には呼び出しの受け渡し(だれからだれへ・出た・切った)だけを置く
+  const ICE_SERVERS = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] };
+  const RING_MS = 45 * 1000;            // 呼び出しをやめるまで
+  let activeCall = null;                 // { id, role: 'caller'|'callee', other, ref, pc, stream, unsubs, timers, startedAt, ended }
+  let incomingShown = null;              // いま着信画面に出している通話のID
+  let unsubIncoming = null;
+
+  const callRefOf = id => doc(db, 'calls', id);
+  const fmtDur = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+  function showCallView(other, state, incoming) {
+    const av = $('callAvatar');
+    av.style.background = colorOf(other);
+    av.textContent = nameOf(other).charAt(0);
+    $('callName').textContent = nameOf(other);
+    $('callState').textContent = state;
+    $('callIncomingBtns').classList.toggle('hidden', !incoming);
+    $('callActiveBtns').classList.toggle('hidden', incoming);
+    $('callMuteBtn').classList.remove('on');
+    $('callMuteBtn').textContent = 'ミュート';
+    $('callView').classList.remove('hidden');
+  }
+  function hideCallView() {
+    $('callView').classList.add('hidden');
+    $('remoteAudio').srcObject = null;
+  }
+  const setCallState = text => { $('callState').textContent = text; };
+
+  async function getMic() {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+    } catch (e) {
+      console.error(e);
+      alert('マイクが使えません。スマホの設定で、このアプリ(またはブラウザ)のマイクを許可してください。');
+      return null;
+    }
+  }
+
+  // 相手の候補(つながり方の情報)を受け取る。自分のは書き込む
+  function wireIce(c) {
+    c.pc.onicecandidate = e => {
+      if (!e.candidate) return;
+      addDoc(collection(c.ref, 'candidates'), { from: me.uid, c: e.candidate.toJSON(), at: serverTimestamp() })
+        .catch(err => console.warn('候補を送れませんでした', err));
+    };
+    // 相手の答え(remoteDescription)より先に届いた候補は、ためておいてあとで入れる
+    c.remoteQueue = c.remoteQueue || [];
+    c.unsubs.push(onSnapshot(query(collection(c.ref, 'candidates'), where('from', '==', c.other)), snap => {
+      snap.docChanges().forEach(ch => {
+        if (ch.type !== 'added' || !c.pc) return;
+        const cand = ch.doc.data().c;
+        if (!c.pc.remoteDescription) { c.remoteQueue.push(cand); return; }
+        c.pc.addIceCandidate(new RTCIceCandidate(cand)).catch(err => console.warn(err));
+      });
+    }, err => console.error(err)));
+    c.pc.ontrack = e => {
+      const audio = $('remoteAudio');
+      audio.srcObject = e.streams[0];
+      audio.play().catch(() => {});
+    };
+    c.pc.onconnectionstatechange = () => {
+      const s = c.pc && c.pc.connectionState;
+      if (s === 'connected' && !c.startedAt) {
+        c.startedAt = Date.now();
+        c.timers.push(setInterval(() => setCallState('通話中 ' + fmtDur(Date.now() - c.startedAt)), 1000));
+        setCallState('通話中 0:00');
+      } else if (s === 'failed') {
+        toast('つながりませんでした(電波や回線のせいかもしれません)');
+        hangup();
+      }
+    };
+  }
+
+  async function setRemote(c, desc) {
+    await c.pc.setRemoteDescription(new RTCSessionDescription(desc));
+    const q = c.remoteQueue || [];
+    c.remoteQueue = [];
+    q.forEach(cand => c.pc.addIceCandidate(new RTCIceCandidate(cand)).catch(err => console.warn(err)));
+  }
+
+  // 片付け(声の送受信を止めて、見張りを外す)
+  function cleanupCall(c) {
+    if (!c || c.ended) return;
+    c.ended = true;
+    c.unsubs.forEach(fn => fn());
+    c.timers.forEach(t => { clearTimeout(t); clearInterval(t); });
+    if (c.stream) c.stream.getTracks().forEach(t => t.stop());
+    if (c.pc) { c.pc.onconnectionstatechange = null; c.pc.close(); }
+    c.pc = null;
+    if (activeCall === c) activeCall = null;
+    hideCallView();
+  }
+
+  // チャットに通話の記録を残す(かけた人だけが書く。二重にならないように)
+  function postCallLog(c, text) {
+    if (c.role !== 'caller' || c.logged) return;
+    c.logged = true;
+    const pairId = pairOf(c.other);
+    postMessage({ type: 'dm', pairId, other: c.other }, text, null).catch(e => console.warn('通話の記録を残せませんでした', e));
+  }
+
+  // --- かける ---
+  async function startCall(other) {
+    if (activeCall) { toast('通話中です'); return; }
+    if (!members[other]) return;
+    const stream = await getMic();
+    if (!stream) return;
+    const ref = doc(collection(db, 'calls'));
+    const c = { id: ref.id, role: 'caller', other, ref, stream, unsubs: [], timers: [], pendingIce: [] };
+    activeCall = c;
+    showCallView(other, '呼び出し中…', false);
+    try {
+      c.pc = new RTCPeerConnection(ICE_SERVERS);
+      stream.getTracks().forEach(t => c.pc.addTrack(t, stream));
+      // 通話のドキュメントを作る前に出た候補は、作ったあとで送る
+      c.pc.onicecandidate = e => { if (e.candidate) c.pendingIce.push(e.candidate.toJSON()); };
+      const offer = await c.pc.createOffer();
+      await c.pc.setLocalDescription(offer);
+      await setDoc(ref, {
+        from: me.uid, to: other, pairId: pairOf(other), status: 'ringing',
+        createdAt: serverTimestamp(), offer: { type: offer.type, sdp: offer.sdp }
+      });
+      wireIce(c);
+      c.pendingIce.forEach(cand => addDoc(collection(ref, 'candidates'), { from: me.uid, c: cand, at: serverTimestamp() }).catch(() => {}));
+      c.pendingIce = [];
+      auth.currentUser.getIdToken()
+        .then(idToken => gas({ action: 'callNotify', idToken, id: c.id }))
+        .catch(e => console.warn('着信の通知を送れませんでした', e));
+      c.unsubs.push(onSnapshot(ref, snap => {
+        const d = snap.data();
+        if (!d || c.ended) return;
+        if (d.answer && c.pc && !c.pc.currentRemoteDescription && !c.answerSet) {
+          c.answerSet = true;
+          setRemote(c, d.answer).catch(err => console.error(err));
+        }
+        if (d.status === 'accepted') setCallState(c.startedAt ? 'つながりました' : '接続中…');
+        if (d.status === 'declined' || d.status === 'busy') {
+          toast(d.status === 'busy' ? '相手は通話中です' : '相手が出られませんでした');
+          postCallLog(c, '📞 不在着信');
+          cleanupCall(c);
+        }
+        if (d.status === 'ended') {
+          postCallLog(c, c.startedAt ? '📞 通話 ' + fmtDur(Date.now() - c.startedAt) : '📞 不在着信');
+          cleanupCall(c);
+        }
+      }, err => console.error(err)));
+      // 出なかったら終わり
+      c.timers.push(setTimeout(async () => {
+        if (c.ended || c.startedAt) return;
+        const snap = await getDoc(ref).catch(() => null);
+        if (snap && snap.exists() && snap.data().status === 'ringing') {
+          await updateDoc(ref, { status: 'missed', endedAt: serverTimestamp(), endedBy: me.uid }).catch(() => {});
+          toast('相手が出ませんでした');
+          postCallLog(c, '📞 不在着信');
+          cleanupCall(c);
+        }
+      }, RING_MS));
+    } catch (e) {
+      console.error(e);
+      alert('通話を始められませんでした。電波を確認してもう一度ためしてください。');
+      cleanupCall(c);
+    }
+  }
+  $('roomNetCallBtn').onclick = () => { if (room.type === 'dm' && !room.watch) startCall(room.other); };
+
+  // --- 受ける ---
+  function listenIncomingCalls() {
+    if (unsubIncoming) unsubIncoming();
+    unsubIncoming = onSnapshot(query(collection(db, 'calls'), where('to', '==', me.uid), where('status', '==', 'ringing')), snap => {
+      snap.docChanges().forEach(ch => {
+        if (ch.type === 'added') showIncoming(ch.doc.id, ch.doc.data());
+        if (ch.type === 'removed' && incomingShown === ch.doc.id && (!activeCall || activeCall.id !== ch.doc.id)) {
+          // かけた人がやめた・時間切れ
+          incomingShown = null;
+          hideCallView();
+        }
+      });
+    }, err => console.error(err));
+    unsubs.push(() => { if (unsubIncoming) { unsubIncoming(); unsubIncoming = null; } });
+  }
+
+  async function openIncomingById(id) {
+    try {
+      const snap = await getDoc(callRefOf(id));
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (d.to === me.uid && d.status === 'ringing') showIncoming(id, d);
+      else if (d.to === me.uid) toast('この着信はもう終わっています');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  // 通知を押したときに、開いていた画面へ知らせが来る
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data && e.data.type === 'call' && me) openIncomingById(e.data.id);
+    });
+  }
+
+  function showIncoming(id, d) {
+    const created = millis(d.createdAt) || Date.now();
+    if (Date.now() - created > RING_MS + 10000) return;    // 古い呼び出しは出さない
+    if (activeCall) {
+      if (activeCall.id !== id) updateDoc(callRefOf(id), { status: 'busy', endedAt: serverTimestamp(), endedBy: me.uid }).catch(() => {});
+      return;
+    }
+    if (incomingShown === id) return;
+    incomingShown = id;
+    showCallView(d.from, 'ネット通話の着信', true);
+    if (navigator.vibrate) navigator.vibrate([600, 300, 600, 300, 600]);
+  }
+
+  $('callDeclineBtn').onclick = async () => {
+    const id = incomingShown;
+    incomingShown = null;
+    hideCallView();
+    if (id) await updateDoc(callRefOf(id), { status: 'declined', endedAt: serverTimestamp(), endedBy: me.uid }).catch(e => console.warn(e));
+  };
+
+  $('callAcceptBtn').onclick = async () => {
+    const id = incomingShown;
+    if (!id || activeCall) return;
+    $('callAcceptBtn').disabled = true;
+    try {
+      const ref = callRefOf(id);
+      const snap = await getDoc(ref);
+      const d = snap.exists() ? snap.data() : null;
+      if (!d || d.status !== 'ringing') { toast('この着信はもう終わっています'); incomingShown = null; hideCallView(); return; }
+      const stream = await getMic();
+      if (!stream) { $('callDeclineBtn').click(); return; }
+      const c = { id, role: 'callee', other: d.from, ref, stream, unsubs: [], timers: [] };
+      activeCall = c;
+      incomingShown = null;
+      showCallView(d.from, '接続中…', false);
+      c.pc = new RTCPeerConnection(ICE_SERVERS);
+      stream.getTracks().forEach(t => c.pc.addTrack(t, stream));
+      wireIce(c);
+      await setRemote(c, d.offer);
+      const answer = await c.pc.createAnswer();
+      await c.pc.setLocalDescription(answer);
+      await updateDoc(ref, { status: 'accepted', answer: { type: answer.type, sdp: answer.sdp }, acceptedAt: serverTimestamp() });
+      c.unsubs.push(onSnapshot(ref, s => {
+        const x = s.data();
+        if (!x || c.ended) return;
+        if (x.status === 'ended' || x.status === 'canceled') { toast('通話が終わりました'); cleanupCall(c); }
+      }, err => console.error(err)));
+    } catch (e) {
+      console.error(e);
+      alert('通話に出られませんでした。もう一度ためしてください。');
+      if (activeCall) cleanupCall(activeCall);
+    } finally {
+      $('callAcceptBtn').disabled = false;
+    }
+  };
+
+  // --- 切る・ミュート ---
+  async function hangup() {
+    const c = activeCall;
+    if (!c) { hideCallView(); return; }
+    try {
+      const snap = await getDoc(c.ref);
+      const status = snap.exists() ? snap.data().status : '';
+      if (status === 'ringing') {
+        await updateDoc(c.ref, { status: 'canceled', endedAt: serverTimestamp(), endedBy: me.uid });
+        postCallLog(c, '📞 不在着信');
+      } else if (status === 'accepted') {
+        await updateDoc(c.ref, { status: 'ended', endedAt: serverTimestamp(), endedBy: me.uid });
+        postCallLog(c, c.startedAt ? '📞 通話 ' + fmtDur(Date.now() - c.startedAt) : '📞 不在着信');
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+    cleanupCall(c);
+  }
+  $('callHangupBtn').onclick = hangup;
+
+  $('callMuteBtn').onclick = () => {
+    const c = activeCall;
+    if (!c || !c.stream) return;
+    const track = c.stream.getAudioTracks()[0];
+    if (!track) return;
+    track.enabled = !track.enabled;
+    $('callMuteBtn').classList.toggle('on', !track.enabled);
+    $('callMuteBtn').textContent = track.enabled ? 'ミュート' : 'ミュート中';
+  };
+
+  // 画面を閉じるときは、通話中なら切る
+  window.addEventListener('pagehide', () => { if (activeCall) hangup(); });
 
   start();
 </script>
