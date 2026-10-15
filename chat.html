@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script>
+    // スマホアプリの中では拡大させない(拡大されたまま横にずれるのを防ぐ)
+    if (navigator.userAgent.includes('GenbaChatApp')) {
+      document.querySelector('meta[name=viewport]').content =
+        'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+    }
+  </script>
   <meta name="color-scheme" content="light dark">
   <title>現場チャット</title>
   <link rel="manifest" href="chat.webmanifest">
