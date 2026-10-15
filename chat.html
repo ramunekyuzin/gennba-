@@ -681,11 +681,17 @@
     showTab('dm');
     setupPush(false);
     // 着信の通知から開いたとき
-    const callParam = new URLSearchParams(location.search).get('call');
+    const params = new URLSearchParams(location.search);
+    const callParam = params.get('call');
     if (callParam) {
       history.replaceState(null, '', location.pathname);
-      openIncomingById(callParam);
+      // アプリの着信画面で「出る」を押したときは、そのまま出る
+      if (params.get('answer') === '1') acceptCall(callParam);
+      else openIncomingById(callParam);
+    } else if (pendingAnswer) {
+      acceptCall(pendingAnswer);
     }
+    pendingAnswer = null;
   }
 
   function stopListeners() {
@@ -704,6 +710,11 @@
       try { await deleteDoc(doc(db, 'tokens', token)); } catch (e) { /* 消せなくてもOK */ }
       try { if (messaging) await deleteToken(messaging); } catch (e) { /* 消せなくてもOK */ }
       forget('chatPushToken');
+    }
+    const voip = load('chatVoipToken');
+    if (voip) {
+      try { await deleteDoc(doc(db, 'voipTokens', voip)); } catch (e) { /* 消せなくてもOK */ }
+      forget('chatVoipToken');
     }
     stopListeners();
     ['adminView', 'settingsView', 'groupView', 'watchView'].forEach(id => $(id).classList.add('hidden'));
@@ -1771,11 +1782,23 @@
       if (old && old !== r.token) { try { await deleteDoc(doc(db, 'tokens', old)); } catch (e) { /* 消せなくてもOK */ } }
       await setDoc(doc(db, 'tokens', r.token), { uid: me.uid, updatedAt: serverTimestamp(), platform: r.platform });
       store('chatPushToken', r.token);
+      if (r.voip) await saveVoipToken(r.voip);
     } catch (e) {
       console.error(e);
       pushBar('通知の設定に失敗しました。もう一度ためしてください。', true);
     }
   }
+
+  // iPhoneアプリ: 電話と同じ着信画面を出すための宛先(VoIP)を登録する。送るのは Cloud Functions
+  async function saveVoipToken(token) {
+    if (!me || !token) return;
+    const old = load('chatVoipToken');
+    if (old && old !== token) { try { await deleteDoc(doc(db, 'voipTokens', old)); } catch (e) { /* 消せなくてもOK */ } }
+    await setDoc(doc(db, 'voipTokens', token), { uid: me.uid, updatedAt: serverTimestamp() });
+    store('chatVoipToken', token);
+  }
+  // 宛先があとから決まったときは、アプリから呼ばれる
+  window.genbaSetVoip = token => { saveVoipToken(token).catch(e => console.warn('着信の宛先を登録できませんでした', e)); };
 
   async function setupPush(ask) {
     $('pushBar').classList.add('hidden');
@@ -2028,6 +2051,7 @@
   const RING_MS = 45 * 1000;            // 呼び出しをやめるまで
   let activeCall = null;                 // { id, role: 'caller'|'callee', other, ref, pc, stream, unsubs, timers, startedAt, ended }
   let incomingShown = null;              // いま着信画面に出している通話のID
+  let pendingAnswer = null;              // アプリの着信画面で「出る」を押したが、まだログイン中の通話
   let unsubIncoming = null;
 
   const callRefOf = id => doc(db, 'calls', id);
@@ -2170,6 +2194,7 @@
     c.pc = null;
     if (activeCall === c) activeCall = null;
     hideCallView();
+    notifyAppCallEnded(c.id);
   }
 
   // チャットに通話の記録を残す(かけた人だけが書く。二重にならないように)
@@ -2295,19 +2320,33 @@
     incomingShown = null;
     hideCallView();
     if (id) await updateDoc(callRefOf(id), { status: 'declined', endedAt: serverTimestamp(), endedBy: me.uid }).catch(e => console.warn(e));
+    notifyAppCallEnded(id);
   };
 
-  $('callAcceptBtn').onclick = async () => {
-    const id = incomingShown;
+  $('callAcceptBtn').onclick = () => { if (incomingShown) acceptCall(incomingShown); };
+
+  // 着信に出る(画面の「出る」ボタン、またはアプリの着信画面の「出る」から)
+  async function acceptCall(id) {
     if (!id || activeCall) return;
     $('callAcceptBtn').disabled = true;
     try {
       const ref = callRefOf(id);
       const snap = await getDoc(ref);
       const d = snap.exists() ? snap.data() : null;
-      if (!d || d.status !== 'ringing') { toast('この着信はもう終わっています'); incomingShown = null; hideCallView(); return; }
+      if (!d || d.to !== me.uid || d.status !== 'ringing') {
+        toast('この着信はもう終わっています');
+        if (incomingShown === id) { incomingShown = null; hideCallView(); }
+        notifyAppCallEnded(id);
+        return;
+      }
       const stream = await getMic();
-      if (!stream) { $('callDeclineBtn').click(); return; }
+      if (!stream) {
+        await updateDoc(ref, { status: 'declined', endedAt: serverTimestamp(), endedBy: me.uid }).catch(() => {});
+        incomingShown = null;
+        hideCallView();
+        notifyAppCallEnded(id);
+        return;
+      }
       const c = { id, role: 'callee', other: d.from, ref, stream, unsubs: [], timers: [] };
       activeCall = c;
       incomingShown = null;
@@ -2330,7 +2369,7 @@
     } finally {
       $('callAcceptBtn').disabled = false;
     }
-  };
+  }
 
   // --- 切る・ミュート ---
   async function hangup() {
@@ -2361,6 +2400,32 @@
     track.enabled = !track.enabled;
     $('callMuteBtn').classList.toggle('on', !track.enabled);
     $('callMuteBtn').textContent = track.enabled ? 'ミュート' : 'ミュート中';
+  };
+
+  // --- iPhoneアプリの着信画面(電話と同じ画面)とのやりとり ---
+  // 通話が終わったら、アプリの着信画面も閉じてもらう
+  function notifyAppCallEnded(id) {
+    if (!inApp || !id) return;
+    const bridge = window.flutter_inappwebview;
+    if (bridge && bridge.callHandler) bridge.callHandler('genbaCall', { event: 'ended', id }).catch(() => {});
+  }
+  // 着信画面で「出る」を押した(ログインがまだなら、終わってから出る)
+  window.genbaAnswer = id => {
+    if (!me) { pendingAnswer = id; return; }
+    if (activeCall && activeCall.id === id) return;
+    acceptCall(id);
+  };
+  // 着信画面で「切る」を押した
+  window.genbaHangup = id => { if (activeCall && activeCall.id === id) hangup(); };
+  // 着信画面で「消音」を押した
+  window.genbaMute = (id, muted) => {
+    const c = activeCall;
+    if (!c || c.id !== id || !c.stream) return;
+    const track = c.stream.getAudioTracks()[0];
+    if (!track) return;
+    track.enabled = !muted;
+    $('callMuteBtn').classList.toggle('on', muted);
+    $('callMuteBtn').textContent = muted ? 'ミュート中' : 'ミュート';
   };
 
   // 画面を閉じるときは、通話中なら切る
