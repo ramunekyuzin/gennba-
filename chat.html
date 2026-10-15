@@ -1740,8 +1740,39 @@
   }
 
   // ask=true のときはボタンから(許可を聞く)。false のときは、すでに許可済みならトークンだけ更新する
+  // スマホアプリ(現場チャットのアプリ)の中で開いているか
+  const inApp = navigator.userAgent.includes('GenbaChatApp');
+
+  // アプリの中では、通知はアプリの通知を使う(アプリから通知のIDをもらって登録する)
+  async function setupAppPush(ask) {
+    try {
+      if (!window.flutter_inappwebview || !window.flutter_inappwebview.callHandler) {
+        await new Promise(res => {
+          window.addEventListener('flutterInAppWebViewPlatformReady', res, { once: true });
+          setTimeout(res, 3000);
+        });
+      }
+      const bridge = window.flutter_inappwebview;
+      if (!bridge || !bridge.callHandler) return;
+      const r = await bridge.callHandler('genbaPush', !!ask);
+      if (!r || !r.ok) {
+        if (r && r.error === 'denied') pushBar('通知がオフになっています。スマホの設定 → 通知 → 現場チャット で許可してください。', false);
+        else pushBar('通知をONにすると、新しいメッセージが来たときにお知らせします。', true);
+        return;
+      }
+      const old = load('chatPushToken');
+      if (old && old !== r.token) { try { await deleteDoc(doc(db, 'tokens', old)); } catch (e) { /* 消せなくてもOK */ } }
+      await setDoc(doc(db, 'tokens', r.token), { uid: me.uid, updatedAt: serverTimestamp(), platform: r.platform });
+      store('chatPushToken', r.token);
+    } catch (e) {
+      console.error(e);
+      pushBar('通知の設定に失敗しました。もう一度ためしてください。', true);
+    }
+  }
+
   async function setupPush(ask) {
     $('pushBar').classList.add('hidden');
+    if (inApp) return setupAppPush(ask);
     const supported = 'serviceWorker' in navigator && 'Notification' in window && await isSupported().catch(() => false);
     if (!supported) {
       if (isIOS && !isStandalone) pushBar('通知を受けるには、共有ボタン →「ホーム画面に追加」してから、ホーム画面のアイコンで開いてください。', false);
