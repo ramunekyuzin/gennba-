@@ -310,6 +310,7 @@
     <div class="rname" id="roomName"></div>
     <button id="roomSearchBtn" class="sub" aria-label="このチャットの中を検索">🔍</button>
     <button id="roomNetCallBtn" class="sub hidden" aria-label="ネット通話をかける">📞 通話</button>
+    <a id="roomTelBtn" class="btn sub hidden" href="#" aria-label="電話番号でかける">☎</a>
     <button id="roomEditBtn" class="sub hidden">設定</button>
   </div>
   <div id="messages"><p class="empty">読み込み中…</p></div>
@@ -380,6 +381,7 @@
     <div class="sphone" id="sheetPhone"></div>
     <button id="sheetChatBtn">💬 個人チャット</button>
     <button id="sheetNetCallBtn">📞 ネット通話</button>
+    <a id="sheetTelBtn" class="btn sub" href="#">☎ 電話番号でかける</a>
     <button id="sheetCloseBtn" class="sub">閉じる</button>
   </div>
 </div>
@@ -956,6 +958,10 @@
       call = true;
     }
     $('roomNetCallBtn').classList.toggle('hidden', !call);
+    // 相手が電話番号を登録しているときだけ、普通の電話のボタンも出す
+    const phone = call ? phoneOf(room.other) : '';
+    $('roomTelBtn').classList.toggle('hidden', !phone);
+    if (phone) $('roomTelBtn').href = telHref(phone);
     $('roomEditBtn').classList.toggle('hidden', !edit);
   }
   $('roomEditBtn').onclick = () => {
@@ -975,11 +981,15 @@
     $('sheetPhone').textContent = phoneOf(uid);
     $('sheetChatBtn').disabled = !members[uid];
     $('sheetNetCallBtn').disabled = !members[uid];
+    const phone = phoneOf(uid);
+    $('sheetTelBtn').classList.toggle('hidden', !phone);
+    $('sheetTelBtn').href = phone ? telHref(phone) : '#';
     $('sheet').classList.remove('hidden');
   }
   function closeSheet() { $('sheet').classList.add('hidden'); }
   $('sheetCloseBtn').onclick = closeSheet;
   $('sheet').addEventListener('click', e => { if (e.target === $('sheet')) closeSheet(); });
+  $('sheetTelBtn').addEventListener('click', closeSheet);
   $('sheetNetCallBtn').onclick = () => {
     const uid = sheetUid;
     closeSheet();
@@ -2005,7 +2015,9 @@
 
   async function getMic() {
     try {
-      return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+      return await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }, video: false
+      });
     } catch (e) {
       console.error(e);
       alert('マイクが使えません。スマホの設定で、このアプリ(またはブラウザ)のマイクを許可してください。');
@@ -2039,13 +2051,67 @@
       const s = c.pc && c.pc.connectionState;
       if (s === 'connected' && !c.startedAt) {
         c.startedAt = Date.now();
-        c.timers.push(setInterval(() => setCallState('通話中 ' + fmtDur(Date.now() - c.startedAt)), 1000));
+        c.quality = '';
+        c.timers.push(setInterval(() => setCallState('通話中 ' + fmtDur(Date.now() - c.startedAt) + (c.quality ? '  ・  電波:' + c.quality : '')), 1000));
+        c.timers.push(setInterval(() => checkQuality(c), 3000));
         setCallState('通話中 0:00');
       } else if (s === 'failed') {
         toast('つながりませんでした(電波や回線のせいかもしれません)');
         hangup();
       }
     };
+  }
+
+  // 電波が弱くても途切れにくいように、声の送り方を調整する(少ないデータで送る・抜けた分を補う・黙っている間は送らない)
+  function voiceSdp(sdp) {
+    const m = sdp.match(/a=rtpmap:(\d+) opus\/48000/i);
+    if (!m) return sdp;
+    const pt = m[1];
+    const extra = { useinbandfec: '1', usedtx: '1', maxaveragebitrate: '24000', stereo: '0' };
+    const re = new RegExp('a=fmtp:' + pt + ' ([^\\r\\n]*)');
+    if (re.test(sdp)) {
+      return sdp.replace(re, (all, params) => {
+        const kv = {};
+        params.split(';').forEach(p => { const [k, v] = p.split('='); if (k && k.trim()) kv[k.trim()] = (v || '').trim(); });
+        Object.assign(kv, extra);
+        return 'a=fmtp:' + pt + ' ' + Object.keys(kv).map(k => k + '=' + kv[k]).join(';');
+      });
+    }
+    return sdp.replace(m[0], m[0] + '\r\na=fmtp:' + pt + ' ' + Object.keys(extra).map(k => k + '=' + extra[k]).join(';'));
+  }
+  // 調整したもので設定できなければ、元のままで設定する
+  async function setLocalVoice(c, desc) {
+    const tuned = { type: desc.type, sdp: voiceSdp(desc.sdp) };
+    try {
+      await c.pc.setLocalDescription(tuned);
+      return tuned;
+    } catch (e) {
+      console.warn('声の調整なしで続けます', e);
+      await c.pc.setLocalDescription(desc);
+      return { type: desc.type, sdp: desc.sdp };
+    }
+  }
+
+  // 3秒ごとに、届かなかった音の割合と往復の時間から電波の具合を出す
+  async function checkQuality(c) {
+    if (!c.pc || c.ended) return;
+    try {
+      const stats = await c.pc.getStats();
+      let rtt = null, lost = 0, recv = 0, jitter = 0;
+      stats.forEach(s => {
+        if (s.type === 'candidate-pair' && s.state === 'succeeded' && s.nominated && s.currentRoundTripTime != null) rtt = s.currentRoundTripTime;
+        if (s.type === 'inbound-rtp' && s.kind === 'audio') { lost = s.packetsLost || 0; recv = s.packetsReceived || 0; jitter = s.jitter || 0; }
+      });
+      const prev = c.prevStats || { lost: 0, recv: 0 };
+      const dLost = Math.max(0, lost - prev.lost), dRecv = Math.max(0, recv - prev.recv);
+      c.prevStats = { lost, recv };
+      const loss = dLost + dRecv ? dLost / (dLost + dRecv) : 0;
+      if (loss > 0.05 || (rtt != null && rtt > 0.4) || jitter > 0.05) c.quality = '弱い';
+      else if (loss > 0.01 || (rtt != null && rtt > 0.25) || jitter > 0.03) c.quality = '普通';
+      else c.quality = '良い';
+    } catch (e) {
+      /* 調べられなくても通話は続ける */
+    }
   }
 
   async function setRemote(c, desc) {
@@ -2091,8 +2157,7 @@
       stream.getTracks().forEach(t => c.pc.addTrack(t, stream));
       // 通話のドキュメントを作る前に出た候補は、作ったあとで送る
       c.pc.onicecandidate = e => { if (e.candidate) c.pendingIce.push(e.candidate.toJSON()); };
-      const offer = await c.pc.createOffer();
-      await c.pc.setLocalDescription(offer);
+      const offer = await setLocalVoice(c, await c.pc.createOffer());
       await setDoc(ref, {
         from: me.uid, to: other, pairId: pairOf(other), status: 'ringing',
         createdAt: serverTimestamp(), offer: { type: offer.type, sdp: offer.sdp }
@@ -2213,8 +2278,7 @@
       stream.getTracks().forEach(t => c.pc.addTrack(t, stream));
       wireIce(c);
       await setRemote(c, d.offer);
-      const answer = await c.pc.createAnswer();
-      await c.pc.setLocalDescription(answer);
+      const answer = await setLocalVoice(c, await c.pc.createAnswer());
       await updateDoc(ref, { status: 'accepted', answer: { type: answer.type, sdp: answer.sdp }, acceptedAt: serverTimestamp() });
       c.unsubs.push(onSnapshot(ref, s => {
         const x = s.data();
