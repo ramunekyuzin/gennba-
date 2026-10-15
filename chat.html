@@ -309,8 +309,7 @@
     <button id="roomBackBtn" class="sub" aria-label="一覧にもどる">←</button>
     <div class="rname" id="roomName"></div>
     <button id="roomSearchBtn" class="sub" aria-label="このチャットの中を検索">🔍</button>
-    <button id="roomNetCallBtn" class="sub hidden" aria-label="ネット通話をかける">📞</button>
-    <a id="roomCallBtn" class="btn sub hidden" href="#">☎ 電話</a>
+    <button id="roomNetCallBtn" class="sub hidden" aria-label="ネット通話をかける">📞 通話</button>
     <button id="roomEditBtn" class="sub hidden">設定</button>
   </div>
   <div id="messages"><p class="empty">読み込み中…</p></div>
@@ -380,7 +379,7 @@
     <div class="sname" id="sheetName"></div>
     <div class="sphone" id="sheetPhone"></div>
     <button id="sheetChatBtn">💬 個人チャット</button>
-    <a id="sheetCallBtn" class="btn" href="#">☎ 電話をかける</a>
+    <button id="sheetNetCallBtn">📞 ネット通話</button>
     <button id="sheetCloseBtn" class="sub">閉じる</button>
   </div>
 </div>
@@ -436,7 +435,7 @@
       <input id="myPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="090-1234-5678">
       <div id="phoneMsg"></div>
       <button id="phoneSaveBtn">保存</button>
-      <p class="note" style="margin-top:10px">登録すると、メンバーがあなたの名前の丸から電話をかけられるようになります。空にして保存すると消せます。</p>
+      <p class="note" style="margin-top:10px">登録すると、メンバーがあなたの名前の丸を押したときに番号が表示されます。空にして保存すると消せます。</p>
     </div>
     <div class="card">
       <input id="pwUser" type="email" autocomplete="username" class="hidden" tabindex="-1" aria-hidden="true">
@@ -871,12 +870,6 @@
       return;
     }
     // 個人タブ
-    if (!phoneOf(me.uid)) {
-      const hint = document.createElement('div');
-      hint.className = 'hint';
-      hint.textContent = '右上の「⚙ 設定」から自分の電話番号を登録すると、ほかの人から電話をかけてもらえます。';
-      pane.appendChild(hint);
-    }
     const others = Object.keys(members).filter(uid => uid !== me.uid);
     if (!others.length) {
       const p = document.createElement('p');
@@ -961,17 +954,9 @@
     } else if (room.type === 'dm') {
       nameEl.textContent = nameOf(room.other);
       call = true;
-      setCallLink($('roomCallBtn'), room.other);
     }
-    $('roomCallBtn').classList.toggle('hidden', !call);
     $('roomNetCallBtn').classList.toggle('hidden', !call);
     $('roomEditBtn').classList.toggle('hidden', !edit);
-  }
-  function setCallLink(a, uid) {
-    const phone = phoneOf(uid);
-    a.href = phone ? telHref(phone) : '#';
-    a.classList.toggle('off', !phone);
-    a.setAttribute('aria-disabled', phone ? 'false' : 'true');
   }
   $('roomEditBtn').onclick = () => {
     if (room.type === 'all') openGroupView('all');
@@ -987,17 +972,19 @@
     av.style.background = colorOf(uid);
     av.textContent = nameOf(uid).charAt(0);
     $('sheetName').textContent = nameOf(uid);
-    const phone = phoneOf(uid);
-    $('sheetPhone').textContent = phone || '電話番号はまだ登録されていません';
-    setCallLink($('sheetCallBtn'), uid);
-    $('sheetCallBtn').textContent = phone ? '☎ 電話をかける' : '☎ 電話(未登録)';
+    $('sheetPhone').textContent = phoneOf(uid);
     $('sheetChatBtn').disabled = !members[uid];
+    $('sheetNetCallBtn').disabled = !members[uid];
     $('sheet').classList.remove('hidden');
   }
   function closeSheet() { $('sheet').classList.add('hidden'); }
   $('sheetCloseBtn').onclick = closeSheet;
   $('sheet').addEventListener('click', e => { if (e.target === $('sheet')) closeSheet(); });
-  $('sheetCallBtn').addEventListener('click', closeSheet);
+  $('sheetNetCallBtn').onclick = () => {
+    const uid = sheetUid;
+    closeSheet();
+    startCall(uid);
+  };
   $('sheetChatBtn').onclick = () => {
     const uid = sheetUid;
     closeSheet();
