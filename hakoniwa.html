@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>現場の箱庭</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #dfe9f2;
+    --panel: rgba(255, 255, 255, 0.92);
+    --line: #d5d9de;
+    --text: #22262b;
+    --sub: #69717a;
+    --track: #d9dee4;
+    --accent: #e8891c;
+    --btn: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141a28;
+      --panel: rgba(28, 32, 42, 0.94);
+      --line: #39404d;
+      --text: #eef1f5;
+      --sub: #a3abb6;
+      --track: #3b4350;
+      --accent: #f29a35;
+      --btn: #2a303c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  .stage { position: relative; flex: 1; min-height: 0; }
+  .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  .title {
+    position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 12px;
+    padding: 8px 14px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    pointer-events: none;
+  }
+  .title b { display: block; font-size: 18px; }
+  .title small { display: block; font-size: 16px; color: var(--sub); }
+  .quality {
+    position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px;
+    min-height: 44px; padding: 0 14px;
+    font: inherit; font-size: 16px; color: var(--text);
+    background: var(--btn);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .panel {
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+  .date { font-size: 22px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 48px; margin: 0;
+    background: transparent;
+    touch-action: pan-x;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 8px; background: var(--track); border-radius: 4px; }
+  input[type=range]::-moz-range-track { height: 8px; background: var(--track); border-radius: 4px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 32px; height: 32px; margin-top: -12px;
+    background: var(--accent);
+    border: 3px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,.35);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 26px; height: 26px;
+    background: var(--accent);
+    border: 3px solid #fff;
+    border-radius: 50%;
+  }
+  .range-labels { display: flex; justify-content: space-between; font-size: 16px; color: var(--sub); }
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin-top: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; }
+  .legend i { width: 18px; height: 18px; display: inline-block; border: 1px solid var(--line); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="title"><b>現場の箱庭</b><small>指でまわす・2本指で拡大</small></div>
+    <button class="quality" id="qualityBtn" type="button">高画質 ON</button>
+  </div>
+  <div class="panel">
+    <div class="date" id="dateLabel">----</div>
+    <input type="range" id="slider" min="0" max="100" value="0" aria-label="日付">
+    <div class="range-labels"><span id="minLabel"></span><span id="maxLabel"></span></div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ===== 進捗サンプルデータ（日付ごとの進捗%。間の日は直線でつなぐ） =====
+const DATA = [
+  { floor: 1, kind: '基礎', progress: [['2026-04-01', 0], ['2026-04-21', 100]] },
+  { floor: 1, kind: '躯体', progress: [['2026-04-15', 0], ['2026-05-15', 100]] },
+  { floor: 1, kind: '外装', progress: [['2026-05-10', 0], ['2026-06-20', 100]] },
+  { floor: 1, kind: '内装', progress: [['2026-06-01', 0], ['2026-07-20', 100]] },
+  { floor: 2, kind: '基礎', progress: [['2026-04-29', 0], ['2026-05-19', 100]] },
+  { floor: 2, kind: '躯体', progress: [['2026-05-13', 0], ['2026-06-12', 100]] },
+  { floor: 2, kind: '外装', progress: [['2026-06-07', 0], ['2026-07-18', 100]] },
+  { floor: 2, kind: '内装', progress: [['2026-06-29', 0], ['2026-08-17', 100]] },
+  { floor: 3, kind: '基礎', progress: [['2026-05-27', 0], ['2026-06-16', 100]] },
+  { floor: 3, kind: '躯体', progress: [['2026-06-10', 0], ['2026-07-10', 100]] },
+  { floor: 3, kind: '外装', progress: [['2026-07-05', 0], ['2026-08-15', 100]] },
+  { floor: 3, kind: '内装', progress: [['2026-07-27', 0], ['2026-09-14', 100]] },
+  { floor: 4, kind: '基礎', progress: [['2026-06-24', 0], ['2026-07-14', 100]] },
+  { floor: 4, kind: '躯体', progress: [['2026-07-08', 0], ['2026-08-07', 100]] },
+  { floor: 4, kind: '外装', progress: [['2026-08-02', 0], ['2026-09-12', 100]] },
+  { floor: 4, kind: '内装', progress: [['2026-08-24', 0], ['2026-10-12', 100]] },
+  { floor: 5, kind: '基礎', progress: [['2026-07-22', 0], ['2026-08-11', 100]] },
+  { floor: 5, kind: '躯体', progress: [['2026-08-05', 0], ['2026-09-04', 100]] },
+  { floor: 5, kind: '外装', progress: [['2026-08-30', 0], ['2026-10-10', 100]] },
+  { floor: 5, kind: '内装', progress: [['2026-09-21', 0], ['2026-11-09', 100]] },
+];
+const RANGE_START = '2026-03-25';
+const RANGE_END   = '2026-11-20';
+const KIND_NAMES = ['基礎', '躯体', '外装', '内装'];
+const LEGEND = [
+  ['基礎（床スラブ）', '#b9b6af'],
+  ['躯体（柱）', '#d4d1ca'],
+  ['外装（ガラス）', 'linear-gradient(135deg,#8fb3cc,#d9e7f0)'],
+  ['内装', '#b7d9e6'],
+];
+
+// ===== 日付 =====
+const DAY = 86400000;
+const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const startDate = parseDate(RANGE_START);
+const totalDays = Math.round((parseDate(RANGE_END) - startDate) / DAY);
+const dayToDate = n => new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + n);
+const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+const fmt = d => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${WEEK[d.getDay()]})`;
+const fmtShort = d => `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+
+function progressAt(points, date) {
+  const t = date.getTime();
+  const pts = points.map(([d, p]) => [parseDate(d).getTime(), p]);
+  if (t <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    if (t <= pts[i][0]) {
+      const [t0, p0] = pts[i - 1], [t1, p1] = pts[i];
+      return p0 + (p1 - p0) * (t - t0) / (t1 - t0);
+    }
+  }
+  return pts[pts.length - 1][1];
+}
+
+// ===== ノイズテクスチャ（canvasで生成） =====
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function noiseCanvas(n, { base, fine, mottle, cells = 6, dots = 0, dotRange = [0, 0], seed = 1 }) {
+  const rnd = rng(seed);
+  const grid = Array.from({ length: cells * cells }, rnd);
+  const g = (x, y) => grid[((y % cells) + cells) % cells * cells + ((x % cells) + cells) % cells];
+  const smooth = t => t * t * (3 - 2 * t);
+  const c = document.createElement('canvas'); c.width = c.height = n;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(n, n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const fx = x / n * cells, fy = y / n * cells;
+    const ix = Math.floor(fx), iy = Math.floor(fy), tx = smooth(fx - ix), ty = smooth(fy - iy);
+    const v0 = g(ix, iy) + (g(ix + 1, iy) - g(ix, iy)) * tx;
+    const v1 = g(ix, iy + 1) + (g(ix + 1, iy + 1) - g(ix, iy + 1)) * tx;
+    const m = v0 + (v1 - v0) * ty;
+    const v = base + (rnd() - 0.5) * fine + (m - 0.5) * mottle;
+    const i = (y * n + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.max(0, Math.min(255, v));
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  for (let k = 0; k < dots; k++) {
+    const v = dotRange[0] + rnd() * (dotRange[1] - dotRange[0]);
+    ctx.fillStyle = `rgb(${v},${v},${v})`;
+    ctx.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 1.5, 1 + rnd() * 1.5);
+  }
+  return c;
+}
+function tex(canvas, { srgb = true, repeat = [1, 1] } = {}) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(repeat[0], repeat[1]);
+  t.anisotropy = 4;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const concreteCv = noiseCanvas(512, { base: 205, fine: 22, mottle: 34, cells: 8, dots: 900, dotRange: [120, 170], seed: 11 });
+const asphaltCv  = noiseCanvas(512, { base: 72, fine: 46, mottle: 16, cells: 5, dots: 2600, dotRange: [110, 165], seed: 23 });
+
+function ribCanvas() { // 仮囲いの波板
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#efefec'; g.fillRect(0, 0, 64, 64);
+  for (let x = 0; x < 64; x += 16) {
+    g.fillStyle = '#cfd0cc'; g.fillRect(x + 10, 0, 3, 64);
+    g.fillStyle = '#fbfbfa'; g.fillRect(x + 13, 0, 2, 64);
+  }
+  return c;
+}
+function meshSheetCanvas() { // 養生メッシュシート
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(46,128,74,0.42)'; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = 'rgba(26,92,50,0.85)';
+  for (let i = 0; i < 64; i += 4) { g.fillRect(i, 0, 1, 64); g.fillRect(0, i, 64, 1); }
+  return c;
+}
+
+// ===== レンダラー・シーン =====
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const PIXEL_RATIO = Math.min(window.devicePixelRatio, 1.75);
+renderer.setPixelRatio(PIXEL_RATIO);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xe8d9c4, 120, 480);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+// 空のグラデーション
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, toneMapped: false,
+  uniforms: { top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, bottom: { value: new THREE.Color() } },
+  vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; varying vec3 vP;
+    void main(){ float h = normalize(vP).y;
+      vec3 c = h > 0.0 ? mix(horizon, top, pow(h, 0.55)) : mix(horizon, bottom, pow(-h, 0.4));
+      gl_FragColor = vec4(c, 1.0);
+      #include <colorspace_fragment>
+    }`,
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), skyMat);
+scene.add(sky);
+const skyScene = new THREE.Scene();
+skyScene.add(new THREE.Mesh(sky.geometry, skyMat));
+let skyEnv = null;
+
+// 光：夕方寄りの太陽 + 空の青い環境光
+const hemi = new THREE.HemisphereLight(0xa9c8ff, 0x5b5148, 0.8);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffcf9e, 3.2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -62, right: 62, top: 62, bottom: -62, near: 10, far: 260 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.03;
+scene.add(sun, sun.target);
+
+// ===== 素材 =====
+const ENV = 0.55;
+const std = o => new THREE.MeshStandardMaterial({ envMapIntensity: ENV, ...o });
+const concreteMap = tex(concreteCv, { repeat: [2, 2] });
+const concreteBump = tex(concreteCv, { srgb: false, repeat: [2, 2] });
+const M = {
+  slab:    std({ color: '#c9c6bf', map: concreteMap, bumpMap: concreteBump, bumpScale: 0.6, roughness: 0.92 }),
+  column:  std({ color: '#e2dfd8', map: concreteMap, bumpMap: concreteBump, bumpScale: 0.6, roughness: 0.9 }),
+  glass:   std({ color: '#a9c4d6', metalness: 0.9, roughness: 0.06, transparent: true, opacity: 0.62, depthWrite: false, envMapIntensity: 1.4 }),
+  frame:   std({ color: '#9aa1a8', metalness: 0.85, roughness: 0.32 }),
+  rebar:   std({ color: '#6e4a36', metalness: 0.75, roughness: 0.55 }),
+  ifloor:  std({ color: '#d8d2c6', roughness: 0.8 }),
+  iwall:   std({ color: '#b7d9e6', roughness: 0.85 }),
+  pipe:    std({ color: '#b5bcc3', metalness: 0.9, roughness: 0.3 }),
+  deck:    std({ color: '#7f868d', metalness: 0.7, roughness: 0.5 }),
+  sheet:   std({ map: tex(meshSheetCanvas()), transparent: true, side: THREE.DoubleSide, depthWrite: false, roughness: 0.9, envMapIntensity: 0.3 }),
+  crane:   std({ color: '#e7a515', metalness: 0.55, roughness: 0.42 }),
+  cab:     std({ color: '#ecebe6', metalness: 0.3, roughness: 0.4 }),
+  heavy:   std({ color: '#bdbab3', map: concreteMap, roughness: 0.95 }),
+  asphalt: std({ map: tex(asphaltCv, { repeat: [175, 175] }), bumpMap: tex(asphaltCv, { srgb: false, repeat: [175, 175] }), bumpScale: 0.8, roughness: 0.96 }),
+};
+
+// ===== 形状ヘルパー =====
+const GEO = {};
+const rbox = (key, w, h, d, r = 0.04) =>
+  GEO[key] ||= new RoundedBoxGeometry(w, h, d, 2, Math.min(r, Math.min(w, h, d) / 2 - 0.001));
+const m4 = (x, y, z, ry = 0) => new THREE.Matrix4().makeRotationY(ry).setPosition(x, y, z);
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+function orient(g, a, b) {
+  const o = new THREE.Object3D();
+  o.position.copy(a).lerp(b, 0.5);
+  o.lookAt(b);
+  o.updateMatrix();
+  return g.applyMatrix4(o.matrix);
+}
+const bar = (a, b, t) => orient(new THREE.BoxGeometry(t, t, a.distanceTo(b)), a, b);
+const pipe = (a, b, r) => orient(new THREE.CylinderGeometry(r, r, a.distanceTo(b), 8, 1, true).rotateX(Math.PI / 2), a, b);
+function lattice(len, s, step, tc, tl) { // Y方向にのびるトラス
+  const h = s / 2, c = [[-h, -h], [h, -h], [h, h], [-h, h]], out = [];
+  c.forEach(([x, z]) => out.push(bar(V(x, 0, z), V(x, len, z), tc)));
+  const n = Math.max(1, Math.round(len / step));
+  for (let i = 0; i <= n; i++) {
+    const y = i * len / n, y2 = (i + 1) * len / n;
+    for (let k = 0; k < 4; k++) {
+      const [x1, z1] = c[k], [x2, z2] = c[(k + 1) % 4];
+      out.push(bar(V(x1, y, z1), V(x2, y, z2), tl));
+      if (i < n) out.push(i % 2 ? bar(V(x1, y, z1), V(x2, y2, z2), tl) : bar(V(x2, y, z2), V(x1, y2, z1), tl));
+    }
+  }
+  return mergeGeometries(out);
+}
+function addMesh(geo, mat, parent = scene, cast = true) {
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = cast; m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+// ===== 進捗で現れる「部材」：同じ形はまとめて InstancedMesh で描く =====
+const batches = new Map();
+const elements = [];
+function newEl(anchor, mode = 'y') {
+  const e = { anchor, mode, parts: [], obj: null, target: 0, cur: 0 };
+  elements.push(e);
+  return e;
+}
+function addPart(e, key, geo, mat, matrix, cast = true) {
+  const bk = key + '|' + mat.uuid;
+  if (!batches.has(bk)) batches.set(bk, { geo, mat, cast, count: 0, mesh: null, dirty: true });
+  const b = batches.get(bk);
+  e.parts.push({ b, i: b.count++, base: matrix });
+}
+
+// ===== 建物（実寸：1単位 = 1m） =====
+const GX = [-15, -9, -3, 3, 9, 15];         // 柱芯 X（6m間隔）
+const GZ = [-9, -3, 3, 9];                  // 柱芯 Z（6m間隔）
+const H = 3.5, SLAB = 0.25, BASE = 0.3;     // 階高・スラブ厚・基礎天端
+const EX = 16, EZ = 10;                     // スラブ外形（柱芯から1m張り出し）
+const CW = 0.15;                            // カーテンウォールのスラブ端からの控え
+const yb = f => BASE + (f - 1) * H;
+const XI = [[-EX, -9], [-9, -3], [-3, 3], [3, 9], [9, EX]];
+const ZI = [[-EZ, -3], [-3, 3], [3, EZ]];
+
+function slabPanels(y, mat, list) {
+  const tmp = [];
+  XI.forEach(([x1, x2], i) => ZI.forEach(([z1, z2], j) => {
+    const w = x2 - x1, d = z2 - z1, cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
+    const e = newEl(V(cx, y, cz), 'xz');
+    addPart(e, `slab${w}x${d}`, rbox(`slab${w}x${d}`, w, SLAB, d, 0.05), mat, m4(cx, y + SLAB / 2, cz));
+    tmp.push([i + j, e]);
+  }));
+  tmp.sort((a, b) => a[0] - b[0]).forEach(([, e]) => list.push(e));
+}
+
+function curtainBay(e, w, gh) {
+  const k = 'gl' + w;
+  addPart(e, k, GEO[k] ||= new THREE.BoxGeometry(w, gh, 0.024), M.glass, m4(0, gh / 2, 0), false);
+  addPart(e, 'tr' + w, rbox('tr' + w, w, 0.08, 0.14, 0.02), M.frame, m4(0, 0.04, 0.03));
+  addPart(e, 'tr' + w, rbox('tr' + w, w, 0.08, 0.14, 0.02), M.frame, m4(0, gh - 0.04, 0.03));
+  const n = Math.round(w / 1.5);
+  for (let i = 0; i <= n; i++) addPart(e, 'mul', rbox('mul', 0.07, gh, 0.16, 0.02), M.frame, m4(-w / 2 + i * w / n, gh / 2, 0.03));
+}
+
+const floors = {};
+for (let f = 1; f <= 5; f++) {
+  const y0 = yb(f), yt = y0 + SLAB, colH = H - SLAB;
+  const fl = { '基礎': [], '躯体': [], '外装': [], '内装': [], cols: [], rebar: [], roof: [], scaffold: null };
+  floors[f] = fl;
+
+  // 基礎（床スラブ。1階はその下に基礎版）
+  if (f === 1) {
+    const e = newEl(V(0, 0, 0));
+    addPart(e, 'base', rbox('base', EX * 2 + 0.6, BASE, EZ * 2 + 0.6, 0.05), M.slab, m4(0, BASE / 2, 0));
+    fl['基礎'].push(e);
+  }
+  slabPanels(y0, M.slab, fl['基礎']);
+
+  // 躯体（柱 0.8m角）＋ 柱頭から出る鉄筋
+  for (const gz of GZ) for (const gx of GX) {
+    const c = newEl(V(gx, yt, gz));
+    addPart(c, 'col', rbox('col', 0.8, colH, 0.8, 0.05), M.column, m4(gx, yt + colH / 2, gz));
+    fl['躯体'].push(c); fl.cols.push(c);
+    const r = newEl(V(gx, y0 + H, gz));
+    for (const [dx, dz] of [[-.28, -.28], [.28, -.28], [.28, .28], [-.28, .28], [0, -.28], [0, .28], [-.28, 0], [.28, 0]])
+      addPart(r, 'rebar', GEO.rebar ||= new THREE.CylinderGeometry(0.016, 0.016, 1.1, 6), M.rebar, m4(gx + dx, y0 + H + 0.55, gz + dz));
+    fl.rebar.push(r);
+  }
+  if (f === 5) { // 屋上スラブ＋パラペット
+    const yr = yb(6);
+    slabPanels(yr, M.slab, fl.roof);
+    for (const s of [-1, 1]) {
+      const a = newEl(V(0, yr + SLAB, s * (EZ - 0.1)));
+      addPart(a, 'parX', rbox('parX', EX * 2, 1.0, 0.2), M.column, m4(0, yr + SLAB + 0.5, s * (EZ - 0.1)));
+      const b = newEl(V(s * (EX - 0.1), yr + SLAB, 0));
+      addPart(b, 'parZ', rbox('parZ', 0.2, 1.0, EZ * 2 - 0.4), M.column, m4(s * (EX - 0.1), yr + SLAB + 0.5, 0));
+      fl.roof.push(a, b);
+    }
+    fl['躯体'].push(...fl.roof);
+  }
+
+  // 外装（ガラスカーテンウォール＋方立）
+  const fx = EX - CW, fz = EZ - CW;
+  const XB = [[-fx, -9], [-9, -3], [-3, 3], [3, 9], [9, fx]], ZB = [[-fz, -3], [-3, 3], [3, fz]];
+  const bays = [
+    ...XB.map(([a, b]) => [(a + b) / 2, fz, b - a, 0]),
+    ...ZB.map(([a, b]) => [fx, -(a + b) / 2, b - a, Math.PI / 2]),
+    ...XB.map(([a, b]) => [-(a + b) / 2, -fz, b - a, Math.PI]),
+    ...ZB.map(([a, b]) => [-fx, (a + b) / 2, b - a, -Math.PI / 2]),
+  ];
+  for (const [x, z, w, ry] of bays) {
+    const e = newEl(V(x, yt, z));
+    const wr = Math.round(w * 100) / 100;
+    const tmp = { parts: [] };
+    curtainBay(tmp, wr, colH);
+    const place = m4(x, yt, z, ry);
+    tmp.parts.forEach(p => e.parts.push({ ...p, base: place.clone().multiply(p.base) }));
+    fl['外装'].push(e);
+  }
+
+  // 内装（床仕上げ・コア・間仕切り。窓越しにうっすら見える）
+  const fe = newEl(V(0, yt, 0), 'xz');
+  addPart(fe, 'ifloor', rbox('ifloor', EX * 2 - 1.4, 0.04, EZ * 2 - 1.4, 0.015), M.ifloor, m4(0, yt + 0.02, 0));
+  fl['内装'].push(fe);
+  const walls = [
+    ['core', 6, 3.2, 6, -6, 0],
+    ['w18', 18, 3.0, 0.12, 6, -3], ['w18', 18, 3.0, 0.12, 6, 3],
+    ['w6', 0.12, 3.0, 6, 3, 6], ['w6', 0.12, 3.0, 6, 9, 6], ['w6', 0.12, 3.0, 6, 3, -6], ['w6', 0.12, 3.0, 6, 9, -6],
+  ];
+  for (const [k, w, h, d, x, z] of walls) {
+    const e = newEl(V(x, yt, z));
+    addPart(e, k, rbox(k, w, h, d, 0.03), M.iwall, m4(x, yt + h / 2, z));
+    fl['内装'].push(e);
+  }
+}
+
+// 部材の InstancedMesh を作る
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+for (const b of batches.values()) {
+  b.mesh = new THREE.InstancedMesh(b.geo, b.mat, b.count);
+  b.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  b.mesh.castShadow = b.cast;
+  b.mesh.receiveShadow = true;
+  b.mesh.frustumCulled = false;
+  for (let i = 0; i < b.count; i++) b.mesh.setMatrixAt(i, ZERO);
+  scene.add(b.mesh);
+}
+
+// ===== 足場（パイプ＋手すり＋布板）と養生シート =====
+const scaffoldGeoCache = {};
+function scaffoldGeos(h) {
+  if (scaffoldGeoCache[h]) return scaffoldGeoCache[h];
+  const ai = { x: EX + 0.45, z: EZ + 0.45 }, ao = { x: EX + 1.35, z: EZ + 1.35 };
+  const corners = a => [[-a.x, -a.z], [a.x, -a.z], [a.x, a.z], [-a.x, a.z]];
+  const ring = a => {
+    const c = corners(a), pts = [];
+    for (let k = 0; k < 4; k++) {
+      const [x1, z1] = c[k], [x2, z2] = c[(k + 1) % 4];
+      const n = Math.ceil(Math.hypot(x2 - x1, z2 - z1) / 1.8);
+      for (let i = 0; i < n; i++) pts.push([x1 + (x2 - x1) * i / n, z1 + (z2 - z1) * i / n]);
+    }
+    return pts;
+  };
+  const r = 0.024, pipes = [], decks = [], sheets = [];
+  const inner = ring(ai), outer = ring(ao);
+  for (const [x, z] of [...inner, ...outer]) pipes.push(pipe(V(x, 0, z), V(x, h, z), r));
+  const lifts = [0, h / 2];
+  for (const L of lifts) {
+    for (const a of [ai, ao]) {
+      const c = corners(a);
+      for (let k = 0; k < 4; k++) {
+        const [x1, z1] = c[k], [x2, z2] = c[(k + 1) % 4];
+        pipes.push(pipe(V(x1, L + 0.06, z1), V(x2, L + 0.06, z2), r));
+        if (a === ao) for (const hh of [0.5, 0.95]) pipes.push(pipe(V(x1, L + hh, z1), V(x2, L + hh, z2), r)); // 手すり・中桟
+      }
+    }
+    outer.forEach(([x, z], i) => { // 筋かい
+      const [x2, z2] = outer[(i + 1) % outer.length];
+      if (i % 2 === 0) pipes.push(pipe(V(x, L, z), V(x2, L + h / 2, z2), r * 0.8));
+    });
+    const t = 0.04, dz = ao.z - ai.z, dx = ao.x - ai.x;
+    for (const s of [-1, 1]) {
+      decks.push(new THREE.BoxGeometry(ao.x * 2, t, dz).translate(0, L + t / 2, s * (ai.z + ao.z) / 2));
+      decks.push(new THREE.BoxGeometry(dx, t, ai.z * 2).translate(s * (ai.x + ao.x) / 2, L + t / 2, 0));
+    }
+  }
+  const sx = ao.x + 0.08, sz = ao.z + 0.08;
+  const plane = (w, ry, x, z) => {
+    const g = new THREE.PlaneGeometry(w, h);
+    const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 1.2, uv.getY(i) * h / 1.2);
+    return g.rotateY(ry).translate(x, h / 2, z);
+  };
+  sheets.push(plane(sx * 2, 0, 0, sz), plane(sx * 2, Math.PI, 0, -sz), plane(sz * 2, Math.PI / 2, sx, 0), plane(sz * 2, -Math.PI / 2, -sx, 0));
+  return scaffoldGeoCache[h] = { pipes: mergeGeometries(pipes), decks: mergeGeometries(decks), sheets: mergeGeometries(sheets) };
+}
+for (let f = 1; f <= 5; f++) {
+  const bottom = f === 1 ? 0 : yb(f), h = f === 1 ? H + BASE : H;
+  const g = scaffoldGeos(h);
+  const grp = new THREE.Group();
+  grp.position.y = bottom;
+  addMesh(g.pipes, M.pipe, grp);
+  addMesh(g.decks, M.deck, grp);
+  addMesh(g.sheets, M.sheet, grp, false);
+  grp.visible = false;
+  scene.add(grp);
+  const e = newEl(V(0, bottom, 0));
+  e.obj = grp;
+  floors[f].scaffold = e;
+}
+
+// ===== 敷地：アスファルト・仮囲い（高さ3m）・タワークレーン =====
+const ground = addMesh(new THREE.PlaneGeometry(2000, 2000).rotateX(-Math.PI / 2), M.asphalt, scene, false);
+{
+  const FX = 32, FZ = 24, FH = 3;
+  const fence = (len, x, z, ry) => {
+    const t = tex(ribCanvas(), { repeat: [len, 1] });
+    const m = std({ map: t, roughness: 0.55, metalness: 0.25 });
+    const mesh = addMesh(new RoundedBoxGeometry(len, FH, 0.06, 2, 0.02), m);
+    mesh.position.set(x, FH / 2, z); mesh.rotation.y = ry;
+  };
+  fence(FX * 2, 0, -FZ, 0);
+  fence(FZ * 2, -FX, 0, Math.PI / 2);
+  fence(FZ * 2, FX, 0, Math.PI / 2);
+  fence(FX - 6, -(FX + 6) / 2, FZ, 0); // 正面はゲート分あける
+  fence(FX - 6, (FX + 6) / 2, FZ, 0);
+}
+{
+  const crane = new THREE.Group();
+  crane.position.set(-24, 0, -18);
+  scene.add(crane);
+  addMesh(rbox('cranebase', 6, 1.2, 6, 0.06), M.heavy, crane).position.y = 0.6;
+  const MH = 40, top = 1.2 + MH;
+  addMesh(lattice(MH, 1.7, 2.0, 0.16, 0.08).translate(0, 1.2, 0), M.crane, crane);
+
+  const slew = new THREE.Group();
+  slew.rotation.y = -Math.atan2(18, 24); // ジブを建物の方へ
+  crane.add(slew);
+  const Y = [], S = [];
+  Y.push(new THREE.BoxGeometry(2.6, 1.0, 2.6).translate(0, top + 0.5, 0));
+  const apex = V(0, top + 8, 0);
+  for (const [x, z] of [[-.85, -.85], [.85, -.85], [.85, .85], [-.85, .85]]) Y.push(bar(V(x, top + 1, z), apex, 0.16));
+  Y.push(lattice(40.7, 1.4, 2.2, 0.12, 0.07).rotateZ(-Math.PI / 2).translate(1.3, top + 1.7, 0)); // ジブ 約42m
+  for (const z of [-0.8, 0.8]) Y.push(new THREE.BoxGeometry(12, 0.5, 0.35).translate(-7.3, top + 1.25, z)); // カウンタージブ
+  Y.push(bar(apex, V(30, top + 2.4, 0), 0.07), bar(apex, V(-12.8, top + 1.5, 0), 0.07)); // 吊りロッド
+  const trolleyX = 27, hookY = 24;
+  Y.push(new THREE.BoxGeometry(1.4, 0.5, 1.2).translate(trolleyX, top + 0.8, 0));
+  Y.push(new THREE.BoxGeometry(0.7, 0.9, 0.5).translate(trolleyX, hookY, 0));
+  S.push(new THREE.BoxGeometry(12, 0.06, 1.9).translate(-7.3, top + 1.0, 0));
+  for (const dx of [-0.2, 0.2]) S.push(pipe(V(trolleyX + dx, top + 0.6, 0), V(trolleyX + dx, hookY + 0.45, 0), 0.018));
+  addMesh(mergeGeometries(Y), M.crane, slew);
+  addMesh(mergeGeometries(S), M.pipe, slew);
+  for (let i = 0; i < 4; i++) addMesh(rbox('cw', 0.7, 2.6, 2.2, 0.05), M.heavy, slew).position.set(-10 - i * 0.8, top - 0.3, 0); // カウンターウェイト
+  addMesh(rbox('cab', 2.0, 2.2, 2.0, 0.08), M.cab, slew).position.set(0.6, top + 0.4, 2.0);
+  addMesh(new THREE.BoxGeometry(0.04, 1.2, 1.6), M.glass, slew, false).position.set(1.62, top + 0.7, 2.0);
+}
+
+// ===== 昼 / ダークモード（夕暮れ） =====
+const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const dark = darkMQ.matches;
+  const top = dark ? '#1b2a52' : '#5f93cf', hor = dark ? '#e39a6c' : '#f1dcc0';
+  skyMat.uniforms.top.value.set(top);
+  skyMat.uniforms.horizon.value.set(hor);
+  skyMat.uniforms.bottom.value.set(hor);
+  scene.fog.color.set(hor);
+  sun.color.set(dark ? '#ff9f62' : '#ffcf9e');
+  sun.intensity = dark ? 2.4 : 3.2;
+  sun.position.set(...(dark ? [-80, 34, 60] : [-70, 58, 62]));
+  hemi.intensity = dark ? 0.45 : 0.8;
+  hemi.color.set(dark ? '#7f94c8' : '#a9c8ff');
+  if (skyEnv) skyEnv.dispose();
+  skyEnv = pmrem.fromScene(skyScene, 0.02);
+  M.glass.envMap = skyEnv.texture; // ガラスには空を映す
+  M.glass.needsUpdate = true;
+}
+applyTheme();
+darkMQ.addEventListener('change', applyTheme);
+
+// ===== カメラ =====
+const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 2000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 8, 0);
+controls.enableDamping = true;
+controls.enablePan = false;
+controls.minDistance = 25;
+controls.maxDistance = 300;
+controls.minPolarAngle = 0.25;
+controls.maxPolarAngle = Math.PI * 0.47;
+
+// ===== ポストエフェクト（SSAO） =====
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+const renderPass = new RenderPass(scene, camera);
+const ssaoPass = new SSAOPass(scene, camera, 1, 1);
+ssaoPass.kernelRadius = 1.2;
+ssaoPass.minDistance = 0.00002;
+ssaoPass.maxDistance = 0.003;
+composer.addPass(renderPass);
+composer.addPass(ssaoPass);
+composer.addPass(new OutputPass());
+
+const qualityBtn = document.getElementById('qualityBtn');
+let ssaoOn = true, autoQuality = true;
+function setSSAO(on) {
+  ssaoOn = on;
+  ssaoPass.enabled = on;
+  qualityBtn.textContent = on ? '高画質 ON' : '高画質 OFF';
+}
+// 重い端末では最初から切る
+if ((navigator.deviceMemory && navigator.deviceMemory <= 3) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2)) setSSAO(false);
+else setSSAO(true);
+qualityBtn.addEventListener('click', () => { autoQuality = false; setSSAO(!ssaoOn); });
+
+// ===== 部材のアニメーション =====
+const _A = new THREE.Matrix4(), _T = new THREE.Matrix4(), _S = new THREE.Matrix4(), _M = new THREE.Matrix4();
+function applyEl(e) {
+  const s = e.cur;
+  if (e.obj) { e.obj.visible = s > 0.002; e.obj.scale.y = Math.max(s, 0.001); return; }
+  if (s <= 0.002) {
+    for (const p of e.parts) { p.b.mesh.setMatrixAt(p.i, ZERO); p.b.dirty = true; }
+    return;
+  }
+  const { x, y, z } = e.anchor;
+  _S.makeScale(e.mode === 'xz' ? s : 1, e.mode === 'xz' ? 1 : s, e.mode === 'xz' ? s : 1);
+  _A.makeTranslation(x, y, z).multiply(_S).multiply(_T.makeTranslation(-x, -y, -z));
+  for (const p of e.parts) {
+    p.b.mesh.setMatrixAt(p.i, _M.multiplyMatrices(_A, p.base));
+    p.b.dirty = true;
+  }
+}
+function stepElements() {
+  for (const e of elements) {
+    if (e.cur === e.target) continue;
+    const d = e.target - e.cur;
+    e.cur = Math.abs(d) < 0.004 ? e.target : e.cur + d * 0.16;
+    applyEl(e);
+  }
+  for (const b of batches.values()) if (b.dirty) { b.mesh.instanceMatrix.needsUpdate = true; b.dirty = false; }
+}
+
+// ===== 日付スライダー =====
+const slider = document.getElementById('slider');
+const dateLabel = document.getElementById('dateLabel');
+slider.max = totalDays;
+document.getElementById('minLabel').textContent = fmtShort(startDate);
+document.getElementById('maxLabel').textContent = fmtShort(dayToDate(totalDays));
+document.getElementById('legend').innerHTML = LEGEND.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('');
+
+function setDay(n) {
+  const date = dayToDate(n);
+  dateLabel.textContent = fmt(date);
+  const pct = (f, k) => {
+    const item = DATA.find(d => d.floor === f && d.kind === k);
+    return item ? Math.min(100, Math.max(0, progressAt(item.progress, date))) : 0;
+  };
+  for (let f = 1; f <= 5; f++) {
+    const fl = floors[f];
+    for (const k of KIND_NAMES) {
+      const list = fl[k], shown = Math.round(list.length * pct(f, k) / 100);
+      list.forEach((e, i) => { e.target = i < shown ? 1 : 0; });
+    }
+    // 躯体だけの階：上にまだ床が無ければ柱頭から鉄筋が出る
+    const covered = f < 5 ? pct(f + 1, '基礎') > 0 : fl.roof.some(e => e.target === 1);
+    const bare = pct(f, '外装') === 0 && !covered;
+    fl.cols.forEach((c, i) => { fl.rebar[i].target = bare && c.target === 1 ? 1 : 0; });
+    // 外装工事中の階：足場と養生シート
+    const ext = pct(f, '外装');
+    fl.scaffold.target = ext > 0 && ext < 100 ? 1 : 0;
+  }
+}
+slider.addEventListener('input', () => setDay(Number(slider.value)));
+
+const today = new Date();
+const todayIdx = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - startDate) / DAY);
+slider.value = Math.min(totalDays, Math.max(0, todayIdx));
+setDay(Number(slider.value));
+
+// ===== サイズ調整・描画 =====
+let firstResize = true;
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  composer.setPixelRatio(renderer.getPixelRatio());
+  composer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  if (firstResize) { // 人の目線より少し上から見下ろす。縦長画面では少し引く
+    firstResize = false;
+    const dir = V(60, 22, 75);
+    const dist = dir.length() * 1.15 * Math.max(1, 1.15 / camera.aspect);
+    camera.position.copy(controls.target).add(dir.setLength(dist));
+    controls.update();
+  }
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+let frames = 0, t0 = 0;
+renderer.setAnimationLoop(() => {
+  controls.update();
+  stepElements();
+  composer.render();
+  // 動きが重ければ SSAO を自動で切る
+  if (autoQuality && ssaoOn && frames < 120) {
+    frames++;
+    if (frames === 30) t0 = performance.now();
+    if (frames === 120 && (performance.now() - t0) / 90 > 30) setSSAO(false);
+  }
+});
+</script>
+</body>
+</html>
