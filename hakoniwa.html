@@ -17,6 +17,7 @@
     --sub: #69717a;
     --track: #d9dee4;
     --accent: #e8891c;
+    --phase: #b45f06;
     --btn: #ffffff;
   }
   @media (prefers-color-scheme: dark) {
@@ -30,6 +31,7 @@
       --sub: #a3abb6;
       --track: #3b4350;
       --accent: #f29a35;
+      --phase: #f6b25e;
       --btn: #2a303c;
     }
   }
@@ -73,12 +75,13 @@
   .panel {
     background: var(--panel);
     border-top: 1px solid var(--line);
-    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+    padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
   }
   .date { font-size: 22px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+  .phase { font-size: 16px; font-weight: 700; text-align: center; color: var(--phase); min-height: 1.5em; }
   input[type=range] {
     -webkit-appearance: none; appearance: none;
-    width: 100%; height: 48px; margin: 0;
+    width: 100%; height: 44px; margin: 0;
     background: transparent;
     touch-action: pan-x;
   }
@@ -127,6 +130,7 @@
   }
   .sheet-foot .primary { flex: 1; }
   .sheet h3 { font-size: 18px; margin: 18px 0 8px; }
+  .sheet h4 { font-size: 16px; margin: 14px 0 6px; color: var(--sub); }
   .note { color: var(--sub); font-size: 16px; margin: 4px 0 8px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
   .grid .wide { grid-column: 1 / -1; }
@@ -145,6 +149,7 @@
   .floor-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
   .floor-card b { display: block; margin-bottom: 6px; }
   .krow { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; margin-bottom: 6px; }
+  .krow.site { grid-template-columns: 6.5em minmax(0, 1fr) auto minmax(0, 1fr); }
   .krow span { color: var(--sub); }
   .err { color: #d9443a; font-weight: 700; min-height: 1.2em; margin: 6px 0 0; }
 </style>
@@ -160,6 +165,7 @@
   </div>
   <div class="panel">
     <div class="date" id="dateLabel">----</div>
+    <div class="phase" id="phaseLabel"></div>
     <input type="range" id="slider" min="0" max="100" value="0" aria-label="日付">
     <div class="range-labels"><span id="minLabel"></span><span id="maxLabel"></span></div>
     <div class="legend" id="legend"></div>
@@ -180,16 +186,21 @@
       </div>
       <h3>工期（かんたん設定）</h3>
       <div class="grid">
-        <label class="f">着工日<input type="date" id="fStart"></label>
-        <label class="f">上の階へのずれ（日）<input type="number" id="fShift" min="1" max="120" inputmode="numeric"></label>
-        <label class="f">基礎の日数<input type="number" id="fD0" min="1" max="365" inputmode="numeric"></label>
+        <label class="f wide">着工日（準備工事の開始）<input type="date" id="fStart"></label>
+      </div>
+      <h4>現場全体の日数</h4>
+      <div class="grid" id="siteDays"></div>
+      <h4>各階の日数</h4>
+      <div class="grid">
+        <label class="f">床の日数<input type="number" id="fD0" min="1" max="365" inputmode="numeric"></label>
         <label class="f">躯体の日数<input type="number" id="fD1" min="1" max="365" inputmode="numeric"></label>
         <label class="f">外装の日数<input type="number" id="fD2" min="1" max="365" inputmode="numeric"></label>
         <label class="f">内装の日数<input type="number" id="fD3" min="1" max="365" inputmode="numeric"></label>
+        <label class="f wide">上の階へのずれ（日）<input type="number" id="fShift" min="1" max="120" inputmode="numeric"></label>
         <button class="btn wide" id="genBtn" type="button">この日数で工程を作り直す</button>
       </div>
       <h3>工程の細かい調整</h3>
-      <p class="note">階ごと・工種ごとに、開始日〜終了日を直せます。</p>
+      <p class="note">工程ごとに、開始日〜終了日を直せます。</p>
       <div id="table"></div>
       <p class="err" id="err"></p>
     </div>
@@ -219,33 +230,58 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-// ===== 進捗サンプルデータ（日付ごとの進捗%。間の日は直線でつなぐ） =====
+// ===== 進捗サンプルデータ =====
+// 現場全体の工程（開始日・終了日）
+const SITE_SAMPLE = {
+  prep:     ['2026-01-13', '2026-01-27'],
+  pile:     ['2026-01-26', '2026-02-20'],
+  excav:    ['2026-02-15', '2026-03-09'],
+  found:    ['2026-03-06', '2026-03-31'],
+  crane:    ['2026-03-23', '2026-03-31'],
+  craneOff: ['2026-10-13', '2026-10-20'],
+  ext:      ['2026-10-19', '2026-11-28'],
+};
+// 各階の工程（日付ごとの進捗%。間の日は直線でつなぐ）
 const DATA = [
-  { floor: 1, kind: '基礎', progress: [['2026-04-01', 0], ['2026-04-21', 100]] },
+  { floor: 1, kind: '床',   progress: [['2026-04-01', 0], ['2026-04-21', 100]] },
   { floor: 1, kind: '躯体', progress: [['2026-04-15', 0], ['2026-05-15', 100]] },
   { floor: 1, kind: '外装', progress: [['2026-05-10', 0], ['2026-06-20', 100]] },
   { floor: 1, kind: '内装', progress: [['2026-06-01', 0], ['2026-07-20', 100]] },
-  { floor: 2, kind: '基礎', progress: [['2026-04-29', 0], ['2026-05-19', 100]] },
+  { floor: 2, kind: '床',   progress: [['2026-04-29', 0], ['2026-05-19', 100]] },
   { floor: 2, kind: '躯体', progress: [['2026-05-13', 0], ['2026-06-12', 100]] },
   { floor: 2, kind: '外装', progress: [['2026-06-07', 0], ['2026-07-18', 100]] },
   { floor: 2, kind: '内装', progress: [['2026-06-29', 0], ['2026-08-17', 100]] },
-  { floor: 3, kind: '基礎', progress: [['2026-05-27', 0], ['2026-06-16', 100]] },
+  { floor: 3, kind: '床',   progress: [['2026-05-27', 0], ['2026-06-16', 100]] },
   { floor: 3, kind: '躯体', progress: [['2026-06-10', 0], ['2026-07-10', 100]] },
   { floor: 3, kind: '外装', progress: [['2026-07-05', 0], ['2026-08-15', 100]] },
   { floor: 3, kind: '内装', progress: [['2026-07-27', 0], ['2026-09-14', 100]] },
-  { floor: 4, kind: '基礎', progress: [['2026-06-24', 0], ['2026-07-14', 100]] },
+  { floor: 4, kind: '床',   progress: [['2026-06-24', 0], ['2026-07-14', 100]] },
   { floor: 4, kind: '躯体', progress: [['2026-07-08', 0], ['2026-08-07', 100]] },
   { floor: 4, kind: '外装', progress: [['2026-08-02', 0], ['2026-09-12', 100]] },
   { floor: 4, kind: '内装', progress: [['2026-08-24', 0], ['2026-10-12', 100]] },
-  { floor: 5, kind: '基礎', progress: [['2026-07-22', 0], ['2026-08-11', 100]] },
+  { floor: 5, kind: '床',   progress: [['2026-07-22', 0], ['2026-08-11', 100]] },
   { floor: 5, kind: '躯体', progress: [['2026-08-05', 0], ['2026-09-04', 100]] },
   { floor: 5, kind: '外装', progress: [['2026-08-30', 0], ['2026-10-10', 100]] },
   { floor: 5, kind: '内装', progress: [['2026-09-21', 0], ['2026-11-09', 100]] },
 ];
-const KIND_NAMES = ['基礎', '躯体', '外装', '内装'];
+const KIND_NAMES = ['床', '躯体', '外装', '内装'];
+const SITE_PHASES = [
+  { key: 'prep',     label: '準備工事' },
+  { key: 'pile',     label: '杭工事' },
+  { key: 'excav',    label: '山留め・掘削' },
+  { key: 'found',    label: '基礎工事' },
+  { key: 'crane',    label: 'クレーン組立' },
+  { key: 'craneOff', label: 'クレーン解体' },
+  { key: 'ext',      label: '外構工事' },
+];
 const SAMPLE = {
   use: 'office', floors: 5, spanX: 5, spanZ: 3,
-  auto: { start: '2026-04-01', shift: 28, days: { '基礎': 20, '躯体': 30, '外装': 40, '内装': 50 } },
+  auto: {
+    start: '2026-01-13', shift: 28,
+    days: { '床': 20, '躯体': 30, '外装': 40, '内装': 50 },
+    site: { prep: 14, pile: 25, excav: 22, found: 25, crane: 8, craneOff: 7, ext: 40 },
+  },
+  site: SITE_SAMPLE,
   data: DATA,
 };
 // 用途ごとの階高
@@ -257,7 +293,7 @@ const USES = {
   datacenter: { label: 'データセンター', h: () => 5.0 },
 };
 const LEGEND = [
-  ['基礎（床スラブ）', '#b9b6af'],
+  ['床（スラブ）', '#b9b6af'],
   ['躯体（柱）', '#d4d1ca'],
   ['外装', 'linear-gradient(135deg,#8fb3cc,#e4e1da)'],
   ['内装', '#b7d9e6'],
@@ -273,6 +309,7 @@ const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
 const fmt = d => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${WEEK[d.getDay()]})`;
 const fmtShort = d => `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 const validIso = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parseDate(s));
+const clamp01 = v => Math.min(1, Math.max(0, v));
 
 function progressAt(points, date) {
   const t = date.getTime();
@@ -286,22 +323,46 @@ function progressAt(points, date) {
   }
   return pts[pts.length - 1][1];
 }
+const phaseRatio = ([s, e], date) => clamp01(progressAt([[s, 0], [e, 100]], date) / 100);
 
-// かんたん設定から全階の工程を作る（工種は少しずつ重ねて進める）
-function genFloor(f, a) {
-  const d = a.days, s = parseDate(a.start);
-  const lag = { '基礎': 0, '躯体': Math.round(d['基礎'] * 0.7) };
+// ===== かんたん設定から工程を作る（工程は少しずつ重ねて進める） =====
+function genFloor(f, a, base) {
+  const d = a.days;
+  const lag = { '床': 0, '躯体': Math.round(d['床'] * 0.7) };
   lag['外装'] = lag['躯体'] + Math.round(d['躯体'] * 0.8);
   lag['内装'] = lag['外装'] + Math.round(d['外装'] * 0.55);
   return KIND_NAMES.map(k => {
-    const st = addDays(s, (f - 1) * a.shift + lag[k]);
+    const st = addDays(base, (f - 1) * a.shift + lag[k]);
     return { floor: f, kind: k, progress: [[iso(st), 0], [iso(addDays(st, d[k])), 100]] };
   });
 }
-const genSchedule = (floors, a) => Array.from({ length: floors }, (_, i) => genFloor(i + 1, a)).flat();
+const floorBase = site => addDays(parseDate(site.found[1]), 1);
+const span = (st, n) => [iso(st), iso(addDays(st, n))];
+function genAll(floors, a) {
+  const sd = a.site, s0 = parseDate(a.start), site = {};
+  site.prep = span(s0, sd.prep);
+  const pile = addDays(s0, Math.round(sd.prep * 0.9));
+  site.pile = span(pile, sd.pile);
+  const ex = addDays(pile, Math.round(sd.pile * 0.8));
+  site.excav = span(ex, sd.excav);
+  const fo = addDays(ex, Math.round(sd.excav * 0.85));
+  site.found = span(fo, sd.found);
+  site.crane = span(addDays(parseDate(site.found[1]), -sd.crane), sd.crane);
+  const data = Array.from({ length: floors }, (_, i) => genFloor(i + 1, a, floorBase(site))).flat();
+  finishSite(site, data, floors, sd);
+  return { site, data };
+}
+// クレーン解体・外構は、外装がいちばん遅く終わる日から決める
+function finishSite(site, data, floors, sd) {
+  const lastExt = new Date(Math.max(...data.filter(d => d.kind === '外装' && d.floor <= floors)
+    .map(d => parseDate(d.progress[d.progress.length - 1][0]).getTime())));
+  site.craneOff = span(addDays(lastExt, 3), sd.craneOff);
+  site.ext = span(addDays(lastExt, 9), sd.ext);
+}
 
 // ===== 設定の読み込み・保存（このブラウザだけに保存） =====
-const STORE_KEY = 'hakoniwa-config-v1';
+const STORE_KEY = 'hakoniwa-config-v2';
+const OLD_KEY = 'hakoniwa-config-v1';
 const clone = o => JSON.parse(JSON.stringify(o));
 function validConfig(c) {
   try {
@@ -309,6 +370,7 @@ function validConfig(c) {
     if (!(c.floors >= 1 && c.floors <= 10 && c.spanX >= 2 && c.spanX <= 8 && c.spanZ >= 2 && c.spanZ <= 5)) return false;
     if (!validIso(c.auto.start) || !(c.auto.shift >= 1)) return false;
     if (!KIND_NAMES.every(k => c.auto.days[k] >= 1)) return false;
+    if (!SITE_PHASES.every(p => c.auto.site[p.key] >= 1 && validIso(c.site[p.key][0]) && validIso(c.site[p.key][1]))) return false;
     for (let f = 1; f <= c.floors; f++) for (const k of KIND_NAMES) {
       const it = c.data.find(d => d.floor === f && d.kind === k);
       if (!it || !it.progress.every(([d]) => validIso(d))) return false;
@@ -316,10 +378,28 @@ function validConfig(c) {
     return true;
   } catch { return false; }
 }
+// 前の版の設定（工種「基礎」）を新しい形に直す。現場全体の工程は1階の床の前に入れる
+function migrate(old) {
+  const c = clone(old);
+  c.data.forEach(d => { if (d.kind === '基礎') d.kind = '床'; });
+  c.auto.days['床'] = c.auto.days['基礎'] || 20;
+  delete c.auto.days['基礎'];
+  c.auto.site = clone(SAMPLE.auto.site);
+  const first = parseDate(c.data.find(d => d.floor === 1 && d.kind === '床').progress[0][0]);
+  const trial = genAll(1, c.auto).site;
+  c.auto.start = iso(addDays(parseDate(c.auto.start), Math.round((first - floorBase(trial)) / DAY)));
+  c.site = genAll(1, c.auto).site;
+  finishSite(c.site, c.data, c.floors, c.auto.site);
+  return c;
+}
 function loadConfig() {
   try {
     const c = JSON.parse(localStorage.getItem(STORE_KEY));
     if (c && validConfig(c)) return c;
+  } catch {}
+  try {
+    const o = JSON.parse(localStorage.getItem(OLD_KEY));
+    if (o) { const c = migrate(o); if (validConfig(c)) return c; }
   } catch {}
   return clone(SAMPLE);
 }
@@ -327,7 +407,7 @@ function saveConfig(c) { try { localStorage.setItem(STORE_KEY, JSON.stringify(c)
 
 // ===== ノイズテクスチャ（canvasで生成） =====
 function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
-function noiseCanvas(n, { base, fine, mottle, cells = 6, dots = 0, dotRange = [0, 0], seed = 1 }) {
+function noiseCanvas(n, { base, fine, mottle, cells = 6, dots = 0, dotRange = [0, 0], seed = 1, tint = [1, 1, 1] }) {
   const rnd = rng(seed);
   const grid = Array.from({ length: cells * cells }, rnd);
   const g = (x, y) => grid[((y % cells) + cells) % cells * cells + ((x % cells) + cells) % cells];
@@ -343,13 +423,13 @@ function noiseCanvas(n, { base, fine, mottle, cells = 6, dots = 0, dotRange = [0
     const m = v0 + (v1 - v0) * ty;
     const v = base + (rnd() - 0.5) * fine + (m - 0.5) * mottle;
     const i = (y * n + x) * 4;
-    img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.max(0, Math.min(255, v));
+    for (let ch = 0; ch < 3; ch++) img.data[i + ch] = Math.max(0, Math.min(255, v * tint[ch]));
     img.data[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
   for (let k = 0; k < dots; k++) {
     const v = dotRange[0] + rnd() * (dotRange[1] - dotRange[0]);
-    ctx.fillStyle = `rgb(${v},${v},${v})`;
+    ctx.fillStyle = `rgb(${v * tint[0]},${v * tint[1]},${v * tint[2]})`;
     ctx.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 1.5, 1 + rnd() * 1.5);
   }
   return c;
@@ -366,6 +446,8 @@ function tex(canvas, { srgb = true, repeat = [1, 1], rotate = 0 } = {}) {
 const concreteCv = noiseCanvas(512, { base: 205, fine: 22, mottle: 34, cells: 8, dots: 900, dotRange: [120, 170], seed: 11 });
 const asphaltCv  = noiseCanvas(512, { base: 72, fine: 46, mottle: 16, cells: 5, dots: 2600, dotRange: [110, 165], seed: 23 });
 const tileCv     = noiseCanvas(256, { base: 225, fine: 14, mottle: 18, cells: 6, seed: 31 });
+const soilCv     = noiseCanvas(512, { base: 150, fine: 40, mottle: 50, cells: 7, dots: 1500, dotRange: [90, 200], seed: 41, tint: [1, 0.82, 0.62] });
+const lawnCv     = noiseCanvas(256, { base: 150, fine: 60, mottle: 30, cells: 5, seed: 53, tint: [0.55, 0.85, 0.42] });
 
 function ribCanvas() { // 波板（仮囲い・倉庫の外壁）
   const c = document.createElement('canvas'); c.width = c.height = 64;
@@ -383,6 +465,16 @@ function meshSheetCanvas() { // 養生メッシュシート
   g.fillStyle = 'rgba(46,128,74,0.42)'; g.fillRect(0, 0, 64, 64);
   g.fillStyle = 'rgba(26,92,50,0.85)';
   for (let i = 0; i < 64; i += 4) { g.fillRect(i, 0, 1, 64); g.fillRect(0, i, 64, 1); }
+  return c;
+}
+function boardCanvas() { // 横矢板
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  for (let y = 0; y < 64; y += 8) {
+    g.fillStyle = `rgb(${130 + (y * 7) % 25},${100 + (y * 5) % 18},${70 + (y * 3) % 14})`;
+    g.fillRect(0, y, 64, 7);
+    g.fillStyle = '#4a3a2a'; g.fillRect(0, y + 7, 64, 1);
+  }
   return c;
 }
 
@@ -439,6 +531,7 @@ const concreteBump = tex(concreteCv, { srgb: false, repeat: [2, 2] });
 const M = {
   slab:    std({ color: '#c9c6bf', map: concreteMap, bumpMap: concreteBump, bumpScale: 0.6, roughness: 0.92 }),
   column:  std({ color: '#e2dfd8', map: concreteMap, bumpMap: concreteBump, bumpScale: 0.6, roughness: 0.9 }),
+  lean:    std({ color: '#a9a69f', map: concreteMap, roughness: 0.95 }),   // 捨てコン
   glass:   std({ color: '#a9c4d6', metalness: 0.9, roughness: 0.06, transparent: true, opacity: 0.62, depthWrite: false, envMapIntensity: 1.4 }),
   frame:   std({ color: '#9aa1a8', metalness: 0.85, roughness: 0.32 }),
   rebar:   std({ color: '#6e4a36', metalness: 0.75, roughness: 0.55 }),
@@ -459,7 +552,25 @@ const M = {
   crane:   std({ color: '#e7a515', metalness: 0.55, roughness: 0.42 }),
   cab:     std({ color: '#ecebe6', metalness: 0.3, roughness: 0.4 }),
   heavy:   std({ color: '#bdbab3', map: concreteMap, roughness: 0.95 }),
-  asphalt: std({ map: tex(asphaltCv, { repeat: [175, 175] }), bumpMap: tex(asphaltCv, { srgb: false, repeat: [175, 175] }), bumpScale: 0.8, roughness: 0.96 }),
+  fence:   std({ map: tex(ribCanvas(), { repeat: [3.6, 1] }), roughness: 0.55, metalness: 0.25 }),
+  gate:    std({ color: '#f1c232', metalness: 0.4, roughness: 0.45 }),
+  office:  std({ color: '#eceae4', metalness: 0.25, roughness: 0.5 }),     // 現場事務所（プレハブ）
+  band:    std({ color: '#2f5f9e', metalness: 0.3, roughness: 0.5 }),
+  toilet:  std({ color: '#5b8fc9', roughness: 0.5 }),
+  hsteel:  std({ color: '#5d636b', metalness: 0.8, roughness: 0.45 }),     // 山留めのH鋼
+  board:   std({ color: '#9a7a5a', map: tex(boardCanvas(), { repeat: [6, 1] }), roughness: 0.9, side: THREE.DoubleSide }),
+  track:   std({ color: '#2f3338', metalness: 0.6, roughness: 0.6 }),
+  rig:     std({ color: '#2f6fb3', metalness: 0.45, roughness: 0.45 }),    // 杭打ち機
+  dump:    std({ color: '#d9dcdf', metalness: 0.4, roughness: 0.45 }),
+  dirt:    std({ map: tex(soilCv, { repeat: [0.5, 0.5] }), roughness: 1 }),
+  pave:    std({ map: tex(asphaltCv, { repeat: [0.6, 0.6] }), roughness: 0.92 }),
+  apron:   std({ color: '#d6d3cc', map: concreteMap, roughness: 0.85 }),
+  lawn:    std({ map: tex(lawnCv, { repeat: [3, 3] }), roughness: 1 }),
+  leaf:    std({ color: '#4f8a3c', roughness: 0.9, flatShading: true }),
+  trunk:   std({ color: '#6b4a32', roughness: 0.9 }),
+  line:    std({ color: '#f4f4f0', roughness: 0.6 }),
+  soil:    std({ map: tex(soilCv, { repeat: [1 / 8, 1 / 8] }), roughness: 1 }),
+  asphalt: std({ map: tex(asphaltCv, { repeat: [1 / 11, 1 / 11] }), bumpMap: tex(asphaltCv, { srgb: false, repeat: [1 / 11, 1 / 11] }), bumpScale: 0.8, roughness: 0.96 }),
 };
 
 // ===== 形状ヘルパー =====
@@ -503,6 +614,7 @@ function addMesh(geo, mat, parent = world, cast = true) {
   parent.add(m);
   return m;
 }
+const box = (parent, mat, w, h, d, x, y, z, r = 0.04) => { const m = addMesh(rbox(w, h, d, r), mat, parent); m.position.set(x, y, z); return m; };
 
 // ===== 進捗で現れる「部材」：同じ形はまとめて InstancedMesh で描く =====
 let batches = new Map();
@@ -521,10 +633,12 @@ function addPart(e, geo, mat, matrix, cast = true) {
 // 面取りした箱・ガラス板を部材に足す
 const P = (e, mat, w, h, d, x, y, z, r = 0.03, cast = true) => addPart(e, rbox(w, h, d, r), mat, m4(x, y, z), cast);
 const G = (e, w, h, d, x, y, z) => addPart(e, pbox(w, h, d), M.glass, m4(x, y, z), false);
+const PR = (e, mat, w, h, d, x, y, z, ry, r = 0.03) => addPart(e, rbox(w, h, d, r), mat, m4(x, y, z, ry));
 
 // ===== 建物の寸法（1単位 = 1m） =====
-const SLAB = 0.25, BASE = 0.3, CW = 0.15;
-let CFG, GX, GZ, EX, EZ, NF, hs, ys;
+const SLAB = 0.25, BASE = 0.3, CW = 0.15, PIT = 2.2, PILE_LEN = 14;
+const PIT_DEEP = new THREE.Color(0.42, 0.33, 0.26);
+let CFG, GX, GZ, EX, EZ, NF, hs, ys, FX, FZ, PX, PZ;
 const yb = f => ys[f];
 
 function slabPanels(y, mat, list) {
@@ -661,28 +775,222 @@ function scaffoldGeos(h, off) {
   return { pipes: mergeGeometries(pipes), decks: mergeGeometries(decks), sheets: mergeGeometries(sheets) };
 }
 
-// --- 敷地：仮囲い（高さ3m）とタワークレーン ---
-function buildSite(roofTop) {
-  const FX = EX + 16, FZ = EZ + 14, FH = 3;
-  const fence = (len, x, z, ry) => {
-    const m = std({ map: tex(ribCanvas(), { repeat: [len, 1] }), roughness: 0.55, metalness: 0.25 });
-    worldMats.push(m);
-    const mesh = addMesh(new RoundedBoxGeometry(len, FH, 0.06, 2, 0.02), m);
-    mesh.position.set(x, FH / 2, z); mesh.rotation.y = ry;
-  };
-  fence(FX * 2, 0, -FZ, 0);
-  fence(FZ * 2, -FX, 0, Math.PI / 2);
-  fence(FZ * 2, FX, 0, Math.PI / 2);
-  fence(FX - 6, -(FX + 6) / 2, FZ, 0); // 正面はゲート分あける
-  fence(FX - 6, (FX + 6) / 2, FZ, 0);
+// ===== 現場全体：地面・仮囲い・事務所・杭・山留め・基礎・重機・クレーン・外構 =====
+let site = {};
+function holedPlane(ox, oz, hx, hz) { // 四角い穴のあいた地面（XZ平面・上向き）
+  const shape = new THREE.Shape();
+  shape.moveTo(-ox, -oz); shape.lineTo(ox, -oz); shape.lineTo(ox, oz); shape.lineTo(-ox, oz); shape.closePath();
+  const hole = new THREE.Path();
+  hole.moveTo(-hx, -hz); hole.lineTo(-hx, hz); hole.lineTo(hx, hz); hole.lineTo(hx, -hz); hole.closePath();
+  shape.holes.push(hole);
+  return new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2);
+}
 
+function buildGround() {
+  addMesh(holedPlane(1500, 1500, FX + 1, FZ + 1), M.asphalt, world, false);
+  addMesh(holedPlane(FX + 1, FZ + 1, PX, PZ), M.soil, world, false).position.y = 0.004;
+  // 掘削の底と山留めの壁（深さは日付で変わる）
+  const pitMat = std({ map: tex(soilCv, { repeat: [PX / 4, PZ / 4] }), roughness: 1 });
+  worldMats.push(pitMat);
+  site.pitMat = pitMat;
+  site.pitFloor = addMesh(new THREE.PlaneGeometry(PX * 2, PZ * 2).rotateX(-Math.PI / 2), pitMat, world, false);
+  site.walls = [];
+  for (const [w, x, z, ry] of [[PX * 2, 0, -PZ, 0], [PX * 2, 0, PZ, Math.PI], [PZ * 2, -PX, 0, Math.PI / 2], [PZ * 2, PX, 0, -Math.PI / 2]]) {
+    const m = addMesh(new THREE.PlaneGeometry(w, 1).translate(0, -0.5, 0), M.board, world, false);
+    m.position.set(x, 0, z); m.rotation.y = ry;
+    site.walls.push(m);
+  }
+  // 山留めのH鋼（1.5m間隔）と腹起し
+  const posts = [];
+  const ring = [[-PX, -PZ], [PX, -PZ], [PX, PZ], [-PX, PZ]];
+  for (let k = 0; k < 4; k++) {
+    const [x1, z1] = ring[k], [x2, z2] = ring[(k + 1) % 4];
+    const n = Math.ceil(Math.hypot(x2 - x1, z2 - z1) / 1.5);
+    for (let i = 0; i < n; i++) {
+      const x = x1 + (x2 - x1) * i / n, z = z1 + (z2 - z1) * i / n;
+      posts.push(new THREE.BoxGeometry(0.3, PIT + 1.3, 0.3).translate(x, (PIT + 1.3) / 2 - PIT - 0.8, z));
+    }
+    posts.push(bar(V(x1, -1.0, z1), V(x2, -1.0, z2), 0.3));
+  }
+  site.hsteel = addMesh(mergeGeometries(posts), M.hsteel);
+}
+
+function buildPrep() { // 準備工事：仮囲い（3.6mずつ）・ゲート・現場事務所・仮設トイレ
+  const list = [], FH = 3;
+  const side = (x1, z1, x2, z2) => {
+    const len = Math.hypot(x2 - x1, z2 - z1), n = Math.max(1, Math.round(len / 3.6)), w = len / n;
+    const ry = -Math.atan2(z2 - z1, x2 - x1);
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n, x = x1 + (x2 - x1) * t, z = z1 + (z2 - z1) * t;
+      const e = newEl(V(x, 0, z)); e.tag = 'fence';
+      PR(e, M.fence, w, FH, 0.06, x, FH / 2, z, ry, 0.02);
+      list.push(e);
+    }
+  };
+  side(6, FZ, FX, FZ); side(FX, FZ, FX, -FZ); side(FX, -FZ, -FX, -FZ); side(-FX, -FZ, -FX, FZ); side(-FX, FZ, -6, FZ);
+  // ゲート（引き戸）
+  const g = newEl(V(0, 0, FZ)); g.tag = 'fence';
+  for (const x of [-6, 6]) P(g, M.gate, 0.3, FH + 0.4, 0.3, x, (FH + 0.4) / 2, FZ, 0.04);
+  P(g, M.gate, 5.6, 0.25, 0.12, -3, FH + 0.1, FZ, 0.03);
+  P(g, M.gate, 5.6, 0.25, 0.12, 3, FH + 0.1, FZ, 0.03);
+  list.push(g);
+  // 現場事務所（2階建てプレハブ）
+  const ox = FX - 9, oz = FZ - 5;
+  for (let lv = 0; lv < 2; lv++) for (let u = 0; u < 3; u++) {
+    const x = ox - 2.4 + u * 2.4, y = lv * 2.7;
+    const e = newEl(V(x, y, oz)); e.tag = 'office';
+    P(e, M.office, 2.35, 2.6, 5.4, x, y + 1.3, oz, 0.05);
+    P(e, M.band, 2.36, 0.25, 5.42, x, y + 2.45, oz, 0.03);
+    G(e, 1.4, 1.0, 0.03, x, y + 1.5, oz + 2.72);
+    list.push(e);
+  }
+  for (const dx of [0, 1.2]) { // 仮設トイレ
+    const e = newEl(V(ox + 4.5 + dx, 0, oz + 1.5)); e.tag = 'office';
+    P(e, M.toilet, 1.1, 2.4, 1.2, ox + 4.5 + dx, 1.2, oz + 1.5, 0.08);
+    list.push(e);
+  }
+  site.prepList = list;
+  site.fenceCount = list.filter(e => e.tag === 'fence').length;
+}
+
+function buildFoundation() { // 基礎工事：捨てコン→フーチング→基礎梁→基礎版
+  const list = [], y0 = -PIT;
+  const lx = [-EX - 0.5, ...GX.slice(1, -1), EX + 0.5];
+  const lz = [-EZ - 0.5, ...GZ.slice(1, -1), EZ + 0.5];
+  for (let i = 0; i < lx.length - 1; i++) for (let j = 0; j < lz.length - 1; j++) {
+    const w = lx[i + 1] - lx[i], d = lz[j + 1] - lz[j], cx = (lx[i] + lx[i + 1]) / 2, cz = (lz[j] + lz[j + 1]) / 2;
+    const e = newEl(V(cx, y0, cz), 'xz');
+    P(e, M.lean, w, 0.05, d, cx, y0 + 0.025, cz, 0.01);
+    list.push(e);
+  }
+  for (const gz of GZ) for (const gx of GX) { // フーチング
+    const e = newEl(V(gx, y0 + 0.05, gz));
+    P(e, M.slab, 2.6, 1.1, 2.6, gx, y0 + 0.05 + 0.55, gz, 0.04);
+    list.push(e);
+  }
+  const bh = PIT - 0.05;
+  for (const gz of GZ) GX.slice(0, -1).forEach((a, i) => { // 基礎梁
+    const b = GX[i + 1], e = newEl(V((a + b) / 2, y0 + 0.05, gz));
+    P(e, M.column, b - a, bh, 0.7, (a + b) / 2, y0 + 0.05 + bh / 2, gz, 0.04);
+    list.push(e);
+  });
+  for (const gx of GX) GZ.slice(0, -1).forEach((a, i) => {
+    const b = GZ[i + 1], e = newEl(V(gx, y0 + 0.05, (a + b) / 2));
+    P(e, M.column, 0.7, bh, b - a, gx, y0 + 0.05 + bh / 2, (a + b) / 2, 0.04);
+    list.push(e);
+  });
+  const base = newEl(V(0, 0, 0)); // 基礎版（1階の床の下）
+  P(base, M.slab, EX * 2 + 0.6, BASE, EZ * 2 + 0.6, 0, BASE / 2, 0, 0.05);
+  list.push(base);
+  site.foundList = list;
+}
+
+function buildExterior() { // 外構工事：犬走り・舗装・植栽・駐車場の白線・植木
+  const list = [], ax = EX + 1.5, az = EZ + 1.5, ix = FX - 2, iz = FZ - 2;
+  for (const s of [-1, 1]) { // 建物まわりのコンクリート
+    const a = newEl(V(0, 0, s * (az - 0.75)), 'xz'); P(a, M.apron, ax * 2, 0.1, 1.5, 0, 0.05, s * (az - 0.75), 0.02); list.push(a);
+    const b = newEl(V(s * (ax - 0.75), 0, 0), 'xz'); P(b, M.apron, 1.5, 0.1, az * 2 - 3, s * (ax - 0.75), 0.05, 0, 0.02); list.push(b);
+  }
+  const tiles = [];
+  const region = (x1, x2, z1, z2) => {
+    const nx = Math.max(1, Math.round((x2 - x1) / 6)), nz = Math.max(1, Math.round((z2 - z1) / 6));
+    const w = (x2 - x1) / nx, d = (z2 - z1) / nz;
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+      const cx = x1 + (i + 0.5) * w, cz = z1 + (j + 0.5) * d;
+      tiles.push([Math.hypot(cx, cz), cx, cz, w, d]);
+    }
+  };
+  region(-ix, ix, az, iz); region(-ix, ix, -iz, -az); region(-ix, -ax, -az, az); region(ax, ix, -az, az);
+  tiles.sort((a, b) => a[0] - b[0]).forEach(([, cx, cz, w, d]) => {
+    const e = newEl(V(cx, 0, cz), 'xz');
+    P(e, M.pave, w, 0.08, d, cx, 0.04, cz, 0.01);
+    list.push(e);
+  });
+  for (const s of [-1, 1]) { // 植栽帯
+    const a = newEl(V(0, 0, s * (FZ - 1)), 'xz'); P(a, M.lawn, FX * 2 - 0.4, 0.14, 1.8, 0, 0.07, s * (FZ - 1), 0.03); list.push(a);
+    const b = newEl(V(s * (FX - 1), 0, 0), 'xz'); P(b, M.lawn, 1.8, 0.14, FZ * 2 - 4, s * (FX - 1), 0.07, 0, 0.03); list.push(b);
+  }
+  for (let x = -ix + 2; x <= ix - 2; x += 2.5) { // 駐車場の白線
+    if (Math.abs(x) < 6.5) continue;
+    const e = newEl(V(x, 0.08, az + 5)); P(e, M.line, 0.12, 0.02, 5, x, 0.09, az + 5, 0.005); list.push(e);
+  }
+  const leafGeo = GEO.leaf ||= new THREE.IcosahedronGeometry(1.4, 1);
+  const trunkGeo = GEO.trunk ||= new THREE.CylinderGeometry(0.12, 0.16, 2.2, 8);
+  const tree = (x, z) => {
+    const e = newEl(V(x, 0, z));
+    addPart(e, trunkGeo, M.trunk, m4(x, 1.1, z));
+    addPart(e, leafGeo, M.leaf, m4(x, 3.0, z));
+    list.push(e);
+  };
+  for (let x = -FX + 4; x <= FX - 4; x += 8) { tree(x, -FZ + 1); if (Math.abs(x) > 8) tree(x, FZ - 1); }
+  for (let z = -FZ + 8; z <= FZ - 8; z += 8) { tree(-FX + 1, z); tree(FX - 1, z); }
+  site.extList = list;
+}
+
+function buildPiles() { // 杭（柱の下に1本ずつ）と杭打ち機
+  const pts = [];
+  GZ.forEach((gz, j) => (j % 2 ? [...GX].reverse() : GX).forEach(gx => pts.push([gx, gz])));
+  const geo = new THREE.CylinderGeometry(0.5, 0.5, 1, 20).translate(0, 0.5, 0);
+  site.piles = pts.map(([x, z]) => {
+    const m = addMesh(geo, M.column);
+    m.position.set(x, -PILE_LEN, z); m.visible = false;
+    return m;
+  });
+  const rig = new THREE.Group();
+  for (const z of [-1.6, 1.6]) box(rig, M.track, 5.6, 1.0, 0.9, -1.0, 0.5, z, 0.2);
+  box(rig, M.rig, 4.2, 2.2, 3.2, -1.2, 2.1, 0, 0.1);
+  box(rig, M.cab, 1.6, 1.8, 1.4, 0.4, 2.0, 1.2, 0.08);
+  addMesh(lattice(22, 0.8, 1.6, 0.12, 0.06), M.rig, rig).position.set(1.4, 1.0, 0); // リーダー
+  addMesh(bar(V(1.4, 16, 0), V(-2.8, 3.0, 0), 0.18), M.rig, rig);                   // バックステー
+  site.hammer = box(rig, M.track, 1.0, 2.4, 1.0, 2.15, 14, 0, 0.05);
+  site.hammerBase = 14;
+  site.rigPile = addMesh(geo, M.column, rig);
+  site.rigPile.position.set(2.15, 0, 0);
+  rig.visible = false;
+  world.add(rig);
+  site.rig = rig;
+}
+
+function buildMachines() { // バックホウとダンプ
+  const bh = new THREE.Group();
+  for (const z of [-1.1, 1.1]) box(bh, M.track, 3.8, 0.8, 0.7, 0, 0.4, z, 0.15);
+  const upper = new THREE.Group(); upper.position.y = 0.85; bh.add(upper);
+  box(upper, M.crane, 2.8, 1.1, 2.4, -0.3, 0.55, 0, 0.1);
+  box(upper, M.track, 0.9, 1.0, 2.3, -1.6, 0.6, 0, 0.1);
+  box(upper, M.cab, 1.1, 1.5, 0.95, 0.5, 1.6, 0.7, 0.06);
+  const boom = new THREE.Group(); boom.position.set(1.0, 1.0, -0.2); upper.add(boom);
+  box(boom, M.crane, 4.6, 0.45, 0.42, 2.3, 0, 0, 0.08);
+  const arm = new THREE.Group(); arm.position.set(4.6, 0, 0); boom.add(arm);
+  box(arm, M.crane, 3.0, 0.35, 0.32, 1.5, 0, 0, 0.06);
+  box(arm, M.track, 0.9, 0.8, 1.0, 3.1, -0.2, 0, 0.08); // バケット
+  bh.position.set(PX + 2.6, 0, 1.5);
+  bh.rotation.y = Math.PI;
+  world.add(bh);
+  const dump = new THREE.Group();
+  box(dump, M.dump, 2.0, 2.0, 2.3, 2.6, 1.6, 0, 0.12);
+  addMesh(pbox(0.03, 0.8, 1.9), M.glass, dump, false).position.set(3.62, 2.1, 0);
+  box(dump, M.crane, 4.2, 1.3, 2.4, -0.6, 1.6, 0, 0.08);
+  box(dump, M.dirt, 3.8, 0.4, 2.1, -0.6, 2.35, 0, 0.15);
+  box(dump, M.track, 6.6, 0.4, 2.0, 0.4, 0.75, 0, 0.05);
+  const wheel = new THREE.CylinderGeometry(0.55, 0.55, 0.4, 16).rotateX(Math.PI / 2);
+  for (const x of [-1.8, -0.6, 2.6]) for (const z of [-1.0, 1.0]) addMesh(wheel, M.track, dump).position.set(x, 0.55, z);
+  dump.position.set(PX + 9, 0, -6);
+  dump.rotation.y = Math.PI / 2;
+  world.add(dump);
+  site.backhoe = { g: bh, upper, boom, arm };
+  site.dump = dump;
+  bh.visible = dump.visible = false;
+}
+
+function buildCrane(roofTop) { // タワークレーン（組立・解体で背が変わる）
   const cx = EX + 8, cz = EZ + 8, dist = Math.hypot(cx, cz);
   const crane = new THREE.Group();
   crane.position.set(-cx, 0, -cz);
   world.add(crane);
-  addMesh(rbox(6, 1.2, 6, 0.06), M.heavy, crane).position.y = 0.6;
+  box(crane, M.heavy, 6, 1.2, 6, 0, 0.6, 0, 0.06);
   const MH = Math.max(30, Math.ceil((roofTop + 14) / 2) * 2), top = 1.2 + MH;
-  addMesh(lattice(MH, 1.7, 2.0, 0.16, 0.08).translate(0, 1.2, 0), M.crane, crane);
+  const mast = addMesh(lattice(MH, 1.7, 2.0, 0.16, 0.08), M.crane, crane);
+  mast.position.y = 1.2;
 
   const slew = new THREE.Group();
   slew.rotation.y = -Math.atan2(cz, cx); // ジブを建物の方へ
@@ -702,10 +1010,12 @@ function buildSite(roofTop) {
   for (const dx of [-0.2, 0.2]) S.push(pipe(V(trolleyX + dx, top + 0.6, 0), V(trolleyX + dx, hookY + 0.45, 0), 0.018));
   addMesh(mergeGeometries(Y), M.crane, slew);
   addMesh(mergeGeometries(S), M.pipe, slew);
-  for (let i = 0; i < 4; i++) addMesh(rbox(0.7, 2.6, 2.2, 0.05), M.heavy, slew).position.set(-10 - i * 0.8, top - 0.3, 0); // カウンターウェイト
-  addMesh(rbox(2.0, 2.2, 2.0, 0.08), M.cab, slew).position.set(0.6, top + 0.4, 2.0);
+  for (let i = 0; i < 4; i++) box(slew, M.heavy, 0.7, 2.6, 2.2, -10 - i * 0.8, top - 0.3, 0, 0.05); // カウンターウェイト
+  box(slew, M.cab, 2.0, 2.2, 2.0, 0.6, top + 0.4, 2.0, 0.08);
   addMesh(pbox(0.04, 1.2, 1.6), M.glass, slew, false).position.set(1.62, top + 0.7, 2.0);
-  return { FX, FZ, top: top + 8 };
+  crane.visible = false;
+  site.crane = { g: crane, mast, slew };
+  return top + 8;
 }
 
 // ===== 建物を組み立てる（設定が変わるたびに作り直す） =====
@@ -720,12 +1030,14 @@ function build(cfg) {
   Object.values(GEO).forEach(g => g.dispose());
   worldMats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
   world = new THREE.Group(); scene.add(world);
-  worldMats = []; GEO = {}; batches = new Map(); elements = []; floors = {};
+  worldMats = []; GEO = {}; batches = new Map(); elements = []; floors = {}; site = {};
 
   CFG = cfg; NF = cfg.floors;
   GX = Array.from({ length: cfg.spanX + 1 }, (_, i) => -cfg.spanX * 3 + i * 6);
   GZ = Array.from({ length: cfg.spanZ + 1 }, (_, i) => -cfg.spanZ * 3 + i * 6);
   EX = cfg.spanX * 3 + 1; EZ = cfg.spanZ * 3 + 1;
+  FX = EX + 16; FZ = EZ + 14;      // 仮囲い
+  PX = EX + 2; PZ = EZ + 2;        // 掘削範囲
   hs = [0]; ys = [0, BASE];
   for (let f = 1; f <= NF; f++) { hs[f] = USES[cfg.use].h(f); ys[f + 1] = ys[f] + hs[f]; }
 
@@ -739,18 +1051,19 @@ function build(cfg) {
     ...ZB.map(([a, b], i) => ['left', i, -fx, (a + b) / 2, b - a, -Math.PI / 2]),
   ];
 
+  buildGround();
+  buildPrep();
+  buildFoundation();
+  buildExterior();
+  buildPiles();
+  buildMachines();
+
   for (let f = 1; f <= NF; f++) {
     const y0 = yb(f), H = hs[f], yt = y0 + SLAB, colH = H - SLAB;
-    const fl = { '基礎': [], '躯体': [], '外装': [], '内装': [], cols: [], rebar: [], roof: [], scaffold: null };
+    const fl = { '床': [], '躯体': [], '外装': [], '内装': [], cols: [], rebar: [], roof: [], scaffold: null };
     floors[f] = fl;
 
-    // 基礎（床スラブ。1階はその下に基礎版）
-    if (f === 1) {
-      const e = newEl(V(0, 0, 0));
-      P(e, M.slab, EX * 2 + 0.6, BASE, EZ * 2 + 0.6, 0, BASE / 2, 0, 0.05);
-      fl['基礎'].push(e);
-    }
-    slabPanels(y0, M.slab, fl['基礎']);
+    slabPanels(y0, M.slab, fl['床']);
 
     // 躯体（柱 0.8m角）＋ 柱頭から出る鉄筋
     for (const gz of GZ) for (const gx of GX) {
@@ -830,15 +1143,15 @@ function build(cfg) {
   }
 
   const roofTop = yb(NF + 1) + SLAB + 1.0;
-  const site = buildSite(roofTop);
+  const craneTop = buildCrane(roofTop);
 
-  // 影・霧・カメラを建物の大きさに合わせる
-  const S = Math.max(site.FX, site.FZ, 40) + 14;
+  // 影・霧・カメラを現場の大きさに合わせる
+  const S = Math.max(FX, FZ, 40) + 14;
   Object.assign(sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 5, far: S * 5 });
   sun.shadow.camera.updateProjectionMatrix();
   sunDist = S * 1.9;
   applyTheme();
-  fitCamera(roofTop, site.top);
+  fitCamera(roofTop, craneTop);
 
   document.getElementById('summary').textContent =
     `${USES[CFG.use].label}・${NF}階建て・${cfg.spanX * 6}m×${cfg.spanZ * 6}m`;
@@ -865,13 +1178,6 @@ function applyTheme() {
   M.glass.needsUpdate = true;
 }
 darkMQ.addEventListener('change', applyTheme);
-
-// ===== 地面（アスファルト） =====
-{
-  const g = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), M.asphalt);
-  g.receiveShadow = true;
-  scene.add(g);
-}
 
 // ===== カメラ =====
 const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 4000);
@@ -942,16 +1248,32 @@ function stepElements() {
   }
   for (const b of batches.values()) if (b.dirty) { b.mesh.instanceMatrix.needsUpdate = true; b.dirty = false; }
 }
+function animateMachines(t) { // 重機を少しだけ動かす
+  const b = site.backhoe;
+  if (b && b.g.visible) {
+    b.upper.rotation.y = Math.sin(t * 0.5) * 0.6;
+    b.boom.rotation.z = 0.35 + Math.sin(t * 0.9) * 0.22;
+    b.arm.rotation.z = -1.75 + Math.sin(t * 0.9 + 1.2) * 0.35;
+  }
+  if (site.rig && site.rig.visible) site.hammer.position.y = site.hammerBase + Math.abs(Math.sin(t * 3)) * 0.5;
+}
 
 // ===== 日付スライダー =====
 const slider = document.getElementById('slider');
 const dateLabel = document.getElementById('dateLabel');
+const phaseLabel = document.getElementById('phaseLabel');
 let rangeStart = new Date(), totalDays = 1;
 const dayToDate = n => addDays(rangeStart, n);
 document.getElementById('legend').innerHTML = LEGEND.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('');
 
+function allDates() {
+  return [
+    ...CFG.data.filter(d => d.floor <= NF).flatMap(d => d.progress.map(([s]) => s)),
+    ...SITE_PHASES.flatMap(p => CFG.site[p.key]),
+  ].map(s => parseDate(s).getTime());
+}
 function setupSlider() {
-  const all = CFG.data.filter(d => d.floor <= NF).flatMap(d => d.progress.map(([s]) => parseDate(s).getTime()));
+  const all = allDates();
   rangeStart = addDays(new Date(Math.min(...all)), -7);
   totalDays = Math.round((addDays(new Date(Math.max(...all)), 10) - rangeStart) / DAY);
   slider.max = totalDays;
@@ -962,6 +1284,19 @@ function setupSlider() {
   slider.value = Math.min(totalDays, Math.max(0, idx));
   setDay(Number(slider.value));
 }
+// いまどの工程か
+function phaseText(date, sp, pct) {
+  const t = date.getTime(), all = allDates();
+  if (t < Math.min(...all)) return '更地（着工前）';
+  if (t > Math.max(...all)) return '竣工';
+  const act = SITE_PHASES.filter(p => sp[p.key] > 0 && sp[p.key] < 1).map(p => p.label);
+  for (const k of KIND_NAMES) {
+    const fs = [];
+    for (let f = 1; f <= NF; f++) { const v = pct(f, k); if (v > 0 && v < 100) fs.push(f); }
+    if (fs.length) act.push(`${k} ${fs.length > 2 ? `${fs[0]}〜${fs[fs.length - 1]}` : fs.join('・')}階`);
+  }
+  return act.length ? 'いま：' + act.join(' / ') : '工程の合間';
+}
 function setDay(n) {
   const date = dayToDate(n);
   dateLabel.textContent = fmt(date);
@@ -969,6 +1304,10 @@ function setDay(n) {
     const item = CFG.data.find(d => d.floor === f && d.kind === k);
     return item ? Math.min(100, Math.max(0, progressAt(item.progress, date))) : 0;
   };
+  const sp = {};
+  SITE_PHASES.forEach(p => { sp[p.key] = phaseRatio(CFG.site[p.key], date); });
+  phaseLabel.textContent = phaseText(date, sp, pct);
+
   for (let f = 1; f <= NF; f++) {
     const fl = floors[f];
     for (const k of KIND_NAMES) {
@@ -976,13 +1315,69 @@ function setDay(n) {
       list.forEach((e, i) => { e.target = i < shown ? 1 : 0; });
     }
     // 躯体だけの階：上にまだ床が無ければ柱頭から鉄筋が出る
-    const covered = f < NF ? pct(f + 1, '基礎') > 0 : fl.roof.some(e => e.target === 1);
+    const covered = f < NF ? pct(f + 1, '床') > 0 : fl.roof.some(e => e.target === 1);
     const bare = pct(f, '外装') === 0 && !covered;
     fl.cols.forEach((c, i) => { fl.rebar[i].target = bare && c.target === 1 ? 1 : 0; });
-    // 外装工事中の階：足場と養生シート
+    // 外装工事中の階：足場と養生シート（外装が終われば外す）
     const ext = pct(f, '外装');
     fl.scaffold.target = ext > 0 && ext < 100 ? 1 : 0;
   }
+  updateSite(sp);
+}
+
+function updateSite(sp) {
+  // 準備工事（外構工事の最初に撤去）
+  const fenceGone = Math.round(site.fenceCount * clamp01(sp.ext / 0.25));
+  const shownPrep = Math.round(site.prepList.length * sp.prep);
+  let fi = 0;
+  site.prepList.forEach((e, i) => {
+    let on = i < shownPrep;
+    if (e.tag === 'fence') { if (fi < fenceGone) on = false; fi++; }
+    if (e.tag === 'office' && sp.ext > 0.12) on = false;
+    e.target = on ? 1 : 0;
+  });
+  // 基礎工事：最後の15%で埋め戻し
+  const nF = site.foundList.length, shownF = Math.round(nF * clamp01(sp.found / 0.85));
+  site.foundList.forEach((e, i) => { e.target = i < shownF ? 1 : 0; });
+  const backfill = clamp01((sp.found - 0.85) / 0.15);
+  const depth = PIT * Math.min(sp.excav, 1 - backfill);
+  site.pitFloor.position.y = -depth - 0.003;
+  site.pitMat.color.setRGB(1, 1, 1).lerp(PIT_DEEP, depth / PIT); // 深いほど湿った暗い土
+  site.walls.forEach(w => { w.visible = depth > 0.02; w.scale.y = Math.max(depth, 0.01); });
+  site.hsteel.visible = sp.excav > 0 && backfill < 1;
+  // 外構
+  const nE = site.extList.length, shownE = Math.round(nE * clamp01((sp.ext - 0.3) / 0.7));
+  site.extList.forEach((e, i) => { e.target = i < shownE ? 1 : 0; });
+  // 杭：1本ずつ打ち込む（掘ったところは杭頭を切りそろえる）
+  const N = site.piles.length, k = Math.min(N, Math.floor(sp.pile * N)), frac = sp.pile * N - k;
+  const cut = Math.min(PIT * sp.excav, PIT - 0.3);
+  site.piles.forEach((m, i) => {
+    m.visible = i < k;
+    m.scale.y = PILE_LEN - cut;
+  });
+  const rigOn = sp.pile > 0 && sp.pile < 1 && k < N;
+  site.rig.visible = rigOn;
+  if (rigOn) {
+    const p = site.piles[k].position;
+    site.rig.position.set(p.x - 2.15, 0, p.z);
+    const out = (1 - frac) * 7; // 地上に出ている長さ
+    site.rigPile.position.y = out - PILE_LEN;
+    site.rigPile.scale.y = PILE_LEN;
+    site.hammerBase = out + 1.2;
+  }
+  // 掘削・埋め戻し中だけ重機を出す
+  const digging = (sp.excav > 0 && sp.excav < 1) || (backfill > 0 && backfill < 1);
+  site.backhoe.g.visible = site.dump.visible = digging;
+  // タワークレーン：組立は下から、解体は上から
+  const c = site.crane;
+  let mast = 0, slewOn = false;
+  if (sp.crane > 0 && sp.craneOff < 1) {
+    if (sp.craneOff > 0) { mast = 1 - clamp01((sp.craneOff - 0.3) / 0.7); slewOn = sp.craneOff < 0.3; }
+    else { mast = clamp01(sp.crane / 0.75); slewOn = sp.crane >= 0.8; }
+  }
+  c.g.visible = sp.crane > 0 && sp.craneOff < 1;
+  c.mast.scale.y = Math.max(mast, 0.001);
+  c.slew.visible = slewOn;
 }
 slider.addEventListener('input', () => setDay(Number(slider.value)));
 
@@ -994,6 +1389,8 @@ $('uses').innerHTML = Object.entries(USES).map(([k, u]) => `<button class="btn" 
 $('fFloors').innerHTML = Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1}階建て</option>`).join('');
 $('fSpanX').innerHTML = [2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}">${n}スパン（${n * 6}m）</option>`).join('');
 $('fSpanZ').innerHTML = [2, 3, 4, 5].map(n => `<option value="${n}">${n}スパン（${n * 6}m）</option>`).join('');
+$('siteDays').innerHTML = SITE_PHASES.map(p =>
+  `<label class="f">${p.label}<input type="number" id="fS_${p.key}" min="1" max="365" inputmode="numeric"></label>`).join('');
 const dayFields = ['fD0', 'fD1', 'fD2', 'fD3'];
 
 function fillForm() {
@@ -1004,19 +1401,22 @@ function fillForm() {
   $('fStart').value = draft.auto.start;
   $('fShift').value = draft.auto.shift;
   KIND_NAMES.forEach((k, i) => { $(dayFields[i]).value = draft.auto.days[k]; });
+  SITE_PHASES.forEach(p => { $('fS_' + p.key).value = draft.auto.site[p.key]; });
   renderTable();
 }
+const dateRow = (cls, label, s, e, attrs) => `<div class="krow ${cls}"><span>${label}</span>
+  <input type="date" value="${s}" ${attrs} data-p="s" aria-label="${label} 開始日">
+  <span>〜</span>
+  <input type="date" value="${e}" ${attrs} data-p="e" aria-label="${label} 終了日"></div>`;
 function renderTable() {
-  let html = '';
+  let html = '<div class="floor-card"><b>現場全体</b>';
+  for (const p of SITE_PHASES) html += dateRow('site', p.label, draft.site[p.key][0], draft.site[p.key][1], `data-site="${p.key}"`);
+  html += '</div>';
   for (let f = draft.floors; f >= 1; f--) {
     html += `<div class="floor-card"><b>${f}階</b>`;
     for (const k of KIND_NAMES) {
       const it = draft.data.find(d => d.floor === f && d.kind === k);
-      const s = it.progress[0][0], e = it.progress[it.progress.length - 1][0];
-      html += `<div class="krow"><span>${k}</span>
-        <input type="date" value="${s}" data-f="${f}" data-k="${k}" data-p="s" aria-label="${f}階 ${k} 開始日">
-        <span>〜</span>
-        <input type="date" value="${e}" data-f="${f}" data-k="${k}" data-p="e" aria-label="${f}階 ${k} 終了日"></div>`;
+      html += dateRow('', k, it.progress[0][0], it.progress[it.progress.length - 1][0], `data-f="${f}" data-k="${k}"`);
     }
     html += '</div>';
   }
@@ -1027,12 +1427,14 @@ function readAuto() {
   draft.auto.start = validIso($('fStart').value) ? $('fStart').value : draft.auto.start;
   draft.auto.shift = n('fShift', draft.auto.shift);
   KIND_NAMES.forEach((k, i) => { draft.auto.days[k] = n(dayFields[i], draft.auto.days[k]); });
+  SITE_PHASES.forEach(p => { draft.auto.site[p.key] = n('fS_' + p.key, draft.auto.site[p.key]); });
 }
 // 階数が変わったら、足りない階だけかんたん設定から工程を足す
 function syncFloors() {
   draft.data = draft.data.filter(d => d.floor <= draft.floors);
   for (let f = 1; f <= draft.floors; f++)
-    if (!draft.data.some(d => d.floor === f)) draft.data.push(...genFloor(f, draft.auto));
+    if (!draft.data.some(d => d.floor === f)) draft.data.push(...genFloor(f, draft.auto, floorBase(draft.site)));
+  finishSite(draft.site, draft.data, draft.floors, draft.auto.site);
 }
 
 $('uses').addEventListener('click', e => {
@@ -1044,13 +1446,20 @@ $('uses').addEventListener('click', e => {
 $('fFloors').addEventListener('change', () => { draft.floors = Number($('fFloors').value); readAuto(); syncFloors(); renderTable(); });
 $('fSpanX').addEventListener('change', () => { draft.spanX = Number($('fSpanX').value); });
 $('fSpanZ').addEventListener('change', () => { draft.spanZ = Number($('fSpanZ').value); });
-$('genBtn').addEventListener('click', () => { readAuto(); draft.data = genSchedule(draft.floors, draft.auto); renderTable(); $('err').textContent = ''; });
+$('genBtn').addEventListener('click', () => {
+  readAuto();
+  const g = genAll(draft.floors, draft.auto);
+  draft.site = g.site; draft.data = g.data;
+  renderTable(); $('err').textContent = '';
+});
 $('table').addEventListener('change', e => {
   const t = e.target;
-  if (!t.dataset.f || !validIso(t.value)) return;
+  if (!validIso(t.value)) return;
+  const i = t.dataset.p === 's' ? 0 : 1;
+  if (t.dataset.site) { draft.site[t.dataset.site][i] = t.value; return; }
+  if (!t.dataset.f) return;
   const it = draft.data.find(d => d.floor === Number(t.dataset.f) && d.kind === t.dataset.k);
-  if (t.dataset.p === 's') it.progress[0][0] = t.value;
-  else it.progress[it.progress.length - 1][0] = t.value;
+  it.progress[i === 0 ? 0 : it.progress.length - 1][0] = t.value;
 });
 $('settingsBtn').addEventListener('click', () => { draft = clone(CFG); $('err').textContent = ''; fillForm(); sheetBg.classList.add('open'); });
 $('closeBtn').addEventListener('click', () => sheetBg.classList.remove('open'));
@@ -1058,6 +1467,10 @@ sheetBg.addEventListener('click', e => { if (e.target === sheetBg) sheetBg.class
 $('resetBtn').addEventListener('click', () => { draft = clone(SAMPLE); $('err').textContent = ''; fillForm(); });
 $('applyBtn').addEventListener('click', () => {
   readAuto();
+  for (const p of SITE_PHASES) {
+    const [s, e] = draft.site[p.key];
+    if (parseDate(e) < parseDate(s)) { $('err').textContent = `${p.label}：終了日が開始日より前になっています`; return; }
+  }
   for (const it of draft.data) {
     const s = it.progress[0][0], e = it.progress[it.progress.length - 1][0];
     if (parseDate(e) < parseDate(s)) { $('err').textContent = `${it.floor}階の${it.kind}：終了日が開始日より前になっています`; return; }
@@ -1084,10 +1497,12 @@ new ResizeObserver(resize).observe(stage);
 resize();
 build(loadConfig());
 
+const clock = new THREE.Clock();
 let frames = 0, t0 = 0;
 renderer.setAnimationLoop(() => {
   controls.update();
   stepElements();
+  animateMachines(clock.getElapsedTime());
   composer.render();
   // 動きが重ければ SSAO を自動で切る
   if (autoQuality && ssaoOn && frames < 120) {
