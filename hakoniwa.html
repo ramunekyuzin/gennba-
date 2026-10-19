@@ -211,6 +211,28 @@
   .team-bar.on { display: flex; }
   .team-bar .btn { min-height: 36px; padding: 0 10px; }
   .people-list { margin: 6px 0 10px; padding-left: 1.2em; }
+  /* 搬入シミュレーション */
+  .haul-card {
+    position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5;
+    max-width: 560px; margin: 0 auto; max-height: calc(100% - 24px); overflow-y: auto;
+    padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18); display: none;
+  }
+  .haul-card.on { display: block; }
+  body.hauling .info-card, body.hauling .tools, body.hauling .title, body.hauling .legend { display: none; }
+  .haul-head { display: flex; align-items: center; gap: 8px; }
+  .haul-head b { font-size: 18px; white-space: nowrap; }
+  .haul-head select { flex: 1; }
+  .haul-msg { margin: 6px 0; font-size: 16px; line-height: 1.45; }
+  .haul-msg .ok { color: #2a8f4a; font-weight: 700; }
+  .haul-msg .ng { color: #d9443a; font-weight: 700; }
+  @media (prefers-color-scheme: dark) { .haul-msg .ok { color: #5fd08a; } .haul-msg .ng { color: #ff7a6e; } }
+  .haul-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .haul-acts .btn { flex: 1 1 0; padding: 0 6px; white-space: nowrap; }
+  .haul-card details { margin-top: 8px; font-size: 16px; }
+  .haul-card summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
+  .haul-count { margin: 0; padding-left: 1.2em; color: var(--sub); line-height: 1.5; }
+  .haul-count b { color: var(--text); }
 
   /* ===== AR ===== */
   .ar-overlay {
@@ -246,11 +268,22 @@
       <button class="btn primary" id="arBtn" type="button">AR</button>
       <button class="btn primary" id="walkBtn" type="button">歩く</button>
       <button class="btn primary" id="teamBtn" type="button">みんなで</button>
+      <button class="btn primary" id="haulBtn" type="button">搬入</button>
       <button class="btn" id="gridBtn" type="button">通り芯 ON</button>
       <button class="btn" id="qualityBtn" type="button">高画質 ON</button>
     </div>
     <div class="team-bar" id="teamBar"><span id="teamBarText"></span><button class="btn" id="teamBarBtn" type="button">やめる</button></div>
     <div class="info-card" id="infoCard" role="status"><b id="infoTitle"></b><div id="infoBody"></div><div class="pin-row" id="pinRow"><input type="text" id="pinText" placeholder="ひと言（例：ここの配筋を確認）" maxlength="60"><button class="btn primary" id="pinAdd" type="button">ピン</button><button class="btn" id="pinDel" type="button">消す</button></div><button class="btn" id="infoClose" type="button" aria-label="閉じる">✕</button></div>
+    <div class="haul-card" id="haulCard" role="region" aria-label="搬入シミュレーション">
+      <div class="haul-head"><b>搬入</b><select id="haulCar" aria-label="車の種類"></select><button class="btn" id="haulClose" type="button">閉じる</button></div>
+      <div class="haul-msg" id="haulMsg"></div>
+      <div class="haul-acts">
+        <button class="btn" id="haulTurn" type="button">向きを回す</button>
+        <button class="btn primary" id="haulRun" type="button">走らせる</button>
+        <button class="btn primary" id="haulLift" type="button">吊って置く</button>
+      </div>
+      <details id="haulDetails"><summary id="haulSum">この日の搬入（目安）</summary><ul class="haul-count" id="haulCount"></ul></details>
+    </div>
     <div class="walk-ui" id="walkUi">
       <div class="walk-top"><b id="walkLevel">地面</b><span>スティック（パソコンはWASD）で歩く・なぞって向き</span></div>
       <div class="walk-btns">
@@ -1161,6 +1194,7 @@ function buildPrep() { // 準備工事：仮囲い（3.6mずつ）・ゲート�
     const deg = it.world ? it.rot : it.rot + GF.deg;
     const e = itemEl('office', x, z, deg, ITEM_BUILD[it.type]);
     e.info = { kind: 'item', type: it.type };
+    Object.assign(it, { el: e, wx: x, wz: z, wdeg: deg || 0 }); // 搬入のときにぶつかる物として使う
     list.push(e);
   }
   site.prepList = list;
@@ -1515,7 +1549,7 @@ function buildCrane(roofTop) { // タワークレーン（組立・解体で背�
   addMesh(pbox(0.04, 1.2, 1.6), M.glass, slew, false).position.set(1.62, top + 0.7, 2.0);
   crane.visible = false;
   crane.userData.info = { kind: "crane" };
-  site.crane = { g: crane, mast, slew };
+  site.crane = { g: crane, mast, slew, top, jib, x: -cx, z: -cz, slew0: slew.rotation.y };
   return top + 8;
 }
 
@@ -2980,9 +3014,656 @@ renderer.domElement.addEventListener('pointerup', e => {
   if (!downAt || renderer.xr.isPresenting) return;
   const tap = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6 && performance.now() - downAt.t < 600;
   downAt = null;
-  if (tap) pick(e.clientX, e.clientY);
+  if (tap) (haul.on ? haulTap : pick)(e.clientX, e.clientY);
 });
 slider.addEventListener('input', () => { if (infoCard.classList.contains('on')) hideInfo(); pushGuideDay(); });
+
+// ===== 搬入シミュレーション（止める場所をタップ → ゲートから走らせる・止める場所の広さ・吊って置く・この日の台数） =====
+// 車の大きさは一般的な値（目安）。基準点は後ろの車軸の真ん中で、前は +z。R は最小回転半径（前の外側のタイヤ）
+const VEH = {
+  t4:      { label: '4tトラック', L: 8.5, W: 2.25, wb: 4.4, oh: 1.6, R: 7.2, work: 'side', wheels: [0, 4.4] },
+  t10:     { label: '10tトラック', L: 12.0, W: 2.49, wb: 6.0, oh: 2.6, R: 9.5, work: 'side', wheels: [-0.65, 0.65, 6.0] },
+  trailer: { label: 'トレーラー', L: 6.3, W: 2.49, wb: 3.8, oh: 1.0, R: 8.0, work: 'side', wheels: [0, 3.8], trailer: { len: 13.6, Lt: 10.5, front: 1.0 } },
+  mixer:   { label: '生コン車', L: 7.6, W: 2.49, wb: 4.1, oh: 1.6, R: 7.3, work: 'rear', wheels: [-0.6, 0.6, 4.1] },
+  pump:    { label: 'ポンプ車', L: 9.5, W: 2.49, wb: 5.0, oh: 2.0, R: 8.6, work: 'out', out: [6.2, 7.0], wheels: [-0.65, 0.65, 5.0] },
+  rough:   { label: 'ラフタークレーン', L: 11.3, W: 2.62, wb: 3.65, oh: 3.8, R: 6.5, work: 'out', out: [6.2, 5.6], reach: 20, wheels: [0, 3.65] },
+};
+const haul = { on: false, type: 't10', ang: null, target: null, stage: 'park', grp: new THREE.Group(), world: null, mesh: null, run: null, lift: null, last: 0, pose: null };
+scene.add(haul.grp);
+const HM = {
+  white: std({ color: '#f1f1ec', roughness: 0.4, metalness: 0.2 }),
+  blue: std({ color: '#3d6fb6', roughness: 0.4, metalness: 0.2 }),
+  red: std({ color: '#b8322a', roughness: 0.4, metalness: 0.2 }),
+  deck: std({ color: '#7d8389', roughness: 0.5, metalness: 0.5 }),
+  drum: std({ color: '#e9e5db', roughness: 0.4, metalness: 0.3 }),
+  mark: new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.26, depthWrite: false, side: THREE.DoubleSide }),
+  zone: new THREE.MeshBasicMaterial({ color: '#2fae5a', transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }),
+  ring: new THREE.MeshBasicMaterial({ color: '#2fae5a', transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide }),
+  cable: new THREE.LineBasicMaterial({ color: '#30343a' }),
+};
+const OKC = new THREE.Color('#2fae5a'), NGC = new THREE.Color('#e5332a');
+const fwdOf = a => [Math.sin(a), Math.cos(a)];
+const rot2 = (u, v, g) => [u * Math.cos(g) + v * Math.sin(g), -u * Math.sin(g) + v * Math.cos(g)]; // 向き g の箱の中の座標 → 外の座標
+const toLocal = (dx, dz, g) => [dx * Math.cos(g) - dz * Math.sin(g), dx * Math.sin(g) + dz * Math.cos(g)];
+const inBox = (x, z, b) => { const [u, v] = toLocal(x - b.x, z - b.z, b.g); return Math.abs(u) < b.hw && Math.abs(v) < b.hd; };
+const boxPts = (b, step = 0.5) => { // 箱のまわりの点
+  const pts = [], nu = Math.max(1, Math.ceil(2 * b.hw / step)), nv = Math.max(1, Math.ceil(2 * b.hd / step));
+  for (let i = 0; i <= nu; i++) for (const v of [-b.hd, b.hd]) pts.push([-b.hw + 2 * b.hw * i / nu, v]);
+  for (let j = 1; j < nv; j++) for (const u of [-b.hw, b.hw]) pts.push([u, -b.hd + 2 * b.hd * j / nv]);
+  return pts.map(([u, v]) => { const [dx, dz] = rot2(u, v, b.g); return [b.x + dx, b.z + dz]; });
+};
+const boxFill = (b, step = 0.5) => {
+  const pts = [], nu = Math.max(1, Math.ceil(2 * b.hw / step)), nv = Math.max(1, Math.ceil(2 * b.hd / step));
+  for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) {
+    const [dx, dz] = rot2(-b.hw + 2 * b.hw * i / nu, -b.hd + 2 * b.hd * j / nv, b.g);
+    pts.push([b.x + dx, b.z + dz]);
+  }
+  return pts;
+};
+// 仮囲い：ゲートの所だけ通れる（ゲートの外は前の道路）
+function fenceHit(x, z) {
+  const [cx, cz] = GF.toC(x, z), C = GF.C, g0 = GATE.pos - GATE.width / 2 + 0.35, g1 = GATE.pos + GATE.width / 2 - 0.35;
+  if (cz > C.z2 + 0.15) return null;
+  if (cz > C.z2 - 0.35) return cx > g0 && cx < g1 ? null : '仮囲い';
+  if (cx < C.x1 + 0.35 || cx > C.x2 - 0.35 || cz < C.z1 + 0.35) return '仮囲い';
+  return null;
+}
+// 仮設物の形から、ぶつかる範囲（向きのついた箱）を出す
+function itemBox(it) {
+  const g = THREE.MathUtils.degToRad(it.wdeg), v = new THREE.Vector3();
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  for (const p of it.el.parts) {
+    const geo = p.b.geo;
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    const bb = geo.boundingBox;
+    for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {
+      v.set(x, y, z).applyMatrix4(p.base);
+      if (v.y < 0.15) continue; // 地面に描いた線などは乗り越えられる
+      const [a, b] = toLocal(v.x - it.wx, v.z - it.wz, g);
+      u0 = Math.min(u0, a); u1 = Math.max(u1, a); v0 = Math.min(v0, b); v1 = Math.max(v1, b);
+    }
+  }
+  if (!(u1 > u0)) return null;
+  const [ox, oz] = rot2((u0 + u1) / 2, (v0 + v1) / 2, g);
+  return { x: it.wx + ox, z: it.wz + oz, hw: (u1 - u0) / 2, hd: (v1 - v0) / 2, g, label: ITEM_LABEL[it.type] || '仮設物' };
+}
+const HAUL_SKIP = new Set(['guide', 'sign', 'wash', 'assembly']); // 誘導員・看板（外）・タイヤ洗浄機・朝礼広場は通れる
+function haulObstacles() {
+  const date = dayToDate(Number(slider.value)), list = [], sp = {};
+  SITE_PHASES.forEach(p => { sp[p.key] = phaseRatio(CFG.site[p.key], date); });
+  const on = k => CFG.data.some(d => d.floor <= NF && (!k || d.kind === k) && progressAt(d.progress, date) > 0);
+  if (sp.pile > 0 || sp.excav > 0 || sp.found > 0 || on()) {
+    const dig = (site.depthNow || 0) > 0.02, scaf = on('躯体') ? 1.5 : 0;
+    list.push({ x: 0, z: 0, hw: Math.max(dig ? PX : 0, EX + scaf), hd: Math.max(dig ? PZ : 0, EZ + scaf), g: 0, label: dig ? '掘削している所' : (scaf ? '建物（足場）' : '建物') });
+  }
+  for (const it of site.items) {
+    if (!it.el || it.el.target !== 1 || HAUL_SKIP.has(it.type)) continue;
+    const b = itemBox(it);
+    if (b) list.push(b);
+  }
+  if (site.crane.g.visible) list.push({ x: site.crane.x, z: site.crane.z, hw: 3.2, hd: 3.2, g: 0, label: 'タワークレーンの土台' });
+  if (site.pour.visible) { // ポンプ車（アウトリガーをふくむ）と横につけた生コン車。ブームは上なのでふくめない
+    const p = site.pour.position, g = site.pour.rotation.y;
+    for (const [u, v, hw, hd, label] of [[0, 0, 4.6, 2.0, '打設中のポンプ車'], [-2.5, 3.6, 3.8, 1.3, '打設中の生コン車']]) {
+      const [dx, dz] = rot2(u, v, g);
+      list.push({ x: p.x + dx, z: p.z + dz, hw, hd, g, label });
+    }
+  }
+  return list;
+}
+// その姿勢での車体（トレーラーは荷台も）
+function bodiesOf(v, s) {
+  const [fx, fz] = fwdOf(s.a), c = v.L / 2 - v.oh;
+  const out = [{ x: s.x + fx * c, z: s.z + fz * c, hw: v.W / 2, hd: v.L / 2, g: s.a }];
+  if (v.trailer && s.tk) {
+    const T = v.trailer, [tx, tz] = fwdOf(s.ta), tc = T.front - T.len / 2;
+    out.push({ x: s.tk[0] + tx * tc, z: s.tk[1] + tz * tc, hw: v.W / 2, hd: T.len / 2, g: s.ta });
+  }
+  return out;
+}
+function poseHit(v, s, obs) {
+  for (const b of bodiesOf(v, s)) {
+    const rb = Math.hypot(b.hw, b.hd), near = obs.filter(o => Math.hypot(o.x - b.x, o.z - b.z) < rb + Math.hypot(o.hw, o.hd)); // 近い物だけ調べる
+    const [cx, cz] = GF.toC(b.x, b.z), C = GF.C, edge = Math.min(cx - C.x1, C.x2 - cx, cz - C.z1, Math.abs(C.z2 - cz));
+    if (!near.length && edge > rb + 0.5) continue; // まわりに何も無い
+    for (const [x, z] of boxPts(b)) {
+      const f = fenceHit(x, z);
+      if (f) return f;
+      for (const o of near) if (inBox(x, z, o)) return o.label;
+    }
+    for (const o of near) for (const [x, z] of boxPts(o, 1e9)) if (inBox(x, z, b)) return o.label; // 小さい物が車の下に入る場合
+  }
+  return null;
+}
+// 道に沿って車を動かす（トレーラーは荷台が内側に入り込む）
+function simulate(v, pts, obs, tr0, every, record) {
+  let tr = tr0 ? { ...tr0 } : null, hits = 0, label = null;
+  const states = [];
+  pts.forEach((p, i) => {
+    const s = { ...p };
+    if (v.trailer) {
+      const [fx, fz] = fwdOf(p.a), K = [p.x + fx * 0.3, p.z + fz * 0.3], Lt = v.trailer.Lt;
+      if (!tr) tr = { T: [K[0] - fx * Lt, K[1] - fz * Lt] };
+      const ta = Math.atan2(K[0] - tr.T[0], K[1] - tr.T[1]), [tx, tz] = fwdOf(ta);
+      tr = { T: [K[0] - tx * Lt, K[1] - tz * Lt] };
+      s.tk = K; s.ta = ta;
+    }
+    if (i % every === 0 || i === pts.length - 1) {
+      s.hit = poseHit(v, s, obs);
+      if (s.hit) { hits++; label = label || s.hit; }
+      s.checked = true;
+    }
+    if (record) states.push(s);
+  });
+  return { hits, label, tr, states };
+}
+// ダビンス曲線（前進だけで、最小回転半径を守って A の姿勢から B の姿勢へ行く道）
+const mod2pi = t => t - 2 * Math.PI * Math.floor(t / (2 * Math.PI));
+function dubinsAll(q0, q1, r) {
+  const t0 = Math.PI / 2 - q0.a, t1 = Math.PI / 2 - q1.a;
+  const dx = q1.x - q0.x, dy = q1.z - q0.z, d = Math.hypot(dx, dy) / r, th = mod2pi(Math.atan2(dy, dx));
+  const a = mod2pi(t0 - th), b = mod2pi(t1 - th), sa = Math.sin(a), sb = Math.sin(b), ca = Math.cos(a), cb = Math.cos(b), cab = Math.cos(a - b);
+  const out = [], add = (k, t, p, q) => { if ([t, p, q].every(Number.isFinite)) out.push({ segs: [[k[0], t * r], [k[1], p * r], [k[2], q * r]], len: (t + p + q) * r }); };
+  let p2 = 2 + d * d - 2 * cab + 2 * d * (sa - sb);
+  if (p2 >= 0) { const m = Math.atan2(cb - ca, d + sa - sb); add([1, 0, 1], mod2pi(-a + m), Math.sqrt(p2), mod2pi(b - m)); }
+  p2 = 2 + d * d - 2 * cab + 2 * d * (sb - sa);
+  if (p2 >= 0) { const m = Math.atan2(ca - cb, d - sa + sb); add([-1, 0, -1], mod2pi(a - m), Math.sqrt(p2), mod2pi(-b + m)); }
+  p2 = -2 + d * d + 2 * cab + 2 * d * (sa + sb);
+  if (p2 >= 0) { const p = Math.sqrt(p2), m = Math.atan2(-ca - cb, d + sa + sb) - Math.atan2(-2, p); add([1, 0, -1], mod2pi(-a + m), p, mod2pi(-b + m)); }
+  p2 = -2 + d * d + 2 * cab - 2 * d * (sa + sb);
+  if (p2 >= 0) { const p = Math.sqrt(p2), m = Math.atan2(ca + cb, d - sa - sb) - Math.atan2(2, p); add([-1, 0, 1], mod2pi(a - m), p, mod2pi(b - m)); }
+  let c = (6 - d * d + 2 * cab + 2 * d * (sa - sb)) / 8;
+  if (Math.abs(c) <= 1) { const p = mod2pi(2 * Math.PI - Math.acos(c)), t = mod2pi(a - Math.atan2(ca - cb, d - sa + sb) + p / 2); add([-1, 1, -1], t, p, mod2pi(a - b - t + p)); }
+  c = (6 - d * d + 2 * cab + 2 * d * (sb - sa)) / 8;
+  if (Math.abs(c) <= 1) { const p = mod2pi(2 * Math.PI - Math.acos(c)), t = mod2pi(-a - Math.atan2(ca - cb, d + sa - sb) + p / 2); add([1, -1, 1], t, p, mod2pi(b - a - t + p)); }
+  return out.sort((u, w) => u.len - w.len);
+}
+function sampleSegs(q, segs, r, ds = 0.25) {
+  const out = [];
+  let x = q.x, z = q.z, th = Math.PI / 2 - q.a;
+  for (const [k, len] of segs) {
+    const n = Math.max(1, Math.ceil(len / ds)), st = len / n;
+    for (let i = 0; i < n; i++) {
+      if (k) { const nt = th + k * st / r; x += k * r * (Math.sin(nt) - Math.sin(th)); z -= k * r * (Math.cos(nt) - Math.cos(th)); th = nt; }
+      else { x += Math.cos(th) * st; z += Math.sin(th) * st; }
+      out.push({ x, z, a: Math.PI / 2 - th });
+    }
+  }
+  return out;
+}
+const turnR = v => Math.max(2.5, Math.sqrt(Math.max(1, v.R * v.R - v.wb * v.wb)) - v.W / 2); // 後ろの車軸の真ん中が回る半径
+// 回り込む道：1mのマス目で、ぶつかる物をよけて A* で道を探す（ゲートの向きを正面にした座標で）
+function gridRoute(v, from, to, obs) {
+  const C = GF.C, cs = 1, nx = Math.ceil(C.x2 - C.x1), nz = Math.ceil(C.z2 - C.z1) + 3;
+  const inf = v.W / 2 + 0.4 + (v.trailer ? 0.5 : 0), cost = new Float32Array(nx * nz);
+  const g0 = GATE.pos - GATE.width / 2 + inf, g1 = GATE.pos + GATE.width / 2 - inf;
+  const cell = (x, z) => { const [cx, cz] = GF.toC(x, z); return [Math.floor(cx - C.x1), Math.floor(cz - C.z1)]; };
+  const center = (i, j) => GF.toW(C.x1 + (i + 0.5) * cs, C.z1 + (j + 0.5) * cs);
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+    const cx = C.x1 + (i + 0.5) * cs, cz = C.z1 + (j + 0.5) * cs;
+    let c = 1;
+    if (cx < C.x1 + inf || cx > C.x2 - inf || cz < C.z1 + inf) c = Infinity;
+    else if (cz > C.z2 - inf && (cx < g0 || cx > g1)) c = Infinity; // ゲート以外の仮囲い
+    if (c === 1) {
+      const [wx, wz] = GF.toW(cx, cz);
+      for (const o of obs) {
+        const [u, w] = toLocal(wx - o.x, wz - o.z, o.g), d = Math.hypot(Math.max(Math.abs(u) - o.hw, 0), Math.max(Math.abs(w) - o.hd, 0));
+        if (d < inf) { c = Infinity; break; }
+        if (d < inf + 2.5) c = Math.max(c, 1 + 3 * (inf + 2.5 - d)); // 物に近いほど通りにくくして、通路の真ん中を走る
+      }
+    }
+    cost[j * nx + i] = c;
+  }
+  const [si, sj] = cell(from.x, from.z), [ti, tj] = cell(to.x, to.z);
+  const ok = (i, j) => i >= 0 && j >= 0 && i < nx && j < nz;
+  if (!ok(si, sj) || !ok(ti, tj)) return null;
+  cost[sj * nx + si] = cost[tj * nx + ti] = 1; // 出発と到着は（ぶつかっていても）通す
+  const G = new Float32Array(nx * nz).fill(Infinity), prev = new Int32Array(nx * nz).fill(-1), done = new Uint8Array(nx * nz);
+  const open = [[0, sj * nx + si]];
+  G[sj * nx + si] = 0;
+  const goal = tj * nx + ti, hcost = k => Math.hypot(k % nx - ti, Math.floor(k / nx) - tj);
+  while (open.length) {
+    let bi = 0;
+    for (let k = 1; k < open.length; k++) if (open[k][0] < open[bi][0]) bi = k;
+    const [, k] = open.splice(bi, 1)[0];
+    if (done[k]) continue;
+    done[k] = 1;
+    if (k === goal) break;
+    const i = k % nx, j = Math.floor(k / nx);
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      if (!di && !dj) continue;
+      const a = i + di, b = j + dj;
+      if (!ok(a, b)) continue;
+      const n = b * nx + a, c = cost[n];
+      if (c === Infinity || done[n]) continue;
+      const ng = G[k] + c * (di && dj ? Math.SQRT2 : 1);
+      if (ng < G[n]) { G[n] = ng; prev[n] = k; open.push([ng + hcost(n), n]); }
+    }
+  }
+  if (prev[goal] < 0 && goal !== sj * nx + si) return null;
+  const cells = [];
+  for (let k = goal; k >= 0; k = prev[k]) cells.push(k);
+  cells.reverse();
+  // 見通せる所はまっすぐつなぐ
+  const clear = (a, b) => {
+    const [ax, az] = [a % nx, Math.floor(a / nx)], [bx, bz] = [b % nx, Math.floor(b / nx)], n = Math.ceil(Math.hypot(bx - ax, bz - az) * 2);
+    for (let s = 0; s <= n; s++) { const c = cost[Math.round(az + (bz - az) * s / n) * nx + Math.round(ax + (bx - ax) * s / n)]; if (!(c < 4)) return false; }
+    return true;
+  };
+  const keep = [cells[0]];
+  for (let k = 1; k < cells.length - 1; k++) if (!clear(keep[keep.length - 1], cells[k + 1])) keep.push(cells[k]);
+  keep.push(cells[cells.length - 1]);
+  return keep.map(k => { const [x, z] = center(k % nx, Math.floor(k / nx)); return { x, z }; });
+}
+// 道をなぞって走る（ハンドルは最小回転半径まで）
+function pursue(v, q0, line, maxLen) {
+  const pts = [], dense = [];
+  for (let k = 0; k < line.length - 1; k++) {
+    const a = line[k], b = line[k + 1], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
+    for (let s = 0; s < n; s++) dense.push({ x: a.x + (b.x - a.x) * s / n, z: a.z + (b.z - a.z) * s / n });
+  }
+  dense.push(line[line.length - 1]);
+  const kmax = 1 / turnR(v), Ld = Math.max(3, v.wb * 0.6 + 1), end = dense[dense.length - 1];
+  let { x, z, a } = q0, idx = 0;
+  for (let s = 0; s < maxLen; s += 0.25) {
+    while (idx < dense.length - 1 && Math.hypot(dense[idx].x - x, dense[idx].z - z) < Ld) idx++;
+    const tg = dense[idx], dx = tg.x - x, dz = tg.z - z;
+    if (Math.hypot(end.x - x, end.z - z) < 0.5) break;
+    const al = Math.atan2(Math.sin(Math.atan2(dx, dz) - a), Math.cos(Math.atan2(dx, dz) - a));
+    const k = Math.max(-kmax, Math.min(kmax, 2 * Math.sin(al) / Math.max(1, Math.hypot(dx, dz))));
+    a += k * 0.25; x += Math.sin(a) * 0.25; z += Math.cos(a) * 0.25;
+    pts.push({ x, z, a });
+  }
+  return pts;
+}
+// 前の道路 → ゲート → 止める場所。いちばんぶつからず短い道を選ぶ
+function planHaul(v, tgt, obs) {
+  const r = turnR(v), C = GF.C, th = GF.th;
+  const offs = GATE.width >= 8 ? [0, -GATE.width / 4, GATE.width / 4] : [0];
+  const heads = tgt.a != null ? [tgt.a] : Array.from({ length: 12 }, (_, i) => i * Math.PI / 6);
+  let best = null;
+  for (const off of offs) {
+    const [gx, gz] = GF.toW(GATE.pos + off, C.z2 + 1), gate = { x: gx, z: gz, a: Math.PI + th };
+    let b1 = null;
+    for (const side of [-1, 1]) for (const lane of [4, 8]) {
+      const [sx, sz] = GF.toW(GATE.pos + off + side * 40, C.z2 + lane), a0 = (side < 0 ? Math.PI / 2 : -Math.PI / 2) + th;
+      const [fx, fz] = fwdOf(a0), q0 = { x: sx, z: sz, a: a0 }, pre = { x: sx - fx * 20, z: sz - fz * 20, a: a0 };
+      for (const w of dubinsAll(q0, gate, r).slice(0, 2)) {
+        const pts = [...sampleSegs(pre, [[0, 20]], r), ...sampleSegs(q0, w.segs, r)];
+        const res = simulate(v, pts, obs, null, 4);
+        const score = res.hits * 1000 + w.len;
+        if (!b1 || score < b1.score) b1 = { score, pts, tr: res.tr };
+      }
+    }
+    const consider = (pts, a, extra = 0) => {
+      const res = simulate(v, pts, obs, b1.tr, 4);
+      const len = pts.length * 0.25, score = b1.score + res.hits * 1000 + len + extra;
+      if (!best || score < best.score) best = { score, pts: [...b1.pts, ...pts], a, len };
+    };
+    for (const a of heads) {
+      // ① 近道（ダビンス曲線）
+      for (const w of dubinsAll(gate, { x: tgt.x, z: tgt.z, a }, r).slice(0, 2)) consider(sampleSegs(gate, w.segs, r), a);
+      // ② 物をよけて回り込む道。最後はまっすぐ入る
+      if (off !== 0 || (tgt.a == null && Math.round(a / (Math.PI / 6)) % 3 !== 0)) continue; // ゲートの真ん中から、自動のときは90°ごとだけ
+      const [fx, fz] = fwdOf(a), app = Math.max(4, v.L * 0.6) + (v.trailer ? v.trailer.len * 0.5 : 0);
+      const ap = { x: tgt.x - fx * app, z: tgt.z - fz * app }, [gfx, gfz] = fwdOf(gate.a);
+      const route = gridRoute(v, { x: gate.x + gfx * 3, z: gate.z + gfz * 3 }, ap, obs);
+      if (!route) continue;
+      const line = [{ x: gate.x, z: gate.z }, ...route, { x: tgt.x, z: tgt.z }];
+      let L = 0;
+      for (let k = 1; k < line.length; k++) L += Math.hypot(line[k].x - line[k - 1].x, line[k].z - line[k - 1].z);
+      const pts = pursue(v, gate, line, L * 2 + 30);
+      if (!pts.length) continue;
+      const e = pts[pts.length - 1], miss = Math.hypot(e.x - tgt.x, e.z - tgt.z);
+      consider(pts, a, miss > 1.5 ? 800 : miss * 20); // 止める場所まで来られないものは後回し
+    }
+  }
+  return best;
+}
+// 止めたときに要る範囲（荷おろし・アウトリガー）
+function zoneOf(v, s) {
+  const bs = bodiesOf(v, s), b = bs[bs.length - 1];
+  if (v.work === 'side') return { ...b, hw: b.hw + 2, hd: b.hd + 1, label: '荷おろしの範囲' };
+  if (v.work === 'rear') { const [fx, fz] = fwdOf(b.g); return { ...b, x: b.x - fx * 1.5, z: b.z - fz * 1.5, hw: b.hw + 0.5, hd: b.hd + 1.5, label: '荷おろしの範囲' }; }
+  return { ...b, hw: v.out[0] / 2, hd: v.out[1] / 2, label: 'アウトリガーを張る範囲' };
+}
+function zoneHit(z, obs) {
+  for (const [x, zz] of boxFill(z)) {
+    const f = fenceHit(x, zz);
+    if (f) return f;
+    for (const o of obs) if (inBox(x, zz, o)) return o.label;
+  }
+  return null;
+}
+
+// --- 車の形 ---
+function hb(g, mat, w, h, d, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; }
+function vehMesh(key) {
+  const v = VEH[key], g = new THREE.Group(), front = v.L - v.oh, rear = -v.oh, mid = (front + rear) / 2;
+  const wheel = new THREE.CylinderGeometry(key === 'rough' ? 0.65 : 0.5, key === 'rough' ? 0.65 : 0.5, 0.4, 14).rotateZ(Math.PI / 2);
+  const wheels = (grp, zs, W) => zs.forEach(z => [-1, 1].forEach(s => { const m = new THREE.Mesh(wheel, M.track); m.position.set(s * (W / 2 - 0.25), wheel.parameters.radiusTop, z); grp.add(m); }));
+  hb(g, HM.deck, v.W - 0.4, 0.35, v.L - 0.4, 0, 0.85, mid);
+  const cabMat = { t10: HM.blue, trailer: HM.red, pump: M.pumpBody, rough: M.crane }[key] || HM.white;
+  if (key === 'rough') {
+    hb(g, M.crane, v.W, 1.0, v.L - 0.6, 0, 1.5, mid);
+    hb(g, cabMat, 1.0, 1.5, 1.8, -v.W / 2 + 0.55, 2.6, front - 1.6);
+    hb(g, M.glass, 0.05, 0.8, 1.4, -v.W / 2 + 0.03, 2.8, front - 1.6);
+    hb(g, M.crane, 0.9, 0.9, 9.5, 0.4, 2.5, mid + 0.6); // たたんだブーム
+    hb(g, HM.deck, 2.0, 0.8, 2.4, 0.2, 2.4, rear + 1.4); // カウンターウェイト
+  } else {
+    hb(g, cabMat, v.W, 2.3, 2.2, 0, 2.0, front - 1.1);
+    hb(g, M.glass, v.W - 0.2, 0.9, 0.05, 0, 2.55, front + 0.01);
+  }
+  if (key === 't4' || key === 't10') {
+    const len = v.L - 2.5, c = rear + len / 2;
+    hb(g, HM.deck, v.W, 0.15, len, 0, 1.3, c);
+    for (const s of [-1, 1]) hb(g, HM.white, 0.06, 0.4, len, s * (v.W / 2 - 0.03), 1.55, c);
+    for (const x of [-0.6, 0, 0.6]) hb(g, M.rebar, 0.5, 0.4, len - 0.6, x, 1.6, c); // 鉄筋の束
+  } else if (key === 'mixer') {
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.2, 4.0, 18).rotateX(Math.PI / 2), HM.drum);
+    drum.position.set(0, 2.3, rear + 2.8); drum.rotation.x = -0.2; drum.castShadow = true; g.add(drum);
+  } else if (key === 'pump') {
+    hb(g, M.pumpBody, v.W, 1.2, 5.0, 0, 1.6, rear + 3.0);
+    hb(g, M.pumpBody, 0.5, 0.5, 8.0, 0, 2.6, rear + 4.3);
+  } else if (key === 'trailer') {
+    hb(g, HM.deck, 1.6, 0.2, 1.2, 0, 1.15, 0.3); // カプラー
+  }
+  wheels(g, v.wheels, v.W);
+  let tg = null;
+  if (v.trailer) {
+    const T = v.trailer;
+    tg = new THREE.Group();
+    hb(tg, HM.deck, v.W, 0.25, T.len, 0, 1.35, T.front - T.len / 2);
+    for (const x of [-0.8, 0, 0.8]) hb(tg, M.hsteel, 0.4, 0.45, T.len - 1.2, x, 1.72, T.front - T.len / 2); // 鉄骨
+    wheels(tg, [-T.Lt - 0.7, -T.Lt + 0.7], v.W);
+  }
+  return { g, tg };
+}
+function setPose(s) {
+  const m = haul.mesh;
+  m.g.position.set(s.x, 0, s.z); m.g.rotation.y = s.a;
+  if (m.tg) {
+    let tk = s.tk, ta = s.ta;
+    if (!tk) { const [fx, fz] = fwdOf(s.a); tk = [s.x + fx * 0.3, s.z + fz * 0.3]; ta = s.a; }
+    m.tg.position.set(tk[0], 0, tk[1]); m.tg.rotation.y = ta;
+  }
+  haul.pose = s;
+}
+// --- 地面の印 ---
+function clearMarks() {
+  for (const k of ['marks', 'zone', 'ring', 'load', 'cable']) {
+    const o = haul[k];
+    if (!o) continue;
+    haul.grp.remove(o);
+    o.traverse(c => { if (c.geometry) c.geometry.dispose(); });
+    if (o.isInstancedMesh) o.dispose();
+    haul[k] = null;
+  }
+  if (site.crane && site.crane.slew0 !== undefined) site.crane.slew.rotation.y = site.crane.slew0;
+}
+function showMarks(v, states) {
+  const list = [];
+  states.forEach(s => { if (s.checked) bodiesOf(v, s).forEach(b => list.push([b, s.hit])); });
+  const m = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), HM.mark, list.length);
+  const mt = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+  list.forEach(([b, hit], i) => {
+    mt.compose(new THREE.Vector3(b.x, 0.06, b.z), q.setFromAxisAngle(up, b.g), new THREE.Vector3(b.hw * 2, 1, b.hd * 2));
+    m.setMatrixAt(i, mt);
+    m.setColorAt(i, hit ? NGC : OKC);
+  });
+  m.renderOrder = 2;
+  haul.grp.add(m); haul.marks = m;
+}
+function showZone(z, ok) {
+  const g = new THREE.Group();
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(z.hw * 2, z.hd * 2).rotateX(-Math.PI / 2), HM.zone.clone());
+  fill.material.color.copy(ok ? OKC : NGC);
+  const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => new THREE.Vector3(u * z.hw, 0, v * z.hd))), new THREE.LineBasicMaterial({ color: ok ? OKC : NGC }));
+  g.add(fill, edge);
+  g.position.set(z.x, 0.09, z.z); g.rotation.y = z.g;
+  haul.grp.add(g); haul.zone = g;
+}
+function showRing(x, z, r, ok) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(r - 0.3, r + 0.3, 128).rotateX(-Math.PI / 2), HM.ring.clone());
+  m.material.color.copy(ok ? OKC : NGC);
+  m.position.set(x, 0.1, z);
+  haul.grp.add(m); haul.ring = m;
+}
+
+// --- 画面 ---
+const msg = html => { $('haulMsg').innerHTML = html; };
+function haulUi() {
+  const sel = $('haulCar');
+  if (!sel.options.length) sel.innerHTML = Object.entries(VEH).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+  sel.value = haul.type;
+  sel.disabled = !!haul.run || !!haul.lift;
+  $('haulRun').disabled = !haul.target || !!haul.run || !!haul.lift;
+  $('haulTurn').disabled = !haul.target || !!haul.run || !!haul.lift;
+  $('haulLift').disabled = haul.stage !== 'parked' && haul.stage !== 'drop';
+  $('haulLift').textContent = haul.stage === 'drop' ? '吊るのをやめる' : '吊って置く';
+}
+function haulOpen() {
+  if (walking) stopWalk();
+  haul.on = true; haul.world = world;
+  document.body.classList.add('hauling');
+  hideInfo();
+  $('haulCard').classList.add('on');
+  haulReset();
+  haulCounts();
+}
+function haulClose() {
+  if (!haul.on) return;
+  haul.on = false;
+  document.body.classList.remove('hauling');
+  $('haulCard').classList.remove('on');
+  haulReset();
+}
+function haulReset() {
+  clearMarks();
+  if (haul.mesh) { haul.grp.remove(haul.mesh.g); if (haul.mesh.tg) haul.grp.remove(haul.mesh.tg); haul.mesh = null; }
+  haul.target = null; haul.ang = null; haul.run = null; haul.lift = null; haul.stage = 'park';
+  msg(`${VEH[haul.type].label}を止めたい場所を、地面でタップしてください。`);
+  haulUi();
+}
+function placeCar() { // 止める場所に車を出す（まだ走らせていない）
+  clearMarks();
+  if (haul.mesh) { haul.grp.remove(haul.mesh.g); if (haul.mesh.tg) haul.grp.remove(haul.mesh.tg); }
+  haul.mesh = vehMesh(haul.type);
+  haul.grp.add(haul.mesh.g); if (haul.mesh.tg) haul.grp.add(haul.mesh.tg);
+  const t = haul.target;
+  let a = haul.ang;
+  if (a == null) { const [gx, gz] = GF.toW(GATE.pos, GF.C.z2); a = Math.atan2(t.x - gx, t.z - gz); } // ゲートからまっすぐ来た向き
+  setPose({ x: t.x, z: t.z, a });
+  haul.stage = 'park';
+  msg(`「走らせる」で、前の道路からゲートを通ってここまで入れるか確かめます。${haul.ang == null ? '向きは自動で選びます（「向きを回す」で決められます）。' : ''}`);
+  haulUi();
+}
+function haulTap(cx, cy) {
+  if (haul.run || haul.lift) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  if (haul.stage === 'drop') {
+    let p = null;
+    for (const h of raycaster.intersectObject(world, true)) {
+      const o = h.object;
+      if (!o.isMesh || o === site.catcher || !shown(o)) continue;
+      if (o.isInstancedMesh) { const e = pickMap.get(o.uuid + '|' + h.instanceId); if (!e || e.cur < 0.5) continue; }
+      p = h.point; break;
+    }
+    if (!p) p = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    if (p) startLift(p);
+    return;
+  }
+  const p = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+  if (!p) return;
+  const [qx, qz] = GF.toC(p.x, p.z), C = GF.C;
+  if (qx < C.x1 || qx > C.x2 || qz < C.z1 || qz > C.z2) return msg('<span class="ng">仮囲いの中をタップしてください。</span>');
+  haul.target = { x: p.x, z: p.z };
+  placeCar();
+}
+function haulRunNow() {
+  if (!haul.target) return;
+  if (!haul.mesh) placeCar();
+  const v = VEH[haul.type], obs = haulObstacles();
+  msg('道を探しています…');
+  setTimeout(() => { // 画面を一度描いてから重い計算をする
+    const best = planHaul(v, { ...haul.target, a: haul.ang }, obs);
+    if (!best) return msg('<span class="ng">道が見つかりませんでした。</span>');
+    const sim = simulate(v, best.pts, obs, null, 4, true);
+    clearMarks();
+    showMarks(v, sim.states);
+    haul.result = { label: sim.label, hits: sim.hits, a: best.a, obs };
+    haul.run = { states: sim.states, i: 0 };
+    haul.stage = 'run';
+    msg('走っています…（緑：通れる　赤：ぶつかる）');
+    haulUi();
+  }, 30);
+}
+function finishRun() {
+  const v = VEH[haul.type], res = haul.result, s = haul.pose;
+  haul.run = null; haul.stage = 'parked';
+  const z = zoneOf(v, s), zh = zoneHit(z, res.obs);
+  showZone(z, !zh);
+  const a = res.label ? `<span class="ng">入れません：${esc(res.label)}に当たります（地面の赤いところ）。</span>` : '<span class="ok">ゲートから入れます。</span>';
+  const b = zh ? `<span class="ng">止める場所の広さが足りません：${z.label}が${esc(zh)}と重なります。</span>` : `<span class="ok">止める場所の広さは足ります（${z.label}）。</span>`;
+  msg(`${a}<br>${b}<br>「吊って置く」で、荷物をクレーンで運べます。`);
+  haulUi();
+}
+// --- 吊って置く ---
+function liftCrane() {
+  const v = VEH[haul.type];
+  if (haul.type === 'rough') { const b = bodiesOf(v, haul.pose)[0]; return { x: b.x, z: b.z, reach: v.reach, top: 24, label: 'ラフタークレーン', base: 3 }; }
+  const c = site.crane;
+  if (c.g.visible && c.slew.visible) return { x: c.x, z: c.z, reach: c.jib, top: c.top + 0.8, label: 'タワークレーン', tower: true };
+  return null;
+}
+function liftSource() {
+  const v = VEH[haul.type], bs = bodiesOf(v, haul.pose), b = bs[bs.length - 1];
+  if (haul.type === 'rough') { const [dx, dz] = rot2(v.W / 2 + 3, 0, b.g); return new THREE.Vector3(b.x + dx, 0.3, b.z + dz); } // 横に置いた荷物を吊る
+  return new THREE.Vector3(b.x, 1.6, b.z);
+}
+function startLift(P) {
+  const cr = liftCrane();
+  if (!cr) return msg('<span class="ng">この日は吊れるクレーンがありません。</span>タワークレーンが立っている日にするか、ラフタークレーンを止めてください。');
+  const S = liftSource(), rS = Math.hypot(S.x - cr.x, S.z - cr.z), rP = Math.hypot(P.x - cr.x, P.z - cr.z), far = Math.max(rS, rP);
+  const ok = far <= cr.reach && Math.min(rS, rP) >= 2;
+  clearMarks();
+  showRing(cr.x, cr.z, cr.reach, ok);
+  const z = zoneOf(VEH[haul.type], haul.pose); showZone(z, !zoneHit(z, haul.result.obs));
+  if (!ok) {
+    const which = rP > rS ? '置き先' : '車の荷台';
+    return msg(`<span class="ng">${cr.label}が届きません：${which}までの作業半径 ${far.toFixed(1)}m、届くのは ${cr.reach}m まで（あと ${(far - cr.reach).toFixed(1)}m）。</span>`);
+  }
+  const load = new THREE.Group();
+  hb(load, M.hsteel, 0.6, 0.5, 4.0, 0, 0.25, 0);
+  haul.grp.add(load); haul.load = load;
+  const cable = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]), HM.cable);
+  haul.grp.add(cable); haul.cable = cable;
+  const H = Math.min(cr.top - 3, Math.max(S.y, P.y) + 6);
+  haul.lift = { cr, S, P, H, t: 0, rS, rP, aS: Math.atan2(S.z - cr.z, S.x - cr.x), aP: Math.atan2(P.z - cr.z, P.x - cr.x) };
+  haul.stage = 'lift';
+  msg(`${cr.label}で吊っています…（作業半径 ${rP.toFixed(1)}m／届くのは ${cr.reach}m まで）`);
+  haulUi();
+}
+function stepLift(dt) {
+  const L = haul.lift, cr = L.cr;
+  L.t += dt / 7; // 上げる2秒・回す3秒・下ろす2秒
+  const t = Math.min(1, L.t), e = x => x * x * (3 - 2 * x);
+  let r, ang, y;
+  if (t < 2 / 7) { r = L.rS; ang = L.aS; y = L.S.y + (L.H - L.S.y) * e(t * 3.5); }
+  else if (t < 5 / 7) {
+    const k = e((t - 2 / 7) * 3.5);
+    let da = L.aP - L.aS; da = Math.atan2(Math.sin(da), Math.cos(da));
+    r = L.rS + (L.rP - L.rS) * k; ang = L.aS + da * k; y = L.H;
+  } else { r = L.rP; ang = L.aP; y = L.H + (L.P.y + 0.02 - L.H) * e((t - 5 / 7) * 3.5); }
+  const x = cr.x + Math.cos(ang) * r, z = cr.z + Math.sin(ang) * r;
+  haul.load.position.set(x, y, z); haul.load.rotation.y = -ang;
+  const tip = new THREE.Vector3(x, cr.top, z), pos = haul.cable.geometry.attributes.position;
+  const base = cr.tower ? tip : new THREE.Vector3(cr.x, cr.base, cr.z); // ラフターはブームも線で出す
+  pos.setXYZ(0, base.x, base.y, base.z); pos.setXYZ(1, tip.x, tip.y, tip.z); pos.setXYZ(2, x, y + 0.5, z);
+  pos.needsUpdate = true; haul.cable.geometry.computeBoundingSphere();
+  if (cr.tower) site.crane.slew.rotation.y = -Math.atan2(z - cr.z, x - cr.x);
+  if (t >= 1) {
+    haul.lift = null; haul.stage = 'parked';
+    msg(`<span class="ok">${cr.label}で置けました。</span>（作業半径 ${L.rP.toFixed(1)}m／届くのは ${cr.reach}m まで）<br>ほかの置き先も「吊って置く」で試せます。`);
+    haulUi();
+  }
+}
+// --- この日の搬入（目安）---
+function haulCounts() {
+  const date = dayToDate(Number(slider.value)), t = date.getTime(), A = (GX[GX.length - 1] - GX[0]) * (GZ[GZ.length - 1] - GZ[0]);
+  const within = (s, e) => t >= parseDate(s).getTime() && t <= parseDate(e).getTime();
+  const days = (s, e) => Math.max(1, Math.round((parseDate(e) - parseDate(s)) / DAY) + 1);
+  const rows = [], pour = [];
+  for (const d of CFG.data) {
+    if (d.floor > NF) continue;
+    const s = d.progress[0][0], e = d.progress[d.progress.length - 1][0];
+    if (!within(s, e)) continue;
+    if (d.kind === '床') pour.push([`${d.floor}階の床`, A * 0.45]);
+    if (d.kind === '躯体') rows.push(['10tトラック', Math.max(1, Math.ceil(A * 0.12 / 9 / days(s, e))), `${d.floor}階の鉄筋（床面積${Math.round(A)}㎡×0.12t÷9t積み÷${days(s, e)}日）`], ['4tトラック', 1, `${d.floor}階の型枠材`]);
+    if (d.kind === '外装') rows.push(['10tトラック', 1, `${d.floor}階の外装材（サッシ・パネル）`]);
+    if (d.kind === '内装') rows.push(['4tトラック', 2, `${d.floor}階の内装材（ボード・設備）`]);
+  }
+  const ph = k => CFG.site[k] && within(CFG.site[k][0], CFG.site[k][1]);
+  if (ph('prep')) rows.push(['4tトラック', 2, '仮設材（仮囲い・プレハブ）']);
+  if (ph('pile')) { const [s, e] = CFG.site.pile; rows.push(['トレーラー', Math.max(1, Math.ceil(site.piles.length / days(s, e) / 4)), `杭（${site.piles.length}本÷${days(s, e)}日、1台に4本）`]); }
+  if (ph('found')) pour.push(['基礎', A * 1.0]);
+  if (ph('crane') || ph('craneOff')) rows.push(['ラフタークレーン', 1, ph('crane') ? 'タワークレーンの組立' : 'タワークレーンの解体'], ['トレーラー', 3, 'タワークレーンの部材']);
+  if (ph('ext')) rows.push(['10tトラック', 1, '外構の材料（縁石・舗装材）']);
+  const sum = {};
+  rows.forEach(([k, n]) => { sum[k] = (sum[k] || 0) + n; });
+  const li = [];
+  for (const [k, n] of Object.entries(sum)) li.push(`<li><b>${k} 約${n}台／日</b>：${rows.filter(r => r[0] === k).map(r => esc(r[2])).join('、')}</li>`);
+  for (const [w, vol] of pour) li.push(`<li><b>生コン車 約${Math.ceil(vol / 4.25)}台・ポンプ車 1台（打設の日）</b>：${w}（約${Math.round(vol)}㎥÷4.25㎥）</li>`);
+  $('haulCount').innerHTML = li.length ? li.join('') : '<li>この日は大きな搬入はありません。</li>';
+  const total = Object.values(sum).reduce((a, b) => a + b, 0);
+  $('haulSum').textContent = `この日の搬入（目安）：${total ? `約${total}台／日` : 'なし'}${pour.length ? '＋打設' : ''}`;
+}
+function stepHaul() {
+  const now = performance.now(), dt = Math.min(0.1, (now - (haul.last || now)) / 1000);
+  haul.last = now;
+  if (!haul.on) return;
+  if (haul.world !== world) { haul.world = world; haulReset(); haulCounts(); return; } // 設定が変わって建て直したとき
+  if (haul.run) {
+    const R = haul.run;
+    R.i = Math.min(R.states.length - 1, R.i + dt * 12 / 0.25); // 12m/秒で見せる
+    setPose(R.states[Math.floor(R.i)]);
+    if (R.i >= R.states.length - 1) finishRun();
+  }
+  if (haul.lift) stepLift(dt);
+}
+$('haulBtn').addEventListener('click', () => (haul.on ? haulClose() : haulOpen()));
+$('haulClose').addEventListener('click', haulClose);
+$('haulCar').addEventListener('change', e => {
+  if (haul.run || haul.lift) return;
+  haul.type = e.target.value;
+  if (haul.target) placeCar(); else haulReset();
+});
+$('haulTurn').addEventListener('click', () => {
+  if (!haul.target || !haul.pose) return;
+  haul.ang = mod2pi(haul.pose.a + Math.PI / 4);
+  placeCar();
+});
+$('haulRun').addEventListener('click', haulRunNow);
+$('haulLift').addEventListener('click', () => {
+  if (haul.stage === 'drop') { haul.stage = 'parked'; msg('吊るのをやめました。'); return haulUi(); }
+  if (haul.stage !== 'parked') return;
+  haul.stage = 'drop';
+  const cr = liftCrane();
+  clearMarks();
+  const z = zoneOf(VEH[haul.type], haul.pose); showZone(z, !zoneHit(z, haul.result.obs));
+  if (cr) showRing(cr.x, cr.z, cr.reach, true);
+  msg(cr ? `荷物を置く場所をタップしてください（置き場・建物の階など）。円は${cr.label}の届く範囲（${cr.reach}m）です。` : '<span class="ng">この日は吊れるクレーンがありません。</span>タワークレーンが立っている日にするか、ラフタークレーンを止めてください。');
+  haulUi();
+});
+slider.addEventListener('input', () => {
+  if (!haul.on) return;
+  haulCounts();
+  if (haul.target && !haul.run && !haul.lift) placeCar(); // 日付が変わるとぶつかる物も変わるので、走らせ直す
+});
+$('walkBtn').addEventListener('click', haulClose);
+$('arBtn').addEventListener('click', haulClose);
 
 const clock = new THREE.Clock();
 let frames = 0, t0 = 0;
@@ -2997,6 +3678,7 @@ renderer.setAnimationLoop((time, frame) => {
   if (walking) stepWalk(); else controls.update();
   scaleGridLabels();
   sendPresence();
+  stepHaul();
   // ピンと人の印は、遠くから見ても同じくらいの大きさにする（足もとを中心に大きくする）
   for (const o of teamGroup.children) o.scale.setScalar(Math.max(1, camera.position.distanceTo(o.position) / 22));
   composer.render();
