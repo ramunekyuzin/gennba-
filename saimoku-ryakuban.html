@@ -334,7 +334,7 @@ function renderCols(){
 function loadPaste(){
   const text=$("paste").value;
   if(!text.trim()){setMsg("まだ何も貼られてないよ",true);return;}
-  S.raw=text; splitTable(text); S.map=guessMap();
+  S.raw=text; splitTable(text); S.map=guessMap(); S.map.amtFix=1;
   if(S.map.name<0){setMsg("細目の列が見つからなかった。スプシの行を範囲選択してコピーしてね",true);return;}
   buildRows(); save(); renderAll();
   if(ROWS.length) $("pasteBox").open=false;
@@ -552,7 +552,10 @@ $("cpTable").onclick=copyTable;
 $("cpCol").onclick=copyCol;
 
 /* 起動 */
-if(S.raw){ $("paste").value=S.raw; splitTable(S.raw); if(!S.map) S.map=guessMap(); buildRows(); if(ROWS.length) $("pasteBox").open=false; }
+if(S.raw){ $("paste").value=S.raw; splitTable(S.raw); if(!S.map) S.map=guessMap();
+  /* 前の版は数字の列を勝手に金額にしていた → 保存済みの設定も見出しで判断し直す（1回だけ） */
+  if(!S.map.amtFix){ S.map.amt=guessMap().amt; S.map.amtFix=1; save(); }
+  buildRows(); if(ROWS.length) $("pasteBox").open=false; }
 renderAll();
 </script>
 </body>
