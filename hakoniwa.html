@@ -167,6 +167,27 @@
   .krow.site { grid-template-columns: 6.5em minmax(0, 1fr) auto minmax(0, 1fr); }
   .krow span { color: var(--sub); }
   .err { color: #d9443a; font-weight: 700; min-height: 1.2em; margin: 6px 0 0; }
+  /* 中を歩く */
+  .walk-ui { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+  .walk-ui.on { display: block; }
+  .walk-ui > * { pointer-events: auto; }
+  body.walking .tools, body.walking .title { display: none; }
+  .walk-top {
+    position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px;
+    padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .walk-top b { font-size: 18px; margin-right: 8px; }
+  .walk-top span { font-size: 16px; color: var(--sub); }
+  .walk-btns { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+  .joy {
+    position: absolute; left: 20px; bottom: 20px; width: 128px; height: 128px; border-radius: 50%;
+    background: rgba(255,255,255,0.28); border: 2px solid rgba(255,255,255,0.75);
+    box-shadow: 0 2px 10px rgba(0,0,0,.25); touch-action: none;
+  }
+  .joy-knob {
+    position: absolute; left: 39px; top: 39px; width: 50px; height: 50px; border-radius: 50%;
+    background: var(--accent); border: 3px solid #fff; pointer-events: none;
+  }
   .info-card {
     position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5;
     max-width: 520px; margin: 0 auto;
@@ -178,7 +199,18 @@
   .info-card.on { display: block; }
   .info-card b { display: block; font-size: 18px; margin-bottom: 4px; }
   .info-card div { font-size: 16px; color: var(--sub); line-height: 1.5; }
-  .info-card .btn { position: absolute; top: 8px; right: 8px; width: 44px; padding: 0; }
+  .info-card #infoClose { position: absolute; top: 8px; right: 8px; width: 44px; padding: 0; }
+  .pin-row { display: none; gap: 6px; margin-top: 8px; }
+  .pin-row.on { display: flex; }
+  .pin-row input { flex: 1; min-width: 0; }
+  .team-bar {
+    position: absolute; left: 50%; top: calc(10px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 3;
+    display: none; align-items: center; gap: 8px; max-width: calc(100% - 24px);
+    padding: 6px 8px 6px 12px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 16px; font-weight: 700;
+  }
+  .team-bar.on { display: flex; }
+  .team-bar .btn { min-height: 36px; padding: 0 10px; }
+  .people-list { margin: 6px 0 10px; padding-left: 1.2em; }
 
   /* ===== AR ===== */
   .ar-overlay {
@@ -212,10 +244,22 @@
     <div class="tools">
       <button class="btn primary" id="settingsBtn" type="button">設定</button>
       <button class="btn primary" id="arBtn" type="button">AR</button>
+      <button class="btn primary" id="walkBtn" type="button">歩く</button>
+      <button class="btn primary" id="teamBtn" type="button">みんなで</button>
       <button class="btn" id="gridBtn" type="button">通り芯 ON</button>
       <button class="btn" id="qualityBtn" type="button">高画質 ON</button>
     </div>
-    <div class="info-card" id="infoCard" role="status"><b id="infoTitle"></b><div id="infoBody"></div><button class="btn" id="infoClose" type="button" aria-label="閉じる">✕</button></div>
+    <div class="team-bar" id="teamBar"><span id="teamBarText"></span><button class="btn" id="teamBarBtn" type="button">やめる</button></div>
+    <div class="info-card" id="infoCard" role="status"><b id="infoTitle"></b><div id="infoBody"></div><div class="pin-row" id="pinRow"><input type="text" id="pinText" placeholder="ひと言（例：ここの配筋を確認）" maxlength="60"><button class="btn primary" id="pinAdd" type="button">ピン</button><button class="btn" id="pinDel" type="button">消す</button></div><button class="btn" id="infoClose" type="button" aria-label="閉じる">✕</button></div>
+    <div class="walk-ui" id="walkUi">
+      <div class="walk-top"><b id="walkLevel">地面</b><span>スティック（パソコンはWASD）で歩く・なぞって向き</span></div>
+      <div class="walk-btns">
+        <button class="btn" id="walkUp" type="button">▲ 上の階へ</button>
+        <button class="btn" id="walkDown" type="button">▼ 下の階へ</button>
+        <button class="btn primary" id="walkExit" type="button">歩くのをやめる</button>
+      </div>
+      <div class="joy" id="joy"><div class="joy-knob" id="joyKnob"></div></div>
+    </div>
   </div>
   <div class="panel" id="panel">
     <div class="date" id="dateLabel">----</div>
@@ -240,6 +284,33 @@
   <div id="arPanelSlot"></div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- みんなで入れる現場 -->
+<div class="sheet-bg" id="teamBg">
+  <div class="sheet" role="dialog" aria-label="みんなで">
+    <div class="sheet-head"><h2>みんなで入れる現場</h2><button class="btn" id="teamClose" type="button">閉じる</button></div>
+    <div class="sheet-body">
+      <div id="teamOut">
+        <p class="note">同じ合言葉を入れた人どうしで、同じ現場に入れます。現場の設定・いる人・ピン・日付がみんなで共有されます。</p>
+        <div class="grid">
+          <label class="f wide">現場の合言葉<input type="password" id="teamPass" autocomplete="off"></label>
+          <label class="f wide">表示する名前<input type="text" id="teamName" maxlength="16" autocomplete="off"></label>
+          <button class="btn primary wide" id="teamJoin" type="button">入る</button>
+        </div>
+      </div>
+      <div id="teamIn" hidden>
+        <h3>いまいる人</h3>
+        <ul class="people-list" id="peopleList"></ul>
+        <div class="grid">
+          <button class="btn wide" id="guideBtn" type="button">案内役になる（みんなの日付を自分に合わせる）</button>
+          <button class="btn wide" id="teamLeave" type="button">現場から出る</button>
+        </div>
+        <p class="note">誰かが「この内容で建てる」を押すと、みんなの箱庭が同じ内容になります。</p>
+      </div>
+      <p class="err" id="teamErr"></p>
+    </div>
+  </div>
+</div>
 
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet" role="dialog" aria-label="設定">
@@ -910,6 +981,7 @@ function interior(f, yt, gh, list) {
   const wall = (w, h, d, x, z, mat = M.iwall) => {
     const e = newEl(V(x, yt, z));
     P(e, mat, w, h, d, x, yt + h / 2, z, 0.03);
+    e.box = { x, z, w, d }; // 歩くときにぶつかる範囲
     list.push(e);
   };
   if (use === 'warehouse' || use === 'datacenter') { // 棚・サーバーラックの列
@@ -1719,7 +1791,7 @@ controls.enableDamping = true;
 controls.enablePan = false;
 // パソコンのホイール・タッチパッドは自前でズームする（回した量に合わせて少しずつ。OrbitControls の1段ずつのズームは急すぎる）
 renderer.domElement.addEventListener('wheel', e => {
-  if (renderer.xr.isPresenting) return;
+  if (renderer.xr.isPresenting || walking) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY; // 行・ページ単位をピクセルに
@@ -1895,6 +1967,7 @@ function updateSite(sp, pour) {
   const depth = PIT * Math.min(sp.excav, 1 - backfill);
   site.pitFloor.position.y = -depth - 0.003;
   site.pitMat.color.setRGB(1, 1, 1).lerp(PIT_DEEP, depth / PIT); // 深いほど湿った暗い土
+  site.depthNow = depth; // 歩くモードで掘った底を歩くため
   site.walls.forEach(w => { w.visible = depth > 0.02; w.scale.y = Math.max(depth, 0.01); });
   site.hsteel.visible = sp.excav > 0 && backfill < 1;
   // 外構
@@ -2231,6 +2304,7 @@ $('applyBtn').addEventListener('click', () => {
   if (!validConfig(draft)) { $('err').textContent = '入力に足りないところがあります'; return; }
   saveConfig(draft);
   build(clone(draft));
+  pushConfig(); // みんなで入っているときは、ほかの人の箱庭も同じ設定にする
   sheetBg.classList.remove('open');
 });
 
@@ -2413,6 +2487,354 @@ function scaleGridLabels() {
   for (const s of site.gridSprites) s.scale.copy(s.userData.base).multiplyScalar(k);
 }
 
+// ===== みんなで入れる現場（Firebase genba-chat の Firestore を使う） =====
+// 部屋のID は合言葉から作る（合言葉そのものはFirestoreに保存しない）。ログインはしない
+const CHAT_GAS = 'https://script.google.com/macros/s/AKfycbyvoQt931dpBNgRouxhzSdbG-GnssBbwrYoSFi6S1nZqD4jC1S0Gn5nNsY7yH5bcXi9/exec'; // 現場チャットのGAS（Firebaseの公開設定をもらう）
+const TEAM_KEY = 'hakoniwa-team', TEAM_ID_KEY = 'hakoniwa-team-id';
+const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const team = { on: false, uid: null, name: '', room: null, fs: null, db: null, unsubs: [], people: {}, pins: {},
+  lastConfig: '', guide: null, follow: true, lastSent: 0, lastPos: null };
+const teamGroup = new THREE.Group();
+scene.add(teamGroup);
+const PERSON_COLORS = ['#e8891c', '#2f6fb3', '#3f8f5a', '#b4405a', '#7a5fb3', '#2a8f8f'];
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+function nameSprite(text, color) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = color; g.beginPath(); g.roundRect(4, 4, 248, 56, 14); g.fill();
+  g.fillStyle = '#fff'; g.font = `bold 34px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, 128, 34, 236);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c), transparent: true, depthTest: false, fog: false }));
+  s.scale.set(2.8, 0.7, 1); s.renderOrder = 20;
+  return s;
+}
+function makeAvatar(name, color) {
+  const g = new THREE.Group(), m = std({ color, roughness: 0.6 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 1.2, 12), m); body.position.y = 0.75;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), M.skin); head.position.y = 1.5;
+  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.helmet); hat.position.y = 1.56;
+  g.add(body, head, hat);
+  const label = nameSprite(name, color); label.position.y = 2.4; g.add(label);
+  g.userData.label = label;
+  return g;
+}
+function pinMesh(p) {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.1, 14).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: '#e5332a' }));
+  m.position.y = 0.55;
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 10), new THREE.MeshBasicMaterial({ color: '#e5332a' }));
+  ball.position.y = 1.25;
+  g.add(m, ball);
+  const label = nameSprite((p.text || p.title || 'ピン').slice(0, 14), '#e5332a'); label.position.y = 2.2; g.add(label);
+  g.position.set(p.x, p.y, p.z);
+  g.userData.info = { kind: 'pin', pin: p };
+  return g;
+}
+function teamUi() {
+  $('teamOut').hidden = team.on; $('teamIn').hidden = !team.on;
+  const n = Object.keys(team.people).length + (team.on ? 1 : 0);
+  $('teamBtn').textContent = team.on ? `みんなで（${n}人）` : 'みんなで';
+  $('peopleList').innerHTML = team.on
+    ? [`<li>${esc(team.name)}（自分）</li>`, ...Object.values(team.people).map(p => `<li>${esc(p.name)}${p.walking ? '（歩いている）' : ''}</li>`)].join('')
+    : '';
+  $('guideBtn').textContent = team.guide && team.guide.uid === team.uid ? '案内役をやめる' : '案内役になる（みんなの日付を自分に合わせる）';
+  const g = team.guide, other = team.on && g && g.uid !== team.uid;
+  $('teamBar').classList.toggle('on', !!(other && team.follow));
+  if (other) $('teamBarText').textContent = `${g.name}さんの日付に合わせています`;
+}
+async function joinTeam(pass, name) {
+  $('teamErr').textContent = '';
+  if (!pass || pass.length < 4) return ($('teamErr').textContent = '合言葉は4文字以上にしてください');
+  if (!name) return ($('teamErr').textContent = '表示する名前を入れてください');
+  $('teamJoin').disabled = true; $('teamJoin').textContent = 'つないでいます…';
+  try {
+    const [{ initializeApp }, F] = await Promise.all([import(FB + 'firebase-app.js'), import(FB + 'firebase-firestore.js')]);
+    if (!team.db) {
+      const res = await (await fetch(CHAT_GAS + '?action=config')).json();
+      if (!res.ok) throw new Error('Firebaseの設定を読めませんでした');
+      const app = initializeApp(res.result.firebase, 'hakoniwa'); // 現場チャットとは別にする（ログインはしない）
+      // 自分の番号は端末ごとに作って取っておく
+      try { team.uid = localStorage.getItem(TEAM_ID_KEY); } catch {}
+      if (!team.uid) {
+        team.uid = [...crypto.getRandomValues(new Uint8Array(12))].map(x => x.toString(16).padStart(2, '0')).join('');
+        try { localStorage.setItem(TEAM_ID_KEY, team.uid); } catch {}
+      }
+      team.db = F.getFirestore(app);
+      team.fs = F;
+    }
+    const F2 = team.fs, db = team.db;
+    team.room = await sha256('hakoniwa:' + pass);
+    team.name = name;
+    const roomRef = F2.doc(db, 'hakoniwa', team.room);
+    const snap = await F2.getDoc(roomRef);
+    if (!snap.exists() || !snap.data().config) await F2.setDoc(roomRef, { config: JSON.stringify(CFG), configBy: name, configAt: F2.serverTimestamp() }, { merge: true });
+    team.on = true;
+    try { localStorage.setItem(TEAM_KEY, JSON.stringify({ pass, name })); } catch {}
+    // 部屋の設定と案内役
+    team.unsubs.push(F2.onSnapshot(roomRef, s => {
+      const d = s.data() || {};
+      if (d.config && d.config !== team.lastConfig) {
+        team.lastConfig = d.config;
+        try {
+          const c = JSON.parse(d.config);
+          if (validConfig(c) && JSON.stringify(CFG) !== d.config) { saveConfig(c); build(c); if (d.configBy && d.configBy !== team.name) toast(`${d.configBy}さんが現場の設定を変えました`); }
+        } catch {}
+      }
+      const g = d.guide && d.guide.uid ? d.guide : null;
+      if (g && (!team.guide || team.guide.uid !== g.uid)) team.follow = true; // 新しい案内役が出たら、また合わせる
+      team.guide = g;
+      if (team.guide && team.guide.uid !== team.uid && team.follow && validIso(team.guide.day)) {
+        const idx = Math.round((parseDate(team.guide.day) - rangeStart) / DAY);
+        if (Number(slider.value) !== idx) { slider.value = Math.min(totalDays, Math.max(0, idx)); setDay(Number(slider.value)); }
+      }
+      teamUi();
+    }));
+    // いまいる人
+    team.unsubs.push(F2.onSnapshot(F2.collection(db, 'hakoniwa', team.room, 'people'), qs => {
+      const seen = new Set();
+      qs.forEach(docu => {
+        if (docu.id === team.uid) return;
+        const p = docu.data(), at = p.at && p.at.toMillis ? p.at.toMillis() : 0;
+        if (Date.now() - at > 60000) return; // しばらく動きの無い人は出さない
+        seen.add(docu.id);
+        let a = team.people[docu.id];
+        if (!a || a.name !== p.name) {
+          if (a) teamGroup.remove(a.obj);
+          const color = PERSON_COLORS[[...docu.id].reduce((s, ch) => s + ch.charCodeAt(0), 0) % PERSON_COLORS.length];
+          a = team.people[docu.id] = { name: p.name, obj: makeAvatar(p.name, color) };
+          teamGroup.add(a.obj);
+        }
+        a.walking = !!p.walking;
+        a.obj.position.set(p.x, p.y, p.z);
+        a.obj.rotation.y = p.yaw || 0;
+      });
+      for (const id of Object.keys(team.people)) if (!seen.has(id)) { teamGroup.remove(team.people[id].obj); delete team.people[id]; }
+      teamUi();
+    }));
+    // ピン
+    team.unsubs.push(F2.onSnapshot(F2.collection(db, 'hakoniwa', team.room, 'pins'), qs => {
+      const seen = new Set();
+      qs.forEach(docu => {
+        seen.add(docu.id);
+        if (team.pins[docu.id]) return;
+        const p = { ...docu.data(), id: docu.id };
+        team.pins[docu.id] = pinMesh(p);
+        teamGroup.add(team.pins[docu.id]);
+      });
+      for (const id of Object.keys(team.pins)) if (!seen.has(id)) { teamGroup.remove(team.pins[id]); delete team.pins[id]; }
+    }));
+    sendPresence(true);
+    teamUi();
+    toast('現場に入りました');
+    $('teamBg').classList.remove('open');
+  } catch (err) {
+    $('teamErr').textContent = `入れませんでした：${err.message || err}`;
+    leaveTeam(true);
+  } finally {
+    $('teamJoin').disabled = false; $('teamJoin').textContent = '入る';
+  }
+}
+function leaveTeam(quiet) {
+  team.unsubs.forEach(u => u()); team.unsubs = [];
+  if (team.on && team.db) team.fs.deleteDoc(team.fs.doc(team.db, 'hakoniwa', team.room, 'people', team.uid)).catch(() => {});
+  if (team.on && team.guide && team.guide.uid === team.uid) setGuide(false);
+  team.on = false; team.guide = null;
+  for (const id in team.people) teamGroup.remove(team.people[id].obj);
+  for (const id in team.pins) teamGroup.remove(team.pins[id]);
+  team.people = {}; team.pins = {};
+  if (!quiet) { try { localStorage.removeItem(TEAM_KEY); } catch {} toast('現場から出ました'); }
+  teamUi();
+}
+// 自分のいる場所を送る（動いたときだけ。止まっていても20秒ごとに「いる」と知らせる）
+function sendPresence(force) {
+  if (!team.on) return;
+  const now = performance.now();
+  const p = walking ? camera.position.clone().setY(camera.position.y - EYE) : controls.target.clone().setY(0);
+  const moved = !team.lastPos || team.lastPos.distanceTo(p) > 0.4;
+  if (!force && (now - team.lastSent < (moved ? 2500 : 20000))) return;
+  team.lastSent = now; team.lastPos = p;
+  const F2 = team.fs;
+  F2.setDoc(F2.doc(team.db, 'hakoniwa', team.room, 'people', team.uid),
+    { name: team.name, x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: walking ? +yaw.toFixed(2) : 0, walking, at: F2.serverTimestamp() }).catch(() => {});
+}
+function pushConfig() {
+  if (!team.on) return;
+  const s = JSON.stringify(CFG);
+  team.lastConfig = s;
+  team.fs.setDoc(team.fs.doc(team.db, 'hakoniwa', team.room), { config: s, configBy: team.name, configAt: team.fs.serverTimestamp() }, { merge: true })
+    .catch(() => toast('現場の設定をみんなに送れませんでした'));
+}
+function setGuide(on) {
+  const F2 = team.fs;
+  F2.setDoc(F2.doc(team.db, 'hakoniwa', team.room), { guide: on ? { uid: team.uid, name: team.name, day: iso(dayToDate(Number(slider.value))) } : null }, { merge: true }).catch(() => {});
+}
+let guideTimer = 0;
+function pushGuideDay() {
+  if (!team.on || !team.guide || team.guide.uid !== team.uid) return;
+  clearTimeout(guideTimer);
+  guideTimer = setTimeout(() => setGuide(true), 250);
+}
+async function addPin() {
+  if (!team.on || !marker.visible) return;
+  const F2 = team.fs, p = marker.position;
+  await F2.addDoc(F2.collection(team.db, 'hakoniwa', team.room, 'pins'), {
+    x: +p.x.toFixed(2), y: +(p.y + 0.2).toFixed(2), z: +p.z.toFixed(2),
+    title: $('infoTitle').textContent.slice(0, 60), text: $('pinText').value.trim().slice(0, 60),
+    name: team.name, at: F2.serverTimestamp(),
+  }).then(() => { $('pinText').value = ''; hideInfo(); toast('ピンを立てました'); }).catch(() => toast('ピンを立てられませんでした'));
+}
+$('teamBtn').addEventListener('click', () => {
+  try { const s = JSON.parse(localStorage.getItem(TEAM_KEY)) || {}; if (!$('teamPass').value) $('teamPass').value = s.pass || ''; if (!$('teamName').value) $('teamName').value = s.name || ''; } catch {}
+  $('teamErr').textContent = ''; teamUi(); $('teamBg').classList.add('open');
+});
+$('teamClose').addEventListener('click', () => $('teamBg').classList.remove('open'));
+$('teamBg').addEventListener('click', e => { if (e.target === $('teamBg')) $('teamBg').classList.remove('open'); });
+$('teamJoin').addEventListener('click', () => joinTeam($('teamPass').value, $('teamName').value.trim()));
+$('teamLeave').addEventListener('click', () => { leaveTeam(); $('teamBg').classList.remove('open'); });
+$('guideBtn').addEventListener('click', () => { setGuide(!(team.guide && team.guide.uid === team.uid)); });
+$('teamBarBtn').addEventListener('click', () => { team.follow = false; teamUi(); toast('自分で日付を動かせるようにしました'); });
+$('pinAdd').addEventListener('click', addPin);
+$('pinDel').addEventListener('click', () => {
+  const pin = team.currentPin;
+  if (!pin) return;
+  team.fs.deleteDoc(team.fs.doc(team.db, 'hakoniwa', team.room, 'pins', pin.id)).then(() => { hideInfo(); toast('ピンを消しました'); }).catch(() => toast('ピンを消せませんでした'));
+});
+addEventListener('pagehide', () => { if (team.on) team.fs.deleteDoc(team.fs.doc(team.db, 'hakoniwa', team.room, 'people', team.uid)).catch(() => {}); });
+// 前に入っていた現場には、開いたときに自動で入り直す
+try { const s = JSON.parse(localStorage.getItem(TEAM_KEY)); if (s && s.pass && s.name) setTimeout(() => joinTeam(s.pass, s.name), 800); } catch {}
+
+// ===== 中を歩く（人の目の高さで、地面と各階の床の上を歩く） =====
+const EYE = 1.6, WALK_SPEED = 1.4, RUN = 2.6;
+let walking = false, walkLevel = 0, yaw = 0, pitch = 0, saved = null, lastStep = 0;
+const keys = {}, joyVec = { x: 0, y: 0 };
+const walkUi = $('walkUi');
+const slabBuilt = f => f >= 1 && f <= NF + 1 && (f === NF + 1 ? floors[NF].roof : floors[f]['床']).some(e => e.cur > 0.5);
+const insideBuilding = (x, z, m = 0) => Math.abs(x) < EX - m && Math.abs(z) < EZ - m;
+function levelName(l) { return l === 0 ? '地面' : l === NF + 1 ? '屋上' : `${l}階`; }
+// いま立っている足元の高さ
+function groundY(x, z) {
+  if (walkLevel > 0) return yb(walkLevel) + SLAB;
+  if (insideBuilding(x, z) && slabBuilt(1)) return yb(1) + SLAB;      // 1階の床に上がる
+  if (Math.abs(x) < PX && Math.abs(z) < PZ && site.depthNow > 0.05) return -site.depthNow; // 掘った底
+  return 0;
+}
+function updateWalkUi() {
+  $('walkLevel').textContent = levelName(walkLevel);
+  $('walkUp').disabled = !slabBuilt(walkLevel + 1);
+  $('walkDown').disabled = walkLevel === 0;
+}
+function startWalk() {
+  if (walking) return;
+  walking = true;
+  saved = { pos: camera.position.clone(), target: controls.target.clone(), fov: camera.fov };
+  controls.enabled = false;
+  hideInfo();
+  // ゲートの内側に立って、建物の方を向く
+  const [gx, gz] = GF.toW(GATE.pos, GF.C.z2 - 3);
+  walkLevel = 0;
+  camera.position.set(gx, groundY(gx, gz) + EYE, gz);
+  yaw = Math.atan2(-gx, -gz) + Math.PI; pitch = 0.05;
+  camera.fov = 62; camera.updateProjectionMatrix();
+  document.body.classList.add('walking');
+  walkUi.classList.add('on');
+  updateWalkUi();
+  lastStep = performance.now();
+}
+function stopWalk() {
+  if (!walking) return;
+  walking = false;
+  camera.position.copy(saved.pos); controls.target.copy(saved.target);
+  camera.fov = saved.fov; camera.updateProjectionMatrix();
+  controls.enabled = true; controls.update();
+  document.body.classList.remove('walking');
+  walkUi.classList.remove('on');
+}
+function moveLevel(d) {
+  const to = walkLevel + d;
+  if (to < 0 || (to > 0 && !slabBuilt(to))) return toast('その階はまだ床ができていません');
+  walkLevel = to;
+  // 上の階では建物の中に立つ
+  if (walkLevel > 0 && !insideBuilding(camera.position.x, camera.position.z, 0.5)) camera.position.set(0, 0, EZ - 2);
+  collide(camera.position); // 壁の中に立たないように
+  updateWalkUi();
+}
+// 柱と仮囲いは通り抜けない
+function collide(p) {
+  const lim = walkLevel > 0 ? { x: EX - 0.4, z: EZ - 0.4 } : null;
+  if (lim) { p.x = Math.max(-lim.x, Math.min(lim.x, p.x)); p.z = Math.max(-lim.z, Math.min(lim.z, p.z)); }
+  else { p.x = Math.max(F.x1 + 0.5, Math.min(F.x2 - 0.5, p.x)); p.z = Math.max(F.z1 + 0.5, Math.min(F.z2 - 0.5, p.z)); }
+  const f = walkLevel > 0 ? Math.min(walkLevel, NF) : (insideBuilding(p.x, p.z) ? 1 : 0);
+  if (!f || walkLevel === NF + 1) return;
+  floors[f].cols.forEach(c => {
+    if (c.cur < 0.5) return;
+    const dx = p.x - c.anchor.x, dz = p.z - c.anchor.z, d = Math.hypot(dx, dz), r = 0.75;
+    if (d < r && d > 1e-4) { p.x = c.anchor.x + dx / d * r; p.z = c.anchor.z + dz / d * r; }
+  });
+  // 間仕切り壁・コア・棚（できている所だけ）
+  floors[f]['内装'].forEach(e => {
+    if (!e.box || e.cur < 0.5) return;
+    const b = e.box, hx = b.w / 2 + 0.3, hz = b.d / 2 + 0.3, dx = p.x - b.x, dz = p.z - b.z;
+    if (Math.abs(dx) >= hx || Math.abs(dz) >= hz) return;
+    if (hx - Math.abs(dx) < hz - Math.abs(dz)) p.x = b.x + Math.sign(dx || 1) * hx; // 近いほうの面へ押し出す
+    else p.z = b.z + Math.sign(dz || 1) * hz;
+  });
+}
+function stepWalk() {
+  const now = performance.now(), dt = Math.min(0.1, (now - lastStep) / 1000);
+  lastStep = now;
+  let fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joyVec.y;
+  let side = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joyVec.x;
+  const mag = Math.min(1, Math.hypot(fwd, side));
+  const run = keys.ShiftLeft || keys.ShiftRight || Math.hypot(joyVec.x, joyVec.y) > 0.9;
+  if (mag > 0.01) {
+    const sp = WALK_SPEED * (run ? RUN : 1) * dt / Math.max(1, Math.hypot(fwd, side)) ;
+    const p = camera.position;
+    p.x += (-Math.sin(yaw) * fwd + Math.cos(yaw) * side) * sp;
+    p.z += (-Math.cos(yaw) * fwd - Math.sin(yaw) * side) * sp;
+    collide(p);
+  }
+  const target = groundY(camera.position.x, camera.position.z) + EYE;
+  camera.position.y += (target - camera.position.y) * Math.min(1, dt * 10); // 段差はなめらかに
+  camera.rotation.set(pitch, yaw, 0, 'YXZ');
+}
+$('walkBtn').addEventListener('click', startWalk);
+$('walkExit').addEventListener('click', stopWalk);
+$('walkUp').addEventListener('click', () => moveLevel(1));
+$('walkDown').addEventListener('click', () => moveLevel(-1));
+addEventListener('keydown', e => { if (walking && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { keys[e.code] = true; if (e.code === 'Escape') stopWalk(); } });
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+// 画面をなぞる（ドラッグ）と向きが変わる
+let look = null;
+renderer.domElement.addEventListener('pointerdown', e => { if (walking) look = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+addEventListener('pointermove', e => {
+  if (!walking || !look || e.pointerId !== look.id) return;
+  const s = e.pointerType === 'touch' ? 0.006 : 0.004;
+  yaw -= (e.clientX - look.x) * s;
+  pitch = Math.max(-1.2, Math.min(1.2, pitch - (e.clientY - look.y) * s));
+  look.x = e.clientX; look.y = e.clientY;
+});
+addEventListener('pointerup', e => { if (look && e.pointerId === look.id) look = null; });
+// 左下のスティック
+const joy = $('joy'), knob = $('joyKnob');
+let joyId = null;
+function joyMove(e) {
+  const r = joy.getBoundingClientRect(), R = r.width / 2;
+  let x = (e.clientX - r.left - R) / R, y = (e.clientY - r.top - R) / R;
+  const m = Math.hypot(x, y);
+  if (m > 1) { x /= m; y /= m; }
+  joyVec.x = x; joyVec.y = y;
+  knob.style.transform = `translate(${x * R * 0.6}px, ${y * R * 0.6}px)`;
+}
+joy.addEventListener('pointerdown', e => { joyId = e.pointerId; joy.setPointerCapture(joyId); joyMove(e); e.stopPropagation(); });
+joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyMove(e); });
+const joyEnd = e => { if (e.pointerId !== joyId) return; joyId = null; joyVec.x = joyVec.y = 0; knob.style.transform = ''; };
+joy.addEventListener('pointerup', joyEnd);
+joy.addEventListener('pointercancel', joyEnd);
+
 // ===== 通り芯の表示切り替え =====
 const gridBtn = $('gridBtn');
 function setGrid(on) {
@@ -2452,6 +2874,7 @@ function describe(info) {
   const NX = namesOf(CFG, 'x'), NZ = namesOf(CFG, 'z'), nx = NX.length - 1, nz = NZ.length - 1;
   const f = info.floor;
   switch (info.kind) {
+    case 'pin': return [`📍 ${info.pin.text || 'ピン'}`, [info.pin.title ? `場所：${info.pin.title}` : '', `${info.pin.name || ''}さんが立てました`]];
     case 'col': return [`${f}階 柱　${NX[info.ix]}-${NZ[info.iz]}通り`, [floorLine(f, '躯体'), floorLine(f, '外装')]];
     case 'rebar': return [`${f}階 柱の鉄筋　${NX[info.ix]}-${NZ[info.iz]}通り`, [floorLine(f, '躯体'), f < NF ? floorLine(f + 1, '床') : '']];
     case 'slab': return [`${f}階 床　${NX[info.i]}〜${NX[info.i + 1]}／${NZ[info.j]}〜${NZ[info.j + 1]}通り`, [floorLine(f, '床'), floorLine(f, '躯体')]];
@@ -2488,9 +2911,13 @@ function showInfo(info, point) {
   infoCard.classList.add('on');
   marker.position.copy(point);
   marker.scale.setScalar(Math.max(0.4, camera.position.distanceTo(point) / 120));
-  marker.visible = true;
+  marker.visible = info.kind !== 'pin';
+  team.currentPin = info.kind === 'pin' ? info.pin : null;
+  $('pinRow').classList.toggle('on', team.on);
+  $('pinText').hidden = $('pinAdd').hidden = info.kind === 'pin';
+  $('pinDel').hidden = info.kind !== 'pin';
 }
-function hideInfo() { infoCard.classList.remove('on'); marker.visible = false; }
+function hideInfo() { infoCard.classList.remove('on'); marker.visible = false; team.currentPin = null; }
 $('infoClose').addEventListener('click', hideInfo);
 const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
@@ -2498,6 +2925,11 @@ function pick(cx, cy) {
   const r = renderer.domElement.getBoundingClientRect();
   ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
+  for (const h of raycaster.intersectObject(teamGroup, true)) { // ピンを先に見る
+    let p = h.object;
+    while (p && !p.userData.info) p = p.parent;
+    if (p) return showInfo(p.userData.info, h.point);
+  }
   for (const b of batches.values()) b.mesh.computeBoundingSphere(); // 部材が出たり消えたりするので毎回はかり直す
   for (const h of raycaster.intersectObject(world, true)) {
     const o = h.object;
@@ -2521,7 +2953,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   downAt = null;
   if (tap) pick(e.clientX, e.clientY);
 });
-slider.addEventListener('input', () => { if (infoCard.classList.contains('on')) hideInfo(); });
+slider.addEventListener('input', () => { if (infoCard.classList.contains('on')) hideInfo(); pushGuideDay(); });
 
 const clock = new THREE.Clock();
 let frames = 0, t0 = 0;
@@ -2533,8 +2965,11 @@ renderer.setAnimationLoop((time, frame) => {
     renderer.render(scene, camera);
     return;
   }
-  controls.update();
+  if (walking) stepWalk(); else controls.update();
   scaleGridLabels();
+  sendPresence();
+  // ピンと人の印は、遠くから見ても同じくらいの大きさにする（足もとを中心に大きくする）
+  for (const o of teamGroup.children) o.scale.setScalar(Math.max(1, camera.position.distanceTo(o.position) / 22));
   composer.render();
   // 動きが重ければ SSAO を自動で切る
   if (autoQuality && ssaoOn && frames < 120) {
