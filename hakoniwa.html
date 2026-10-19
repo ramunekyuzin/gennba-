@@ -764,6 +764,7 @@ const M = {
   rebar:   std({ color: '#6e4a36', metalness: 0.75, roughness: 0.55 }),
   ifloor:  std({ color: '#d8d2c6', roughness: 0.8 }),
   iwall:   std({ color: '#b7d9e6', roughness: 0.85 }),
+  door:    std({ color: '#a8835c', roughness: 0.6 }),
   tile:    std({ color: '#e7dccb', map: tex(tileCv, { repeat: [3, 2] }), roughness: 0.75 }),       // 共同住宅の外壁
   stone:   std({ color: '#d4cdc1', map: tex(concreteCv, { repeat: [2, 2] }), roughness: 0.7 }),    // 店舗の外壁
   railing: std({ color: '#dfe7ec', metalness: 0.2, roughness: 0.25, transparent: true, opacity: 0.72 }),
@@ -981,20 +982,46 @@ function interior(f, yt, gh, list) {
   const wall = (w, h, d, x, z, mat = M.iwall) => {
     const e = newEl(V(x, yt, z));
     P(e, mat, w, h, d, x, yt + h / 2, z, 0.03);
-    e.box = { x, z, w, d }; // 歩くときにぶつかる範囲
+    e.boxes = [{ x, z, w, d }]; // 歩くときにぶつかる範囲
     list.push(e);
   };
+  // 出入口つきの壁（幅1m・高さ2.1mの開口に、枠と開いた扉）。axis は壁が伸びる向き、at は壁の中心から出入口の中心まで
+  const DW = 1.0, DH = 2.1;
+  const doorWall = (len, h, t, x, z, axis, at = 0) => {
+    const e = newEl(V(x, yt, z));
+    e.boxes = [];
+    const pos = (u, v) => axis === 'x' ? [x + u, z + v] : [x + v, z + u];
+    const box = (u, v, lu, lt, hh, y, mat, hit) => {
+      const [cx, cz] = pos(u, v), [w, d] = axis === 'x' ? [lu, lt] : [lt, lu];
+      P(e, mat, w, hh, d, cx, y, cz, 0.02);
+      if (hit) e.boxes.push({ x: cx, z: cz, w, d });
+    };
+    const a = Math.max(-len / 2 + 0.4, Math.min(len / 2 - DW - 0.4, at - DW / 2)), b = a + DW;
+    box((-len / 2 + a) / 2, 0, a + len / 2, t, h, yt + h / 2, M.iwall, true);
+    box((b + len / 2) / 2, 0, len / 2 - b, t, h, yt + h / 2, M.iwall, true);
+    if (h > DH + 0.05) box((a + b) / 2, 0, DW, t, h - DH, yt + DH + (h - DH) / 2, M.iwall, false); // 出入口の上の壁
+    box(a + 0.03, 0, 0.06, t + 0.04, DH, yt + DH / 2, M.frame, false); // 枠
+    box(b - 0.03, 0, 0.06, t + 0.04, DH, yt + DH / 2, M.frame, false);
+    box((a + b) / 2, 0, DW, t + 0.04, 0.06, yt + DH, M.frame, false);
+    box(a + 0.04, t / 2 + DW / 2 - 0.05, 0.04, DW - 0.1, DH - 0.05, yt + DH / 2, M.door, false); // 開いた扉
+    list.push(e);
+  };
+  const midBay = (G, c) => { let i = 0; while (i < G.length - 2 && (G[i] + G[i + 1]) / 2 < c) i++; return (G[i] + G[i + 1]) / 2 - c; }; // 柱にかからない位置
   if (use === 'warehouse' || use === 'datacenter') { // 棚・サーバーラックの列
     const step = use === 'warehouse' ? 3 : 2.6, rh = use === 'warehouse' ? Math.min(4.5, gh - 0.8) : 2.2;
     for (let z = z0 + 2; z <= z1 - 1.5; z += step) wall(x1 - x0 - 4, rh, use === 'warehouse' ? 1.0 : 1.1, 0, z);
   } else if (use === 'apartment') { // 住戸の境の壁
-    for (let i = 1; i < GX.length - 1; i++) wall(0.15, gh - 0.05, z1 - z0, GX[i], 0);
-  } else { // 事務所・店舗：コア＋間仕切り
-    const j = Math.floor((GZ.length - 1) / 2);
-    wall(GX[1] - GX[0], gh - 0.05, GZ[j + 1] - GZ[j], (GX[0] + GX[1]) / 2, (GZ[j] + GZ[j + 1]) / 2);
-    if (GX.length > 3) for (let k = 1; k < GZ.length - 1; k++) wall(x1 - GX[1], gh - 0.25, 0.12, (GX[1] + x1) / 2, GZ[k]);
+    for (let i = 1; i < GX.length - 1; i++) doorWall(z1 - z0, gh - 0.05, 0.15, GX[i], (z0 + z1) / 2, 'z', midBay(GZ, (z0 + z1) / 2));
+  } else { // 事務所・店舗：コア（中に入れる）＋間仕切り
+    const j = Math.floor((GZ.length - 1) / 2), ch = gh - 0.05;
+    const cx0 = GX[0] + 0.4, cx1 = GX[1], cz0 = GZ[j], cz1 = GZ[j + 1], cw = cx1 - cx0, cd = cz1 - cz0;
+    wall(cw, ch, 0.2, (cx0 + cx1) / 2, cz0);
+    wall(cw, ch, 0.2, (cx0 + cx1) / 2, cz1);
+    wall(0.2, ch, cd, cx0, (cz0 + cz1) / 2);
+    doorWall(cd, ch, 0.2, cx1, (cz0 + cz1) / 2, 'z'); // 通路側に出入口
+    if (GX.length > 3) for (let k = 1; k < GZ.length - 1; k++) doorWall(x1 - GX[1], gh - 0.25, 0.12, (GX[1] + x1) / 2, GZ[k], 'x', midBay(GX.slice(1), (GX[1] + x1) / 2));
     const dz0 = GZ[1] - GZ[0], dz1 = z1 - GZ[GZ.length - 2];
-    for (let i = 2; i < GX.length - 1; i++) { wall(0.12, gh - 0.25, dz0, GX[i], z0 + dz0 / 2); wall(0.12, gh - 0.25, dz1, GX[i], z1 - dz1 / 2); }
+    for (let i = 2; i < GX.length - 1; i++) { doorWall(dz0, gh - 0.25, 0.12, GX[i], z0 + dz0 / 2, 'z'); doorWall(dz1, gh - 0.25, 0.12, GX[i], z1 - dz1 / 2, 'z'); }
   }
 }
 
@@ -2775,11 +2802,13 @@ function collide(p) {
   });
   // 間仕切り壁・コア・棚（できている所だけ）
   floors[f]['内装'].forEach(e => {
-    if (!e.box || e.cur < 0.5) return;
-    const b = e.box, hx = b.w / 2 + 0.3, hz = b.d / 2 + 0.3, dx = p.x - b.x, dz = p.z - b.z;
-    if (Math.abs(dx) >= hx || Math.abs(dz) >= hz) return;
-    if (hx - Math.abs(dx) < hz - Math.abs(dz)) p.x = b.x + Math.sign(dx || 1) * hx; // 近いほうの面へ押し出す
-    else p.z = b.z + Math.sign(dz || 1) * hz;
+    if (!e.boxes || e.cur < 0.5) return;
+    for (const b of e.boxes) {
+      const hx = b.w / 2 + 0.3, hz = b.d / 2 + 0.3, dx = p.x - b.x, dz = p.z - b.z;
+      if (Math.abs(dx) >= hx || Math.abs(dz) >= hz) continue;
+      if (hx - Math.abs(dx) < hz - Math.abs(dz)) p.x = b.x + Math.sign(dx || 1) * hx; // 近いほうの面へ押し出す
+      else p.z = b.z + Math.sign(dz || 1) * hz;
+    }
   });
 }
 function stepWalk() {
