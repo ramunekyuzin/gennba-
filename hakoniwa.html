@@ -10,6 +10,8 @@
     color-scheme: light dark;
     --bg: #dfe9f2;
     --panel: rgba(255, 255, 255, 0.92);
+    --sheet: #ffffff;
+    --field: #f4f6f8;
     --line: #d5d9de;
     --text: #22262b;
     --sub: #69717a;
@@ -21,6 +23,8 @@
     :root {
       --bg: #141a28;
       --panel: rgba(28, 32, 42, 0.94);
+      --sheet: #1d222c;
+      --field: #282e3a;
       --line: #39404d;
       --text: #eef1f5;
       --sub: #a3abb6;
@@ -44,6 +48,7 @@
   .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .title {
     position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 12px;
+    max-width: calc(100% - 150px);
     padding: 8px 14px;
     background: var(--panel);
     border: 1px solid var(--line);
@@ -52,8 +57,11 @@
   }
   .title b { display: block; font-size: 18px; }
   .title small { display: block; font-size: 16px; color: var(--sub); }
-  .quality {
+  .tools {
     position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px;
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+  }
+  .btn {
     min-height: 44px; padding: 0 14px;
     font: inherit; font-size: 16px; color: var(--text);
     background: var(--btn);
@@ -61,6 +69,7 @@
     border-radius: 10px;
     cursor: pointer;
   }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
   .panel {
     background: var(--panel);
     border-top: 1px solid var(--line);
@@ -93,19 +102,101 @@
   .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin-top: 6px; }
   .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; }
   .legend i { width: 18px; height: 18px; display: inline-block; border: 1px solid var(--line); border-radius: 4px; }
+
+  /* ===== 設定画面 ===== */
+  .sheet-bg {
+    position: fixed; inset: 0; z-index: 10;
+    background: rgba(0, 0, 0, 0.35);
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  .sheet-bg.open { display: flex; }
+  .sheet {
+    width: 100%; max-width: 640px; max-height: 88vh; max-height: 88dvh;
+    display: flex; flex-direction: column;
+    background: var(--sheet);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -6px 24px rgba(0,0,0,.25);
+  }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .sheet-head h2 { margin: 0; font-size: 20px; }
+  .sheet-body { overflow-y: auto; overflow-x: hidden; padding: 8px 16px 16px; -webkit-overflow-scrolling: touch; }
+  .sheet-foot {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+  }
+  .sheet-foot .primary { flex: 1; }
+  .sheet h3 { font-size: 18px; margin: 18px 0 8px; }
+  .note { color: var(--sub); font-size: 16px; margin: 4px 0 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .grid .wide { grid-column: 1 / -1; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 16px; color: var(--sub); }
+  select, input[type=date], input[type=number] {
+    min-width: 0;
+    font: inherit; font-size: 16px; color: var(--text);
+    min-height: 44px; padding: 6px 10px; width: 100%;
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .uses { display: flex; flex-wrap: wrap; gap: 8px; }
+  .uses button { flex: 1 1 30%; }
+  .uses button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .floor-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+  .floor-card b { display: block; margin-bottom: 6px; }
+  .krow { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; margin-bottom: 6px; }
+  .krow span { color: var(--sub); }
+  .err { color: #d9443a; font-weight: 700; min-height: 1.2em; margin: 6px 0 0; }
 </style>
 </head>
 <body>
 <div class="app">
   <div class="stage" id="stage">
-    <div class="title"><b>現場の箱庭</b><small>指でまわす・2本指で拡大</small></div>
-    <button class="quality" id="qualityBtn" type="button">高画質 ON</button>
+    <div class="title"><b>現場の箱庭</b><small id="summary"></small><small>指でまわす・2本指で拡大</small></div>
+    <div class="tools">
+      <button class="btn primary" id="settingsBtn" type="button">設定</button>
+      <button class="btn" id="qualityBtn" type="button">高画質 ON</button>
+    </div>
   </div>
   <div class="panel">
     <div class="date" id="dateLabel">----</div>
     <input type="range" id="slider" min="0" max="100" value="0" aria-label="日付">
     <div class="range-labels"><span id="minLabel"></span><span id="maxLabel"></span></div>
     <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet" role="dialog" aria-label="設定">
+    <div class="sheet-head"><h2>建物と工期の設定</h2><button class="btn" id="closeBtn" type="button">閉じる</button></div>
+    <div class="sheet-body">
+      <h3>用途</h3>
+      <div class="uses" id="uses"></div>
+      <h3>建物</h3>
+      <div class="grid">
+        <label class="f wide">階数<select id="fFloors"></select></label>
+        <label class="f">間口（柱6m間隔）<select id="fSpanX"></select></label>
+        <label class="f">奥行（柱6m間隔）<select id="fSpanZ"></select></label>
+      </div>
+      <h3>工期（かんたん設定）</h3>
+      <div class="grid">
+        <label class="f">着工日<input type="date" id="fStart"></label>
+        <label class="f">上の階へのずれ（日）<input type="number" id="fShift" min="1" max="120" inputmode="numeric"></label>
+        <label class="f">基礎の日数<input type="number" id="fD0" min="1" max="365" inputmode="numeric"></label>
+        <label class="f">躯体の日数<input type="number" id="fD1" min="1" max="365" inputmode="numeric"></label>
+        <label class="f">外装の日数<input type="number" id="fD2" min="1" max="365" inputmode="numeric"></label>
+        <label class="f">内装の日数<input type="number" id="fD3" min="1" max="365" inputmode="numeric"></label>
+        <button class="btn wide" id="genBtn" type="button">この日数で工程を作り直す</button>
+      </div>
+      <h3>工程の細かい調整</h3>
+      <p class="note">階ごと・工種ごとに、開始日〜終了日を直せます。</p>
+      <div id="table"></div>
+      <p class="err" id="err"></p>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" id="resetBtn" type="button">サンプルに戻す</button>
+      <button class="btn primary" id="applyBtn" type="button">この内容で建てる</button>
+    </div>
   </div>
 </div>
 
@@ -151,25 +242,37 @@ const DATA = [
   { floor: 5, kind: '外装', progress: [['2026-08-30', 0], ['2026-10-10', 100]] },
   { floor: 5, kind: '内装', progress: [['2026-09-21', 0], ['2026-11-09', 100]] },
 ];
-const RANGE_START = '2026-03-25';
-const RANGE_END   = '2026-11-20';
 const KIND_NAMES = ['基礎', '躯体', '外装', '内装'];
+const SAMPLE = {
+  use: 'office', floors: 5, spanX: 5, spanZ: 3,
+  auto: { start: '2026-04-01', shift: 28, days: { '基礎': 20, '躯体': 30, '外装': 40, '内装': 50 } },
+  data: DATA,
+};
+// 用途ごとの階高
+const USES = {
+  office:     { label: '事務所',         h: () => 3.5 },
+  apartment:  { label: '共同住宅',       h: () => 3.0 },
+  shop:       { label: '店舗',           h: f => (f === 1 ? 4.5 : 3.5) },
+  warehouse:  { label: '倉庫',           h: () => 6.0 },
+  datacenter: { label: 'データセンター', h: () => 5.0 },
+};
 const LEGEND = [
   ['基礎（床スラブ）', '#b9b6af'],
   ['躯体（柱）', '#d4d1ca'],
-  ['外装（ガラス）', 'linear-gradient(135deg,#8fb3cc,#d9e7f0)'],
+  ['外装', 'linear-gradient(135deg,#8fb3cc,#e4e1da)'],
   ['内装', '#b7d9e6'],
 ];
 
 // ===== 日付 =====
 const DAY = 86400000;
 const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
-const startDate = parseDate(RANGE_START);
-const totalDays = Math.round((parseDate(RANGE_END) - startDate) / DAY);
-const dayToDate = n => new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + n);
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
 const fmt = d => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${WEEK[d.getDay()]})`;
 const fmtShort = d => `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+const validIso = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parseDate(s));
 
 function progressAt(points, date) {
   const t = date.getTime();
@@ -178,11 +281,49 @@ function progressAt(points, date) {
   for (let i = 1; i < pts.length; i++) {
     if (t <= pts[i][0]) {
       const [t0, p0] = pts[i - 1], [t1, p1] = pts[i];
-      return p0 + (p1 - p0) * (t - t0) / (t1 - t0);
+      return t1 === t0 ? p1 : p0 + (p1 - p0) * (t - t0) / (t1 - t0);
     }
   }
   return pts[pts.length - 1][1];
 }
+
+// かんたん設定から全階の工程を作る（工種は少しずつ重ねて進める）
+function genFloor(f, a) {
+  const d = a.days, s = parseDate(a.start);
+  const lag = { '基礎': 0, '躯体': Math.round(d['基礎'] * 0.7) };
+  lag['外装'] = lag['躯体'] + Math.round(d['躯体'] * 0.8);
+  lag['内装'] = lag['外装'] + Math.round(d['外装'] * 0.55);
+  return KIND_NAMES.map(k => {
+    const st = addDays(s, (f - 1) * a.shift + lag[k]);
+    return { floor: f, kind: k, progress: [[iso(st), 0], [iso(addDays(st, d[k])), 100]] };
+  });
+}
+const genSchedule = (floors, a) => Array.from({ length: floors }, (_, i) => genFloor(i + 1, a)).flat();
+
+// ===== 設定の読み込み・保存（このブラウザだけに保存） =====
+const STORE_KEY = 'hakoniwa-config-v1';
+const clone = o => JSON.parse(JSON.stringify(o));
+function validConfig(c) {
+  try {
+    if (!USES[c.use]) return false;
+    if (!(c.floors >= 1 && c.floors <= 10 && c.spanX >= 2 && c.spanX <= 8 && c.spanZ >= 2 && c.spanZ <= 5)) return false;
+    if (!validIso(c.auto.start) || !(c.auto.shift >= 1)) return false;
+    if (!KIND_NAMES.every(k => c.auto.days[k] >= 1)) return false;
+    for (let f = 1; f <= c.floors; f++) for (const k of KIND_NAMES) {
+      const it = c.data.find(d => d.floor === f && d.kind === k);
+      if (!it || !it.progress.every(([d]) => validIso(d))) return false;
+    }
+    return true;
+  } catch { return false; }
+}
+function loadConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(STORE_KEY));
+    if (c && validConfig(c)) return c;
+  } catch {}
+  return clone(SAMPLE);
+}
+function saveConfig(c) { try { localStorage.setItem(STORE_KEY, JSON.stringify(c)); } catch {} }
 
 // ===== ノイズテクスチャ（canvasで生成） =====
 function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
@@ -213,18 +354,20 @@ function noiseCanvas(n, { base, fine, mottle, cells = 6, dots = 0, dotRange = [0
   }
   return c;
 }
-function tex(canvas, { srgb = true, repeat = [1, 1] } = {}) {
+function tex(canvas, { srgb = true, repeat = [1, 1], rotate = 0 } = {}) {
   const t = new THREE.CanvasTexture(canvas);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(repeat[0], repeat[1]);
   t.anisotropy = 4;
+  if (rotate) { t.center.set(0.5, 0.5); t.rotation = rotate; }
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 const concreteCv = noiseCanvas(512, { base: 205, fine: 22, mottle: 34, cells: 8, dots: 900, dotRange: [120, 170], seed: 11 });
 const asphaltCv  = noiseCanvas(512, { base: 72, fine: 46, mottle: 16, cells: 5, dots: 2600, dotRange: [110, 165], seed: 23 });
+const tileCv     = noiseCanvas(256, { base: 225, fine: 14, mottle: 18, cells: 6, seed: 31 });
 
-function ribCanvas() { // 仮囲いの波板
+function ribCanvas() { // 波板（仮囲い・倉庫の外壁）
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d');
   g.fillStyle = '#efefec'; g.fillRect(0, 0, 64, 64);
@@ -246,8 +389,7 @@ function meshSheetCanvas() { // 養生メッシュシート
 // ===== レンダラー・シーン =====
 const stage = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-const PIXEL_RATIO = Math.min(window.devicePixelRatio, 1.75);
-renderer.setPixelRatio(PIXEL_RATIO);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
@@ -272,7 +414,7 @@ const skyMat = new THREE.ShaderMaterial({
       #include <colorspace_fragment>
     }`,
 });
-const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), skyMat);
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1500, 32, 16), skyMat);
 scene.add(sky);
 const skyScene = new THREE.Scene();
 skyScene.add(new THREE.Mesh(sky.geometry, skyMat));
@@ -284,10 +426,10 @@ scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffcf9e, 3.2);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -62, right: 62, top: 62, bottom: -62, near: 10, far: 260 });
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
+let sunDist = 110;
 
 // ===== 素材 =====
 const ENV = 0.55;
@@ -302,6 +444,15 @@ const M = {
   rebar:   std({ color: '#6e4a36', metalness: 0.75, roughness: 0.55 }),
   ifloor:  std({ color: '#d8d2c6', roughness: 0.8 }),
   iwall:   std({ color: '#b7d9e6', roughness: 0.85 }),
+  tile:    std({ color: '#e7dccb', map: tex(tileCv, { repeat: [3, 2] }), roughness: 0.75 }),       // 共同住宅の外壁
+  stone:   std({ color: '#d4cdc1', map: tex(concreteCv, { repeat: [2, 2] }), roughness: 0.7 }),    // 店舗の外壁
+  railing: std({ color: '#dfe7ec', metalness: 0.2, roughness: 0.25, transparent: true, opacity: 0.72 }),
+  metal:   std({ color: '#cdd5dc', map: tex(ribCanvas(), { repeat: [8, 1] }), metalness: 0.55, roughness: 0.42 }), // 倉庫の金属外壁
+  shutter: std({ color: '#98a1aa', map: tex(ribCanvas(), { repeat: [1, 10], rotate: Math.PI / 2 }), metalness: 0.6, roughness: 0.45 }),
+  dc:      std({ color: '#8d949b', metalness: 0.45, roughness: 0.5 }),   // データセンターの外壁
+  fin:     std({ color: '#c3c9ce', metalness: 0.7, roughness: 0.35 }),   // 縦ルーバー
+  equip:   std({ color: '#c3c8cd', metalness: 0.5, roughness: 0.45 }),   // 屋上設備
+  fan:     std({ color: '#3a3f45', metalness: 0.6, roughness: 0.5 }),
   pipe:    std({ color: '#b5bcc3', metalness: 0.9, roughness: 0.3 }),
   deck:    std({ color: '#7f868d', metalness: 0.7, roughness: 0.5 }),
   sheet:   std({ map: tex(meshSheetCanvas()), transparent: true, side: THREE.DoubleSide, depthWrite: false, roughness: 0.9, envMapIntensity: 0.3 }),
@@ -312,9 +463,13 @@ const M = {
 };
 
 // ===== 形状ヘルパー =====
-const GEO = {};
-const rbox = (key, w, h, d, r = 0.04) =>
-  GEO[key] ||= new RoundedBoxGeometry(w, h, d, 2, Math.min(r, Math.min(w, h, d) / 2 - 0.001));
+let GEO = {};
+const kf = (...a) => a.map(v => (typeof v === 'number' ? v.toFixed(2) : v)).join('_');
+const rbox = (w, h, d, r = 0.04) => {
+  const k = kf('rb', w, h, d, r);
+  return GEO[k] ||= new RoundedBoxGeometry(w, h, d, 2, Math.max(0.002, Math.min(r, Math.min(w, h, d) / 2 - 0.001)));
+};
+const pbox = (w, h, d) => GEO[kf('bx', w, h, d)] ||= new THREE.BoxGeometry(w, h, d);
 const m4 = (x, y, z, ry = 0) => new THREE.Matrix4().makeRotationY(ry).setPosition(x, y, z);
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 function orient(g, a, b) {
@@ -340,7 +495,9 @@ function lattice(len, s, step, tc, tl) { // Y方向にのびるトラス
   }
   return mergeGeometries(out);
 }
-function addMesh(geo, mat, parent = scene, cast = true) {
+let world = null;          // 建て直すたびに作り直すもの一式
+let worldMats = [];
+function addMesh(geo, mat, parent = world, cast = true) {
   const m = new THREE.Mesh(geo, mat);
   m.castShadow = cast; m.receiveShadow = true;
   parent.add(m);
@@ -348,139 +505,117 @@ function addMesh(geo, mat, parent = scene, cast = true) {
 }
 
 // ===== 進捗で現れる「部材」：同じ形はまとめて InstancedMesh で描く =====
-const batches = new Map();
-const elements = [];
+let batches = new Map();
+let elements = [];
 function newEl(anchor, mode = 'y') {
   const e = { anchor, mode, parts: [], obj: null, target: 0, cur: 0 };
   elements.push(e);
   return e;
 }
-function addPart(e, key, geo, mat, matrix, cast = true) {
-  const bk = key + '|' + mat.uuid;
+function addPart(e, geo, mat, matrix, cast = true) {
+  const bk = geo.uuid + '|' + mat.uuid;
   if (!batches.has(bk)) batches.set(bk, { geo, mat, cast, count: 0, mesh: null, dirty: true });
   const b = batches.get(bk);
   e.parts.push({ b, i: b.count++, base: matrix });
 }
+// 面取りした箱・ガラス板を部材に足す
+const P = (e, mat, w, h, d, x, y, z, r = 0.03, cast = true) => addPart(e, rbox(w, h, d, r), mat, m4(x, y, z), cast);
+const G = (e, w, h, d, x, y, z) => addPart(e, pbox(w, h, d), M.glass, m4(x, y, z), false);
 
-// ===== 建物（実寸：1単位 = 1m） =====
-const GX = [-15, -9, -3, 3, 9, 15];         // 柱芯 X（6m間隔）
-const GZ = [-9, -3, 3, 9];                  // 柱芯 Z（6m間隔）
-const H = 3.5, SLAB = 0.25, BASE = 0.3;     // 階高・スラブ厚・基礎天端
-const EX = 16, EZ = 10;                     // スラブ外形（柱芯から1m張り出し）
-const CW = 0.15;                            // カーテンウォールのスラブ端からの控え
-const yb = f => BASE + (f - 1) * H;
-const XI = [[-EX, -9], [-9, -3], [-3, 3], [3, 9], [9, EX]];
-const ZI = [[-EZ, -3], [-3, 3], [3, EZ]];
+// ===== 建物の寸法（1単位 = 1m） =====
+const SLAB = 0.25, BASE = 0.3, CW = 0.15;
+let CFG, GX, GZ, EX, EZ, NF, hs, ys;
+const yb = f => ys[f];
 
 function slabPanels(y, mat, list) {
+  const XI = GX.slice(0, -1).map((x, i) => [i === 0 ? -EX : x, i === GX.length - 2 ? EX : GX[i + 1]]);
+  const ZI = GZ.slice(0, -1).map((z, i) => [i === 0 ? -EZ : z, i === GZ.length - 2 ? EZ : GZ[i + 1]]);
   const tmp = [];
   XI.forEach(([x1, x2], i) => ZI.forEach(([z1, z2], j) => {
     const w = x2 - x1, d = z2 - z1, cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
     const e = newEl(V(cx, y, cz), 'xz');
-    addPart(e, `slab${w}x${d}`, rbox(`slab${w}x${d}`, w, SLAB, d, 0.05), mat, m4(cx, y + SLAB / 2, cz));
+    P(e, mat, w, SLAB, d, cx, y + SLAB / 2, cz, 0.05);
     tmp.push([i + j, e]);
   }));
   tmp.sort((a, b) => a[0] - b[0]).forEach(([, e]) => list.push(e));
 }
 
+// --- 外装（ローカル座標：x=幅方向、y=床スラブ上端から上、z=外向き） ---
 function curtainBay(e, w, gh) {
-  const k = 'gl' + w;
-  addPart(e, k, GEO[k] ||= new THREE.BoxGeometry(w, gh, 0.024), M.glass, m4(0, gh / 2, 0), false);
-  addPart(e, 'tr' + w, rbox('tr' + w, w, 0.08, 0.14, 0.02), M.frame, m4(0, 0.04, 0.03));
-  addPart(e, 'tr' + w, rbox('tr' + w, w, 0.08, 0.14, 0.02), M.frame, m4(0, gh - 0.04, 0.03));
+  G(e, w, gh, 0.024, 0, gh / 2, 0);
+  P(e, M.frame, w, 0.08, 0.14, 0, 0.04, 0.03, 0.02);
+  P(e, M.frame, w, 0.08, 0.14, 0, gh - 0.04, 0.03, 0.02);
   const n = Math.round(w / 1.5);
-  for (let i = 0; i <= n; i++) addPart(e, 'mul', rbox('mul', 0.07, gh, 0.16, 0.02), M.frame, m4(-w / 2 + i * w / n, gh / 2, 0.03));
+  for (let i = 0; i <= n; i++) P(e, M.frame, 0.07, gh, 0.16, -w / 2 + i * w / n, gh / 2, 0.03, 0.02);
+}
+function punchedBay(e, w, gh, sill, head, ww, mat) { // 外壁パネル＋窓
+  const oh = gh - sill - head, sw = (w - ww) / 2, t = 0.12, z = 0.06;
+  P(e, mat, w, sill + SLAB, t, 0, (sill - SLAB) / 2, z);
+  P(e, mat, w, head, t, 0, gh - head / 2, z);
+  if (sw > 0.02) {
+    P(e, mat, sw, oh, t, -(ww / 2 + sw / 2), sill + oh / 2, z);
+    P(e, mat, sw, oh, t, ww / 2 + sw / 2, sill + oh / 2, z);
+  }
+  G(e, ww, oh, 0.024, 0, sill + oh / 2, 0.02);
+  P(e, M.frame, ww, 0.05, 0.1, 0, sill + 0.025, 0.04, 0.015);
+  P(e, M.frame, ww, 0.05, 0.1, 0, sill + oh - 0.025, 0.04, 0.015);
+  P(e, M.frame, 0.05, oh, 0.1, 0, sill + oh / 2, 0.04, 0.015);
+}
+function exteriorBay(e, f, side, i, w, gh) {
+  const use = CFG.use;
+  if (use === 'office' || (use === 'shop' && f === 1 && side === 'front')) {
+    curtainBay(e, w, gh);
+    if (use === 'shop') P(e, M.frame, w, 0.15, 1.6, 0, gh - 0.45, 0.8, 0.03); // 庇
+  } else if (use === 'apartment') {
+    if (side === 'front') { // バルコニー側
+      P(e, M.column, w, 0.18, 1.5, 0, -0.09, 0.8, 0.03);
+      P(e, M.column, 0.15, gh, 1.5, -w / 2 + 0.08, gh / 2, 0.8, 0.03);
+      P(e, M.railing, w - 0.2, 1.0, 0.04, 0, 0.6, 1.5, 0.01, false);
+      P(e, M.frame, w, 0.05, 0.08, 0, 1.12, 1.5, 0.02);
+      punchedBay(e, w, gh, 0.05, 0.45, w - 1.4, M.tile);
+    } else punchedBay(e, w, gh, 0.9, 0.5, Math.min(1.8, w - 1.6), M.tile);
+  } else if (use === 'shop') {
+    if (f === 1) punchedBay(e, w, gh, 1.0, 0.9, w * 0.45, M.stone);
+    else punchedBay(e, w, gh, 0.9, 0.6, w - 1.0, M.stone); // 横連窓
+  } else if (use === 'warehouse') {
+    P(e, M.metal, w, gh + SLAB, 0.1, 0, (gh - SLAB) / 2, 0.05, 0.02);
+    G(e, w - 1.2, 0.6, 0.03, 0, gh - 0.9, 0.12);
+    if (f === 1 && (side === 'front' || side === 'back') && i % 2 === 0)
+      P(e, M.shutter, Math.min(4, w - 1.5), 4.0, 0.08, 0, 2.0, 0.15, 0.02); // シャッター
+  } else { // データセンター：窓なしパネル＋縦ルーバー
+    P(e, M.dc, w, gh + SLAB, 0.1, 0, (gh - SLAB) / 2, 0.05, 0.02);
+    const n = Math.round(w / 0.75);
+    for (let k = 0; k < n; k++) P(e, M.fin, 0.06, gh + SLAB - 0.2, 0.4, -w / 2 + (k + 0.5) * w / n, (gh - SLAB) / 2, 0.3, 0.02);
+  }
 }
 
-const floors = {};
-for (let f = 1; f <= 5; f++) {
-  const y0 = yb(f), yt = y0 + SLAB, colH = H - SLAB;
-  const fl = { '基礎': [], '躯体': [], '外装': [], '内装': [], cols: [], rebar: [], roof: [], scaffold: null };
-  floors[f] = fl;
-
-  // 基礎（床スラブ。1階はその下に基礎版）
-  if (f === 1) {
-    const e = newEl(V(0, 0, 0));
-    addPart(e, 'base', rbox('base', EX * 2 + 0.6, BASE, EZ * 2 + 0.6, 0.05), M.slab, m4(0, BASE / 2, 0));
-    fl['基礎'].push(e);
-  }
-  slabPanels(y0, M.slab, fl['基礎']);
-
-  // 躯体（柱 0.8m角）＋ 柱頭から出る鉄筋
-  for (const gz of GZ) for (const gx of GX) {
-    const c = newEl(V(gx, yt, gz));
-    addPart(c, 'col', rbox('col', 0.8, colH, 0.8, 0.05), M.column, m4(gx, yt + colH / 2, gz));
-    fl['躯体'].push(c); fl.cols.push(c);
-    const r = newEl(V(gx, y0 + H, gz));
-    for (const [dx, dz] of [[-.28, -.28], [.28, -.28], [.28, .28], [-.28, .28], [0, -.28], [0, .28], [-.28, 0], [.28, 0]])
-      addPart(r, 'rebar', GEO.rebar ||= new THREE.CylinderGeometry(0.016, 0.016, 1.1, 6), M.rebar, m4(gx + dx, y0 + H + 0.55, gz + dz));
-    fl.rebar.push(r);
-  }
-  if (f === 5) { // 屋上スラブ＋パラペット
-    const yr = yb(6);
-    slabPanels(yr, M.slab, fl.roof);
-    for (const s of [-1, 1]) {
-      const a = newEl(V(0, yr + SLAB, s * (EZ - 0.1)));
-      addPart(a, 'parX', rbox('parX', EX * 2, 1.0, 0.2), M.column, m4(0, yr + SLAB + 0.5, s * (EZ - 0.1)));
-      const b = newEl(V(s * (EX - 0.1), yr + SLAB, 0));
-      addPart(b, 'parZ', rbox('parZ', 0.2, 1.0, EZ * 2 - 0.4), M.column, m4(s * (EX - 0.1), yr + SLAB + 0.5, 0));
-      fl.roof.push(a, b);
-    }
-    fl['躯体'].push(...fl.roof);
-  }
-
-  // 外装（ガラスカーテンウォール＋方立）
-  const fx = EX - CW, fz = EZ - CW;
-  const XB = [[-fx, -9], [-9, -3], [-3, 3], [3, 9], [9, fx]], ZB = [[-fz, -3], [-3, 3], [3, fz]];
-  const bays = [
-    ...XB.map(([a, b]) => [(a + b) / 2, fz, b - a, 0]),
-    ...ZB.map(([a, b]) => [fx, -(a + b) / 2, b - a, Math.PI / 2]),
-    ...XB.map(([a, b]) => [-(a + b) / 2, -fz, b - a, Math.PI]),
-    ...ZB.map(([a, b]) => [-fx, (a + b) / 2, b - a, -Math.PI / 2]),
-  ];
-  for (const [x, z, w, ry] of bays) {
-    const e = newEl(V(x, yt, z));
-    const wr = Math.round(w * 100) / 100;
-    const tmp = { parts: [] };
-    curtainBay(tmp, wr, colH);
-    const place = m4(x, yt, z, ry);
-    tmp.parts.forEach(p => e.parts.push({ ...p, base: place.clone().multiply(p.base) }));
-    fl['外装'].push(e);
-  }
-
-  // 内装（床仕上げ・コア・間仕切り。窓越しにうっすら見える）
+// --- 内装 ---
+function interior(f, yt, gh, list) {
+  const use = CFG.use, x0 = GX[0], x1 = GX[GX.length - 1], z0 = GZ[0], z1 = GZ[GZ.length - 1];
   const fe = newEl(V(0, yt, 0), 'xz');
-  addPart(fe, 'ifloor', rbox('ifloor', EX * 2 - 1.4, 0.04, EZ * 2 - 1.4, 0.015), M.ifloor, m4(0, yt + 0.02, 0));
-  fl['内装'].push(fe);
-  const walls = [
-    ['core', 6, 3.2, 6, -6, 0],
-    ['w18', 18, 3.0, 0.12, 6, -3], ['w18', 18, 3.0, 0.12, 6, 3],
-    ['w6', 0.12, 3.0, 6, 3, 6], ['w6', 0.12, 3.0, 6, 9, 6], ['w6', 0.12, 3.0, 6, 3, -6], ['w6', 0.12, 3.0, 6, 9, -6],
-  ];
-  for (const [k, w, h, d, x, z] of walls) {
+  P(fe, M.ifloor, EX * 2 - 1.4, 0.04, EZ * 2 - 1.4, 0, yt + 0.02, 0, 0.015);
+  list.push(fe);
+  const wall = (w, h, d, x, z, mat = M.iwall) => {
     const e = newEl(V(x, yt, z));
-    addPart(e, k, rbox(k, w, h, d, 0.03), M.iwall, m4(x, yt + h / 2, z));
-    fl['内装'].push(e);
+    P(e, mat, w, h, d, x, yt + h / 2, z, 0.03);
+    list.push(e);
+  };
+  if (use === 'warehouse' || use === 'datacenter') { // 棚・サーバーラックの列
+    const step = use === 'warehouse' ? 3 : 2.6, rh = use === 'warehouse' ? Math.min(4.5, gh - 0.8) : 2.2;
+    for (let z = z0 + 2; z <= z1 - 1.5; z += step) wall(x1 - x0 - 4, rh, use === 'warehouse' ? 1.0 : 1.1, 0, z);
+  } else if (use === 'apartment') { // 住戸の境の壁
+    for (let i = 1; i < GX.length - 1; i++) wall(0.15, gh - 0.05, z1 - z0, GX[i], 0);
+  } else { // 事務所・店舗：コア＋間仕切り
+    const j = Math.floor((GZ.length - 1) / 2);
+    wall(6, gh - 0.05, 6, (GX[0] + GX[1]) / 2, (GZ[j] + GZ[j + 1]) / 2);
+    if (GX.length > 3) for (let k = 1; k < GZ.length - 1; k++) wall(x1 - GX[1], gh - 0.25, 0.12, (GX[1] + x1) / 2, GZ[k]);
+    for (let i = 2; i < GX.length - 1; i++) { wall(0.12, gh - 0.25, 6, GX[i], z0 + 3); wall(0.12, gh - 0.25, 6, GX[i], z1 - 3); }
   }
 }
 
-// 部材の InstancedMesh を作る
-const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
-for (const b of batches.values()) {
-  b.mesh = new THREE.InstancedMesh(b.geo, b.mat, b.count);
-  b.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  b.mesh.castShadow = b.cast;
-  b.mesh.receiveShadow = true;
-  b.mesh.frustumCulled = false;
-  for (let i = 0; i < b.count; i++) b.mesh.setMatrixAt(i, ZERO);
-  scene.add(b.mesh);
-}
-
-// ===== 足場（パイプ＋手すり＋布板）と養生シート =====
-const scaffoldGeoCache = {};
-function scaffoldGeos(h) {
-  if (scaffoldGeoCache[h]) return scaffoldGeoCache[h];
-  const ai = { x: EX + 0.45, z: EZ + 0.45 }, ao = { x: EX + 1.35, z: EZ + 1.35 };
+// --- 足場（パイプ＋手すり＋布板）と養生シート ---
+function scaffoldGeos(h, off) {
+  const ai = { x: EX + off, z: EZ + off }, ao = { x: EX + off + 0.9, z: EZ + off + 0.9 };
   const corners = a => [[-a.x, -a.z], [a.x, -a.z], [a.x, a.z], [-a.x, a.z]];
   const ring = a => {
     const c = corners(a), pts = [];
@@ -491,10 +626,11 @@ function scaffoldGeos(h) {
     }
     return pts;
   };
-  const r = 0.024, pipes = [], decks = [], sheets = [];
+  const r = 0.024, pipes = [], decks = [];
   const inner = ring(ai), outer = ring(ao);
   for (const [x, z] of [...inner, ...outer]) pipes.push(pipe(V(x, 0, z), V(x, h, z), r));
-  const lifts = [0, h / 2];
+  const lifts = h > 4.5 ? [0, h / 3, (2 * h) / 3] : [0, h / 2];
+  const lift = h / lifts.length;
   for (const L of lifts) {
     for (const a of [ai, ao]) {
       const c = corners(a);
@@ -506,7 +642,7 @@ function scaffoldGeos(h) {
     }
     outer.forEach(([x, z], i) => { // 筋かい
       const [x2, z2] = outer[(i + 1) % outer.length];
-      if (i % 2 === 0) pipes.push(pipe(V(x, L, z), V(x2, L + h / 2, z2), r * 0.8));
+      if (i % 2 === 0) pipes.push(pipe(V(x, L, z), V(x2, L + lift, z2), r * 0.8));
     });
     const t = 0.04, dz = ao.z - ai.z, dx = ao.x - ai.x;
     for (const s of [-1, 1]) {
@@ -521,31 +657,16 @@ function scaffoldGeos(h) {
     for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 1.2, uv.getY(i) * h / 1.2);
     return g.rotateY(ry).translate(x, h / 2, z);
   };
-  sheets.push(plane(sx * 2, 0, 0, sz), plane(sx * 2, Math.PI, 0, -sz), plane(sz * 2, Math.PI / 2, sx, 0), plane(sz * 2, -Math.PI / 2, -sx, 0));
-  return scaffoldGeoCache[h] = { pipes: mergeGeometries(pipes), decks: mergeGeometries(decks), sheets: mergeGeometries(sheets) };
-}
-for (let f = 1; f <= 5; f++) {
-  const bottom = f === 1 ? 0 : yb(f), h = f === 1 ? H + BASE : H;
-  const g = scaffoldGeos(h);
-  const grp = new THREE.Group();
-  grp.position.y = bottom;
-  addMesh(g.pipes, M.pipe, grp);
-  addMesh(g.decks, M.deck, grp);
-  addMesh(g.sheets, M.sheet, grp, false);
-  grp.visible = false;
-  scene.add(grp);
-  const e = newEl(V(0, bottom, 0));
-  e.obj = grp;
-  floors[f].scaffold = e;
+  const sheets = [plane(sx * 2, 0, 0, sz), plane(sx * 2, Math.PI, 0, -sz), plane(sz * 2, Math.PI / 2, sx, 0), plane(sz * 2, -Math.PI / 2, -sx, 0)];
+  return { pipes: mergeGeometries(pipes), decks: mergeGeometries(decks), sheets: mergeGeometries(sheets) };
 }
 
-// ===== 敷地：アスファルト・仮囲い（高さ3m）・タワークレーン =====
-const ground = addMesh(new THREE.PlaneGeometry(2000, 2000).rotateX(-Math.PI / 2), M.asphalt, scene, false);
-{
-  const FX = 32, FZ = 24, FH = 3;
+// --- 敷地：仮囲い（高さ3m）とタワークレーン ---
+function buildSite(roofTop) {
+  const FX = EX + 16, FZ = EZ + 14, FH = 3;
   const fence = (len, x, z, ry) => {
-    const t = tex(ribCanvas(), { repeat: [len, 1] });
-    const m = std({ map: t, roughness: 0.55, metalness: 0.25 });
+    const m = std({ map: tex(ribCanvas(), { repeat: [len, 1] }), roughness: 0.55, metalness: 0.25 });
+    worldMats.push(m);
     const mesh = addMesh(new RoundedBoxGeometry(len, FH, 0.06, 2, 0.02), m);
     mesh.position.set(x, FH / 2, z); mesh.rotation.y = ry;
   };
@@ -554,35 +675,174 @@ const ground = addMesh(new THREE.PlaneGeometry(2000, 2000).rotateX(-Math.PI / 2)
   fence(FZ * 2, FX, 0, Math.PI / 2);
   fence(FX - 6, -(FX + 6) / 2, FZ, 0); // 正面はゲート分あける
   fence(FX - 6, (FX + 6) / 2, FZ, 0);
-}
-{
+
+  const cx = EX + 8, cz = EZ + 8, dist = Math.hypot(cx, cz);
   const crane = new THREE.Group();
-  crane.position.set(-24, 0, -18);
-  scene.add(crane);
-  addMesh(rbox('cranebase', 6, 1.2, 6, 0.06), M.heavy, crane).position.y = 0.6;
-  const MH = 40, top = 1.2 + MH;
+  crane.position.set(-cx, 0, -cz);
+  world.add(crane);
+  addMesh(rbox(6, 1.2, 6, 0.06), M.heavy, crane).position.y = 0.6;
+  const MH = Math.max(30, Math.ceil((roofTop + 14) / 2) * 2), top = 1.2 + MH;
   addMesh(lattice(MH, 1.7, 2.0, 0.16, 0.08).translate(0, 1.2, 0), M.crane, crane);
 
   const slew = new THREE.Group();
-  slew.rotation.y = -Math.atan2(18, 24); // ジブを建物の方へ
+  slew.rotation.y = -Math.atan2(cz, cx); // ジブを建物の方へ
   crane.add(slew);
+  const jib = Math.max(30, Math.round(dist + 10));
   const Y = [], S = [];
   Y.push(new THREE.BoxGeometry(2.6, 1.0, 2.6).translate(0, top + 0.5, 0));
   const apex = V(0, top + 8, 0);
   for (const [x, z] of [[-.85, -.85], [.85, -.85], [.85, .85], [-.85, .85]]) Y.push(bar(V(x, top + 1, z), apex, 0.16));
-  Y.push(lattice(40.7, 1.4, 2.2, 0.12, 0.07).rotateZ(-Math.PI / 2).translate(1.3, top + 1.7, 0)); // ジブ 約42m
+  Y.push(lattice(jib, 1.4, 2.2, 0.12, 0.07).rotateZ(-Math.PI / 2).translate(1.3, top + 1.7, 0));
   for (const z of [-0.8, 0.8]) Y.push(new THREE.BoxGeometry(12, 0.5, 0.35).translate(-7.3, top + 1.25, z)); // カウンタージブ
-  Y.push(bar(apex, V(30, top + 2.4, 0), 0.07), bar(apex, V(-12.8, top + 1.5, 0), 0.07)); // 吊りロッド
-  const trolleyX = 27, hookY = 24;
+  Y.push(bar(apex, V(jib * 0.72, top + 2.4, 0), 0.07), bar(apex, V(-12.8, top + 1.5, 0), 0.07)); // 吊りロッド
+  const trolleyX = dist * 0.9, hookY = roofTop + 5;
   Y.push(new THREE.BoxGeometry(1.4, 0.5, 1.2).translate(trolleyX, top + 0.8, 0));
   Y.push(new THREE.BoxGeometry(0.7, 0.9, 0.5).translate(trolleyX, hookY, 0));
   S.push(new THREE.BoxGeometry(12, 0.06, 1.9).translate(-7.3, top + 1.0, 0));
   for (const dx of [-0.2, 0.2]) S.push(pipe(V(trolleyX + dx, top + 0.6, 0), V(trolleyX + dx, hookY + 0.45, 0), 0.018));
   addMesh(mergeGeometries(Y), M.crane, slew);
   addMesh(mergeGeometries(S), M.pipe, slew);
-  for (let i = 0; i < 4; i++) addMesh(rbox('cw', 0.7, 2.6, 2.2, 0.05), M.heavy, slew).position.set(-10 - i * 0.8, top - 0.3, 0); // カウンターウェイト
-  addMesh(rbox('cab', 2.0, 2.2, 2.0, 0.08), M.cab, slew).position.set(0.6, top + 0.4, 2.0);
-  addMesh(new THREE.BoxGeometry(0.04, 1.2, 1.6), M.glass, slew, false).position.set(1.62, top + 0.7, 2.0);
+  for (let i = 0; i < 4; i++) addMesh(rbox(0.7, 2.6, 2.2, 0.05), M.heavy, slew).position.set(-10 - i * 0.8, top - 0.3, 0); // カウンターウェイト
+  addMesh(rbox(2.0, 2.2, 2.0, 0.08), M.cab, slew).position.set(0.6, top + 0.4, 2.0);
+  addMesh(pbox(0.04, 1.2, 1.6), M.glass, slew, false).position.set(1.62, top + 0.7, 2.0);
+  return { FX, FZ, top: top + 8 };
+}
+
+// ===== 建物を組み立てる（設定が変わるたびに作り直す） =====
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+let floors = {};
+function build(cfg) {
+  // 前の建物を片付ける
+  if (world) {
+    world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.isInstancedMesh) o.dispose(); });
+    scene.remove(world);
+  }
+  Object.values(GEO).forEach(g => g.dispose());
+  worldMats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+  world = new THREE.Group(); scene.add(world);
+  worldMats = []; GEO = {}; batches = new Map(); elements = []; floors = {};
+
+  CFG = cfg; NF = cfg.floors;
+  GX = Array.from({ length: cfg.spanX + 1 }, (_, i) => -cfg.spanX * 3 + i * 6);
+  GZ = Array.from({ length: cfg.spanZ + 1 }, (_, i) => -cfg.spanZ * 3 + i * 6);
+  EX = cfg.spanX * 3 + 1; EZ = cfg.spanZ * 3 + 1;
+  hs = [0]; ys = [0, BASE];
+  for (let f = 1; f <= NF; f++) { hs[f] = USES[cfg.use].h(f); ys[f + 1] = ys[f] + hs[f]; }
+
+  const fx = EX - CW, fz = EZ - CW;
+  const XB = GX.slice(0, -1).map((x, i) => [i === 0 ? -fx : x, i === GX.length - 2 ? fx : GX[i + 1]]);
+  const ZB = GZ.slice(0, -1).map((z, i) => [i === 0 ? -fz : z, i === GZ.length - 2 ? fz : GZ[i + 1]]);
+  const bays = [
+    ...XB.map(([a, b], i) => ['front', i, (a + b) / 2, fz, b - a, 0]),
+    ...ZB.map(([a, b], i) => ['right', i, fx, -(a + b) / 2, b - a, Math.PI / 2]),
+    ...XB.map(([a, b], i) => ['back', i, -(a + b) / 2, -fz, b - a, Math.PI]),
+    ...ZB.map(([a, b], i) => ['left', i, -fx, (a + b) / 2, b - a, -Math.PI / 2]),
+  ];
+
+  for (let f = 1; f <= NF; f++) {
+    const y0 = yb(f), H = hs[f], yt = y0 + SLAB, colH = H - SLAB;
+    const fl = { '基礎': [], '躯体': [], '外装': [], '内装': [], cols: [], rebar: [], roof: [], scaffold: null };
+    floors[f] = fl;
+
+    // 基礎（床スラブ。1階はその下に基礎版）
+    if (f === 1) {
+      const e = newEl(V(0, 0, 0));
+      P(e, M.slab, EX * 2 + 0.6, BASE, EZ * 2 + 0.6, 0, BASE / 2, 0, 0.05);
+      fl['基礎'].push(e);
+    }
+    slabPanels(y0, M.slab, fl['基礎']);
+
+    // 躯体（柱 0.8m角）＋ 柱頭から出る鉄筋
+    for (const gz of GZ) for (const gx of GX) {
+      const c = newEl(V(gx, yt, gz));
+      P(c, M.column, 0.8, colH, 0.8, gx, yt + colH / 2, gz, 0.05);
+      fl['躯体'].push(c); fl.cols.push(c);
+      const r = newEl(V(gx, y0 + H, gz));
+      const rg = GEO.rebar ||= new THREE.CylinderGeometry(0.016, 0.016, 1.1, 6);
+      for (const [dx, dz] of [[-.28, -.28], [.28, -.28], [.28, .28], [-.28, .28], [0, -.28], [0, .28], [-.28, 0], [.28, 0]])
+        addPart(r, rg, M.rebar, m4(gx + dx, y0 + H + 0.55, gz + dz));
+      fl.rebar.push(r);
+    }
+    if (f === NF) { // 屋上スラブ＋パラペット
+      const yr = yb(NF + 1);
+      slabPanels(yr, M.slab, fl.roof);
+      for (const s of [-1, 1]) {
+        const a = newEl(V(0, yr + SLAB, s * (EZ - 0.1)));
+        P(a, M.column, EX * 2, 1.0, 0.2, 0, yr + SLAB + 0.5, s * (EZ - 0.1));
+        const b = newEl(V(s * (EX - 0.1), yr + SLAB, 0));
+        P(b, M.column, 0.2, 1.0, EZ * 2 - 0.4, s * (EX - 0.1), yr + SLAB + 0.5, 0);
+        fl.roof.push(a, b);
+      }
+      fl['躯体'].push(...fl.roof);
+    }
+
+    // 外装（用途ごとの外壁）
+    for (const [side, i, x, z, w, ry] of bays) {
+      const e = newEl(V(x, yt, z));
+      const tmp = { parts: [] };
+      exteriorBay(tmp, f, side, i, Math.round(w * 100) / 100, colH);
+      const place = m4(x, yt, z, ry);
+      tmp.parts.forEach(p => e.parts.push({ ...p, base: place.clone().multiply(p.base) }));
+      fl['外装'].push(e);
+    }
+    if (f === NF && CFG.use === 'datacenter') { // 屋上の冷却設備
+      const yr = yb(NF + 1) + SLAB;
+      for (let i = 0; i < GX.length - 1; i++) for (let j = 0; j < GZ.length - 1; j++) {
+        const x = (GX[i] + GX[i + 1]) / 2, z = (GZ[j] + GZ[j + 1]) / 2;
+        const e = newEl(V(x, yr, z));
+        P(e, M.equip, 3.2, 2.2, 3.2, x, yr + 1.1, z, 0.08);
+        addPart(e, GEO.fan ||= new THREE.CylinderGeometry(1.1, 1.1, 0.12, 24), M.fan, m4(x, yr + 2.26, z));
+        fl['外装'].push(e);
+      }
+    }
+
+    // 内装（窓越しにうっすら見える）
+    interior(f, yt, colH, fl['内装']);
+  }
+
+  // 部材の InstancedMesh を作る
+  for (const b of batches.values()) {
+    b.mesh = new THREE.InstancedMesh(b.geo, b.mat, b.count);
+    b.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    b.mesh.castShadow = b.cast;
+    b.mesh.receiveShadow = true;
+    b.mesh.frustumCulled = false;
+    for (let i = 0; i < b.count; i++) b.mesh.setMatrixAt(i, ZERO);
+    world.add(b.mesh);
+  }
+
+  // 足場（各階）
+  const off = 0.45 + (CFG.use === 'apartment' ? 1.6 : 0);
+  const cache = {};
+  for (let f = 1; f <= NF; f++) {
+    const bottom = f === 1 ? 0 : yb(f), h = f === 1 ? hs[f] + BASE : hs[f];
+    const g = cache[h] ||= scaffoldGeos(h, off);
+    const grp = new THREE.Group();
+    grp.position.y = bottom;
+    addMesh(g.pipes, M.pipe, grp);
+    addMesh(g.decks, M.deck, grp);
+    addMesh(g.sheets, M.sheet, grp, false);
+    grp.visible = false;
+    world.add(grp);
+    const e = newEl(V(0, bottom, 0));
+    e.obj = grp;
+    floors[f].scaffold = e;
+  }
+
+  const roofTop = yb(NF + 1) + SLAB + 1.0;
+  const site = buildSite(roofTop);
+
+  // 影・霧・カメラを建物の大きさに合わせる
+  const S = Math.max(site.FX, site.FZ, 40) + 14;
+  Object.assign(sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 5, far: S * 5 });
+  sun.shadow.camera.updateProjectionMatrix();
+  sunDist = S * 1.9;
+  applyTheme();
+  fitCamera(roofTop, site.top);
+
+  document.getElementById('summary').textContent =
+    `${USES[CFG.use].label}・${NF}階建て・${cfg.spanX * 6}m×${cfg.spanZ * 6}m`;
+  setupSlider();
 }
 
 // ===== 昼 / ダークモード（夕暮れ） =====
@@ -596,7 +856,7 @@ function applyTheme() {
   scene.fog.color.set(hor);
   sun.color.set(dark ? '#ff9f62' : '#ffcf9e');
   sun.intensity = dark ? 2.4 : 3.2;
-  sun.position.set(...(dark ? [-80, 34, 60] : [-70, 58, 62]));
+  sun.position.set(...(dark ? [-80, 34, 60] : [-70, 58, 62])).setLength(sunDist);
   hemi.intensity = dark ? 0.45 : 0.8;
   hemi.color.set(dark ? '#7f94c8' : '#a9c8ff');
   if (skyEnv) skyEnv.dispose();
@@ -604,28 +864,44 @@ function applyTheme() {
   M.glass.envMap = skyEnv.texture; // ガラスには空を映す
   M.glass.needsUpdate = true;
 }
-applyTheme();
 darkMQ.addEventListener('change', applyTheme);
 
+// ===== 地面（アスファルト） =====
+{
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), M.asphalt);
+  g.receiveShadow = true;
+  scene.add(g);
+}
+
 // ===== カメラ =====
-const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 2000);
+const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 4000);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 8, 0);
 controls.enableDamping = true;
 controls.enablePan = false;
-controls.minDistance = 25;
-controls.maxDistance = 300;
 controls.minPolarAngle = 0.25;
 controls.maxPolarAngle = Math.PI * 0.47;
+let fitInfo = null;
+function fitCamera(roofTop, craneTop) {
+  fitInfo = { roofTop, craneTop };
+  const R = Math.max(Math.hypot(EX, EZ) * 1.6, roofTop * 1.3, 30);
+  const base = R / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.05;
+  const dist = base * Math.max(1, 1.15 / camera.aspect);
+  controls.target.set(0, Math.min(roofTop * 0.45, 30), 0);
+  camera.position.copy(controls.target).add(V(60, 22, 75).setLength(dist));
+  controls.minDistance = Math.max(20, R * 0.6);
+  controls.maxDistance = dist * 3;
+  scene.fog.near = dist * 1.05;
+  scene.fog.far = dist * 4.2;
+  controls.update();
+}
 
 // ===== ポストエフェクト（SSAO） =====
 const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
-const renderPass = new RenderPass(scene, camera);
 const ssaoPass = new SSAOPass(scene, camera, 1, 1);
 ssaoPass.kernelRadius = 1.2;
 ssaoPass.minDistance = 0.00002;
 ssaoPass.maxDistance = 0.003;
-composer.addPass(renderPass);
+composer.addPass(new RenderPass(scene, camera));
 composer.addPass(ssaoPass);
 composer.addPass(new OutputPass());
 
@@ -637,8 +913,7 @@ function setSSAO(on) {
   qualityBtn.textContent = on ? '高画質 ON' : '高画質 OFF';
 }
 // 重い端末では最初から切る
-if ((navigator.deviceMemory && navigator.deviceMemory <= 3) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2)) setSSAO(false);
-else setSSAO(true);
+setSSAO(!((navigator.deviceMemory && navigator.deviceMemory <= 3) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2)));
 qualityBtn.addEventListener('click', () => { autoQuality = false; setSSAO(!ssaoOn); });
 
 // ===== 部材のアニメーション =====
@@ -671,26 +946,37 @@ function stepElements() {
 // ===== 日付スライダー =====
 const slider = document.getElementById('slider');
 const dateLabel = document.getElementById('dateLabel');
-slider.max = totalDays;
-document.getElementById('minLabel').textContent = fmtShort(startDate);
-document.getElementById('maxLabel').textContent = fmtShort(dayToDate(totalDays));
+let rangeStart = new Date(), totalDays = 1;
+const dayToDate = n => addDays(rangeStart, n);
 document.getElementById('legend').innerHTML = LEGEND.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('');
 
+function setupSlider() {
+  const all = CFG.data.filter(d => d.floor <= NF).flatMap(d => d.progress.map(([s]) => parseDate(s).getTime()));
+  rangeStart = addDays(new Date(Math.min(...all)), -7);
+  totalDays = Math.round((addDays(new Date(Math.max(...all)), 10) - rangeStart) / DAY);
+  slider.max = totalDays;
+  document.getElementById('minLabel').textContent = fmtShort(rangeStart);
+  document.getElementById('maxLabel').textContent = fmtShort(dayToDate(totalDays));
+  const t = new Date();
+  const idx = Math.round((new Date(t.getFullYear(), t.getMonth(), t.getDate()) - rangeStart) / DAY);
+  slider.value = Math.min(totalDays, Math.max(0, idx));
+  setDay(Number(slider.value));
+}
 function setDay(n) {
   const date = dayToDate(n);
   dateLabel.textContent = fmt(date);
   const pct = (f, k) => {
-    const item = DATA.find(d => d.floor === f && d.kind === k);
+    const item = CFG.data.find(d => d.floor === f && d.kind === k);
     return item ? Math.min(100, Math.max(0, progressAt(item.progress, date))) : 0;
   };
-  for (let f = 1; f <= 5; f++) {
+  for (let f = 1; f <= NF; f++) {
     const fl = floors[f];
     for (const k of KIND_NAMES) {
       const list = fl[k], shown = Math.round(list.length * pct(f, k) / 100);
       list.forEach((e, i) => { e.target = i < shown ? 1 : 0; });
     }
     // 躯体だけの階：上にまだ床が無ければ柱頭から鉄筋が出る
-    const covered = f < 5 ? pct(f + 1, '基礎') > 0 : fl.roof.some(e => e.target === 1);
+    const covered = f < NF ? pct(f + 1, '基礎') > 0 : fl.roof.some(e => e.target === 1);
     const bare = pct(f, '外装') === 0 && !covered;
     fl.cols.forEach((c, i) => { fl.rebar[i].target = bare && c.target === 1 ? 1 : 0; });
     // 外装工事中の階：足場と養生シート
@@ -700,31 +986,103 @@ function setDay(n) {
 }
 slider.addEventListener('input', () => setDay(Number(slider.value)));
 
-const today = new Date();
-const todayIdx = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - startDate) / DAY);
-slider.value = Math.min(totalDays, Math.max(0, todayIdx));
-setDay(Number(slider.value));
+// ===== 設定画面 =====
+const $ = id => document.getElementById(id);
+const sheetBg = $('sheetBg');
+let draft = null;
+$('uses').innerHTML = Object.entries(USES).map(([k, u]) => `<button class="btn" type="button" data-use="${k}">${u.label}</button>`).join('');
+$('fFloors').innerHTML = Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1}階建て</option>`).join('');
+$('fSpanX').innerHTML = [2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}">${n}スパン（${n * 6}m）</option>`).join('');
+$('fSpanZ').innerHTML = [2, 3, 4, 5].map(n => `<option value="${n}">${n}スパン（${n * 6}m）</option>`).join('');
+const dayFields = ['fD0', 'fD1', 'fD2', 'fD3'];
+
+function fillForm() {
+  document.querySelectorAll('#uses button').forEach(b => b.classList.toggle('on', b.dataset.use === draft.use));
+  $('fFloors').value = draft.floors;
+  $('fSpanX').value = draft.spanX;
+  $('fSpanZ').value = draft.spanZ;
+  $('fStart').value = draft.auto.start;
+  $('fShift').value = draft.auto.shift;
+  KIND_NAMES.forEach((k, i) => { $(dayFields[i]).value = draft.auto.days[k]; });
+  renderTable();
+}
+function renderTable() {
+  let html = '';
+  for (let f = draft.floors; f >= 1; f--) {
+    html += `<div class="floor-card"><b>${f}階</b>`;
+    for (const k of KIND_NAMES) {
+      const it = draft.data.find(d => d.floor === f && d.kind === k);
+      const s = it.progress[0][0], e = it.progress[it.progress.length - 1][0];
+      html += `<div class="krow"><span>${k}</span>
+        <input type="date" value="${s}" data-f="${f}" data-k="${k}" data-p="s" aria-label="${f}階 ${k} 開始日">
+        <span>〜</span>
+        <input type="date" value="${e}" data-f="${f}" data-k="${k}" data-p="e" aria-label="${f}階 ${k} 終了日"></div>`;
+    }
+    html += '</div>';
+  }
+  $('table').innerHTML = html;
+}
+function readAuto() {
+  const n = (id, def) => { const v = parseInt($(id).value, 10); return v >= 1 ? v : def; };
+  draft.auto.start = validIso($('fStart').value) ? $('fStart').value : draft.auto.start;
+  draft.auto.shift = n('fShift', draft.auto.shift);
+  KIND_NAMES.forEach((k, i) => { draft.auto.days[k] = n(dayFields[i], draft.auto.days[k]); });
+}
+// 階数が変わったら、足りない階だけかんたん設定から工程を足す
+function syncFloors() {
+  draft.data = draft.data.filter(d => d.floor <= draft.floors);
+  for (let f = 1; f <= draft.floors; f++)
+    if (!draft.data.some(d => d.floor === f)) draft.data.push(...genFloor(f, draft.auto));
+}
+
+$('uses').addEventListener('click', e => {
+  const b = e.target.closest('button[data-use]');
+  if (!b) return;
+  draft.use = b.dataset.use;
+  document.querySelectorAll('#uses button').forEach(x => x.classList.toggle('on', x === b));
+});
+$('fFloors').addEventListener('change', () => { draft.floors = Number($('fFloors').value); readAuto(); syncFloors(); renderTable(); });
+$('fSpanX').addEventListener('change', () => { draft.spanX = Number($('fSpanX').value); });
+$('fSpanZ').addEventListener('change', () => { draft.spanZ = Number($('fSpanZ').value); });
+$('genBtn').addEventListener('click', () => { readAuto(); draft.data = genSchedule(draft.floors, draft.auto); renderTable(); $('err').textContent = ''; });
+$('table').addEventListener('change', e => {
+  const t = e.target;
+  if (!t.dataset.f || !validIso(t.value)) return;
+  const it = draft.data.find(d => d.floor === Number(t.dataset.f) && d.kind === t.dataset.k);
+  if (t.dataset.p === 's') it.progress[0][0] = t.value;
+  else it.progress[it.progress.length - 1][0] = t.value;
+});
+$('settingsBtn').addEventListener('click', () => { draft = clone(CFG); $('err').textContent = ''; fillForm(); sheetBg.classList.add('open'); });
+$('closeBtn').addEventListener('click', () => sheetBg.classList.remove('open'));
+sheetBg.addEventListener('click', e => { if (e.target === sheetBg) sheetBg.classList.remove('open'); });
+$('resetBtn').addEventListener('click', () => { draft = clone(SAMPLE); $('err').textContent = ''; fillForm(); });
+$('applyBtn').addEventListener('click', () => {
+  readAuto();
+  for (const it of draft.data) {
+    const s = it.progress[0][0], e = it.progress[it.progress.length - 1][0];
+    if (parseDate(e) < parseDate(s)) { $('err').textContent = `${it.floor}階の${it.kind}：終了日が開始日より前になっています`; return; }
+  }
+  if (!validConfig(draft)) { $('err').textContent = '入力に足りないところがあります'; return; }
+  saveConfig(draft);
+  build(clone(draft));
+  sheetBg.classList.remove('open');
+});
 
 // ===== サイズ調整・描画 =====
-let firstResize = true;
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
   if (!w || !h) return;
   renderer.setSize(w, h, false);
   composer.setPixelRatio(renderer.getPixelRatio());
   composer.setSize(w, h);
+  const first = camera.aspect === 1;
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  if (firstResize) { // 人の目線より少し上から見下ろす。縦長画面では少し引く
-    firstResize = false;
-    const dir = V(60, 22, 75);
-    const dist = dir.length() * 1.15 * Math.max(1, 1.15 / camera.aspect);
-    camera.position.copy(controls.target).add(dir.setLength(dist));
-    controls.update();
-  }
+  if (first && fitInfo) fitCamera(fitInfo.roofTop, fitInfo.craneTop);
 }
 new ResizeObserver(resize).observe(stage);
 resize();
+build(loadConfig());
 
 let frames = 0, t0 = 0;
 renderer.setAnimationLoop(() => {
