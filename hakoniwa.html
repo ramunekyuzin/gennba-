@@ -145,7 +145,7 @@
   .ai-box .warn { color: #c0392b; }
   .dim-note { margin-top: 8px; color: var(--sub); }
   .dim-note:empty { display: none; }
-  select, input[type=date], input[type=number], input[type=url], input[type=password] {
+  select, input[type=date], input[type=number], input[type=url], input[type=password], input[type=text] {
     min-width: 0;
     font: inherit; font-size: 16px; color: var(--text);
     min-height: 44px; padding: 6px 10px; width: 100%;
@@ -162,6 +162,18 @@
   .krow.site { grid-template-columns: 6.5em minmax(0, 1fr) auto minmax(0, 1fr); }
   .krow span { color: var(--sub); }
   .err { color: #d9443a; font-weight: 700; min-height: 1.2em; margin: 6px 0 0; }
+  .info-card {
+    position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5;
+    max-width: 520px; margin: 0 auto;
+    padding: 10px 14px; padding-right: 54px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18);
+    display: none;
+  }
+  .info-card.on { display: block; }
+  .info-card b { display: block; font-size: 18px; margin-bottom: 4px; }
+  .info-card div { font-size: 16px; color: var(--sub); line-height: 1.5; }
+  .info-card .btn { position: absolute; top: 8px; right: 8px; width: 44px; padding: 0; }
 
   /* ===== AR ===== */
   .ar-overlay {
@@ -195,8 +207,10 @@
     <div class="tools">
       <button class="btn primary" id="settingsBtn" type="button">設定</button>
       <button class="btn primary" id="arBtn" type="button">AR</button>
+      <button class="btn" id="gridBtn" type="button">通り芯 ON</button>
       <button class="btn" id="qualityBtn" type="button">高画質 ON</button>
     </div>
+    <div class="info-card" id="infoCard" role="status"><b id="infoTitle"></b><div id="infoBody"></div><button class="btn" id="infoClose" type="button" aria-label="閉じる">✕</button></div>
   </div>
   <div class="panel" id="panel">
     <div class="date" id="dateLabel">----</div>
@@ -243,6 +257,8 @@
         <label class="f wide">階数<select id="fFloors"></select></label>
         <label class="f">間口（柱6m間隔）<select id="fSpanX"></select></label>
         <label class="f">奥行（柱6m間隔）<select id="fSpanZ"></select></label>
+        <label class="f wide">通り芯の名前（間口・左から、カンマ区切り）<input type="text" id="fNamesX" autocomplete="off"></label>
+        <label class="f wide">通り芯の名前（奥行・上から、カンマ区切り）<input type="text" id="fNamesZ" autocomplete="off"></label>
       </div>
       <div id="dimNote" class="dim-note"></div>
       <h3>工期（かんたん設定）</h3>
@@ -440,11 +456,19 @@ function okLayout(l) {
 }
 // 柱の間隔（図面から読んだものが無ければ 6m 間隔）
 const spansOf = (c, axis) => (axis === 'x' ? c.spansX : c.spansZ) || Array((axis === 'x' ? c.spanX : c.spanZ)).fill(6);
+// 通り芯の名前（図面から読んだもの・入力したものが無ければ X1… / Y1…）
+const defaultNames = (n, axis) => Array.from({ length: n }, (_, i) => (axis === 'x' ? 'X' : 'Y') + (i + 1));
+function namesOf(c, axis) {
+  const n = spansOf(c, axis).length + 1, g = axis === 'x' ? c.gridNamesX : c.gridNamesZ;
+  return g && g.length === n ? g : defaultNames(n, axis);
+}
+const okNames = a => a === undefined || (Array.isArray(a) && a.every(s => typeof s === 'string' && s.length >= 1 && s.length <= 8));
 function validConfig(c) {
   try {
     if (!USES[c.use]) return false;
     if (!(c.floors >= 1 && c.floors <= MAX_FLOORS && c.spanX >= 1 && c.spanX <= MAX_SPAN_X && c.spanZ >= 1 && c.spanZ <= MAX_SPAN_Z)) return false;
     if (!okSpans(c.spansX, MAX_SPAN_X) || !okSpans(c.spansZ, MAX_SPAN_Z) || !okLayout(c.layout)) return false;
+    if (!okNames(c.gridNamesX) || !okNames(c.gridNamesZ)) return false;
     if (c.floorH !== undefined && !(Array.isArray(c.floorH) && c.floorH.every(v => okNum(v) && v >= 2 && v <= 12))) return false;
     if (!validIso(c.auto.start) || !(c.auto.shift >= 1)) return false;
     if (!KIND_NAMES.every(k => c.auto.days[k] >= 1)) return false;
@@ -674,6 +698,8 @@ const M = {
   trunk:   std({ color: '#6b4a32', roughness: 0.9 }),
   line:    std({ color: '#f4f4f0', roughness: 0.6 }),
   catcher: new THREE.ShadowMaterial({ opacity: 0.3 }),
+  gridLine: new THREE.LineDashedMaterial({ color: '#d0453a', dashSize: 1.6, gapSize: 0.45 }),
+  marker:  new THREE.MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.85, depthTest: false }),
   navy:    std({ color: '#2b3a55', roughness: 0.8 }),
   vest:    std({ color: '#c6ec4a', roughness: 0.6, emissive: '#3a4a00', emissiveIntensity: 0.4 }),
   skin:    std({ color: '#e0b896', roughness: 0.7 }),
@@ -782,7 +808,7 @@ function makeGateFrame(rect, gate) {
   return { th, deg: SIDE_DEG[gate.side] || 0, toW, toC, C, bx, bz };
 }
 
-function slabPanels(y, mat, list) {
+function slabPanels(y, mat, list, info = {}) {
   const XI = GX.slice(0, -1).map((x, i) => [i === 0 ? -EX : x, i === GX.length - 2 ? EX : GX[i + 1]]);
   const ZI = GZ.slice(0, -1).map((z, i) => [i === 0 ? -EZ : z, i === GZ.length - 2 ? EZ : GZ[i + 1]]);
   const tmp = [];
@@ -790,6 +816,7 @@ function slabPanels(y, mat, list) {
     const w = x2 - x1, d = z2 - z1, cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
     const e = newEl(V(cx, y, cz), 'xz');
     P(e, mat, w, SLAB, d, cx, y + SLAB / 2, cz, 0.05);
+    e.info = { ...info, i, j };
     tmp.push([i + j, e]);
   }));
   tmp.sort((a, b) => a[0] - b[0]).forEach(([, e]) => list.push(e));
@@ -992,6 +1019,7 @@ function buildPrep() { // 準備工事：仮囲い（3.6mずつ）・ゲート�
     for (const s of [-1, 1]) P(t, M.gate, GATE.width / 2 - 0.4, 0.25, 0.12, s * GATE.width / 4, FH + 0.1, 0, 0.03);
   });
   list.push(g);
+  list.forEach(e => { e.info = { kind: "fence" }; });
   site.fenceCount = list.length;
   // 仮設物（配置図にあればその位置、無い種類は自動で置く）
   const given = (CFG.layout && CFG.layout.items) || [];
@@ -1003,6 +1031,7 @@ function buildPrep() { // 準備工事：仮囲い（3.6mずつ）・ゲート�
     const [x, z] = it.world ? [it.x, it.z] : W(it.x, it.z);
     const deg = it.world ? it.rot : it.rot + GF.deg;
     const e = itemEl('office', x, z, deg, ITEM_BUILD[it.type]);
+    e.info = { kind: 'item', type: it.type };
     list.push(e);
   }
   site.prepList = list;
@@ -1179,6 +1208,7 @@ function buildPour(item) { // 生コン車とポンプ車（床を打つ日だ�
   site.drum = addMesh(new THREE.CylinderGeometry(0.9, 1.25, 4.2, 18).rotateZ(Math.PI / 2), M.dump, drum);
   for (const x of [-2.6, -1.2, 2.6]) for (const z of [-1, 1]) addMesh(wheel, M.track, mixer).position.set(x, 0.55, z);
   grp.visible = false;
+  grp.userData.info = { kind: "pour" };
   site.pour = grp;
 }
 
@@ -1211,6 +1241,7 @@ function buildFoundation() { // 基礎工事：捨てコン→フーチング→
   const base = newEl(V(0, 0, 0)); // 基礎版（1階の床の下）
   P(base, M.slab, EX * 2 + 0.6, BASE, EZ * 2 + 0.6, 0, BASE / 2, 0, 0.05);
   list.push(base);
+  list.forEach(e => { e.info = { kind: "found" }; });
   site.foundList = list;
 }
 
@@ -1257,6 +1288,7 @@ function buildExterior() { // 外構工事：犬走り・舗装・植栽・駐�
   const tree = (x, z) => add(x, z, 'y', t => { addPart(t, trunkGeo, M.trunk, m4(0, 1.1, 0)); addPart(t, leafGeo, M.leaf, m4(0, 3.0, 0)); });
   for (let x = C.x1 + 4; x <= C.x2 - 4; x += 8) { tree(x, C.z1 + 1); if (x < g0 - 2 || x > g1 + 2) tree(x, C.z2 - 1); }
   for (let z = C.z1 + 8; z <= C.z2 - 8; z += 8) { tree(C.x1 + 1, z); tree(C.x2 - 1, z); }
+  list.forEach(e => { e.info = { kind: "extsite" }; });
   site.extList = list;
 }
 
@@ -1266,6 +1298,7 @@ function buildPiles() { // 杭（柱の下に1本ずつ）と杭打ち機
   const geo = new THREE.CylinderGeometry(0.5, 0.5, 1, 20).translate(0, 0.5, 0);
   site.piles = pts.map(([x, z]) => {
     const m = addMesh(geo, M.column);
+    m.userData.info = { kind: "pile" };
     m.position.set(x, -PILE_LEN, z); m.visible = false;
     return m;
   });
@@ -1281,6 +1314,7 @@ function buildPiles() { // 杭（柱の下に1本ずつ）と杭打ち機
   site.rigPile.position.set(2.15, 0, 0);
   rig.visible = false;
   world.add(rig);
+  rig.userData.info = { kind: "rig" };
   site.rig = rig;
 }
 
@@ -1311,6 +1345,7 @@ function buildMachines() { // バックホウとダンプ
   dump.position.set(dx, 0, dz);
   dump.rotation.y = GF.th;
   world.add(dump);
+  bh.userData.info = dump.userData.info = { kind: "dig" };
   site.backhoe = { g: bh, upper, boom, arm };
   site.dump = dump;
   bh.visible = dump.visible = false;
@@ -1350,6 +1385,7 @@ function buildCrane(roofTop) { // タワークレーン（組立・解体で背�
   box(slew, M.cab, 2.0, 2.2, 2.0, 0.6, top + 0.4, 2.0, 0.08);
   addMesh(pbox(0.04, 1.2, 1.6), M.glass, slew, false).position.set(1.62, top + 0.7, 2.0);
   crane.visible = false;
+  crane.userData.info = { kind: "crane" };
   site.crane = { g: crane, mast, slew };
   return top + 8;
 }
@@ -1357,6 +1393,66 @@ function buildCrane(roofTop) { // タワークレーン（組立・解体で背�
 // ===== 建物を組み立てる（設定が変わるたびに作り直す） =====
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 let floors = {};
+let pickMap = new Map();
+let gridOn = true;
+try { gridOn = localStorage.getItem('hakoniwa-grid') !== 'off'; } catch {}
+
+// ===== 通り芯（線・記号・寸法） =====
+function gridSprite(text, kind) {
+  const c = document.createElement('canvas');
+  const bubble = kind === 'bubble';
+  c.width = bubble ? 128 : 256; c.height = bubble ? 128 : 80;
+  const g = c.getContext('2d');
+  if (bubble) {
+    g.fillStyle = '#ffffff'; g.strokeStyle = '#c0392b'; g.lineWidth = 8;
+    g.beginPath(); g.arc(64, 64, 56, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = '#c0392b'; g.font = `bold ${text.length > 3 ? 34 : 46}px ${FONT}`;
+  } else {
+    g.fillStyle = 'rgba(255,255,255,0.88)'; g.fillRect(20, 10, 216, 60);
+    g.fillStyle = '#1d2a3a'; g.font = `bold 40px ${FONT}`;
+  }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, c.width / 2, c.height / 2 + 2, c.width - 24);
+  const m = new THREE.SpriteMaterial({ map: tex(c), transparent: true, fog: false });
+  worldMats.push(m);
+  const s = new THREE.Sprite(m);
+  s.scale.set(bubble ? 2.4 : 3.6, bubble ? 2.4 : 1.1, 1);
+  return s;
+}
+function gridLines(x1, x2, z1, z2) {
+  const p = [];
+  GX.forEach(x => p.push(x, 0, z1, x, 0, z2));
+  GZ.forEach(z => p.push(x1, 0, z, x2, 0, z));
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  const l = new THREE.LineSegments(g, M.gridLine);
+  l.computeLineDistances();
+  return l;
+}
+function buildGrid() {
+  const grp = new THREE.Group(), NX = namesOf(CFG, 'x'), NZ = namesOf(CFG, 'z'), out = 5;
+  world.add(grp);
+  const ground = gridLines(-EX - out, EX + out, -EZ - out, EZ + out);
+  ground.position.y = 0.08;
+  grp.add(ground);
+  site.gridFloors = [];
+  for (let f = 1; f <= NF + 1; f++) { // 各階の床の上（床ができたら見える）
+    const l = gridLines(-EX, EX, -EZ, EZ);
+    l.position.y = yb(f) + SLAB + 0.03;
+    l.visible = false;
+    grp.add(l);
+    site.gridFloors[f] = l;
+  }
+  const put = (s, x, z, y) => { s.position.set(x, y, z); grp.add(s); };
+  const bz = EZ + out + 1.4, bx = EX + out + 1.4;
+  GX.forEach((x, i) => { put(gridSprite(NX[i], 'bubble'), x, bz, 1.3); put(gridSprite(NX[i], 'bubble'), x, -bz, 1.3); });
+  GZ.forEach((z, i) => { put(gridSprite(NZ[i], 'bubble'), -bx, z, 1.3); put(gridSprite(NZ[i], 'bubble'), bx, z, 1.3); });
+  const mm = v => Math.round(v * 1000).toLocaleString('ja-JP');
+  GX.slice(0, -1).forEach((x, i) => put(gridSprite(mm(GX[i + 1] - x), 'dim'), (x + GX[i + 1]) / 2, bz, 0.7));
+  GZ.slice(0, -1).forEach((z, i) => put(gridSprite(mm(GZ[i + 1] - z), 'dim'), -bx, (z + GZ[i + 1]) / 2, 0.7));
+  grp.visible = gridOn;
+  site.grid = grp;
+}
 function build(cfg) {
   // 前の建物を片付ける
   if (world) {
@@ -1420,27 +1516,30 @@ function build(cfg) {
     const fl = { '床': [], '躯体': [], '外装': [], '内装': [], cols: [], rebar: [], roof: [], scaffold: null };
     floors[f] = fl;
 
-    slabPanels(y0, M.slab, fl['床']);
+    slabPanels(y0, M.slab, fl['床'], { kind: 'slab', floor: f });
 
     // 躯体（柱 0.8m角）＋ 柱頭から出る鉄筋
-    for (const gz of GZ) for (const gx of GX) {
+    GZ.forEach((gz, iz) => GX.forEach((gx, ix) => {
       const c = newEl(V(gx, yt, gz));
+      c.info = { kind: 'col', floor: f, ix, iz };
       P(c, M.column, 0.8, colH, 0.8, gx, yt + colH / 2, gz, 0.05);
       fl['躯体'].push(c); fl.cols.push(c);
       const r = newEl(V(gx, y0 + H, gz));
       const rg = GEO.rebar ||= new THREE.CylinderGeometry(0.016, 0.016, 1.1, 6);
       for (const [dx, dz] of [[-.28, -.28], [.28, -.28], [.28, .28], [-.28, .28], [0, -.28], [0, .28], [-.28, 0], [.28, 0]])
         addPart(r, rg, M.rebar, m4(gx + dx, y0 + H + 0.55, gz + dz));
+      r.info = { kind: 'rebar', floor: f, ix, iz };
       fl.rebar.push(r);
-    }
+    }));
     if (f === NF) { // 屋上スラブ＋パラペット
       const yr = yb(NF + 1);
-      slabPanels(yr, M.slab, fl.roof);
+      slabPanels(yr, M.slab, fl.roof, { kind: 'roof', floor: f });
       for (const s of [-1, 1]) {
         const a = newEl(V(0, yr + SLAB, s * (EZ - 0.1)));
         P(a, M.column, EX * 2, 1.0, 0.2, 0, yr + SLAB + 0.5, s * (EZ - 0.1));
         const b = newEl(V(s * (EX - 0.1), yr + SLAB, 0));
         P(b, M.column, 0.2, 1.0, EZ * 2 - 0.4, s * (EX - 0.1), yr + SLAB + 0.5, 0);
+        a.info = b.info = { kind: 'roof', floor: f };
         fl.roof.push(a, b);
       }
       fl['躯体'].push(...fl.roof);
@@ -1449,6 +1548,7 @@ function build(cfg) {
     // 外装（用途ごとの外壁）
     for (const [side, i, x, z, w, ry] of bays) {
       const e = newEl(V(x, yt, z));
+      e.info = { kind: 'ext', floor: f, side, i };
       const tmp = { parts: [] };
       exteriorBay(tmp, f, side, i, Math.round(w * 100) / 100, colH);
       const place = m4(x, yt, z, ry);
@@ -1460,6 +1560,7 @@ function build(cfg) {
       for (let i = 0; i < GX.length - 1; i++) for (let j = 0; j < GZ.length - 1; j++) {
         const x = (GX[i] + GX[i + 1]) / 2, z = (GZ[j] + GZ[j + 1]) / 2;
         const e = newEl(V(x, yr, z));
+        e.info = { kind: 'equip', floor: f };
         P(e, M.equip, 3.2, 2.2, 3.2, x, yr + 1.1, z, 0.08);
         addPart(e, GEO.fan ||= new THREE.CylinderGeometry(1.1, 1.1, 0.12, 24), M.fan, m4(x, yr + 2.26, z));
         fl['外装'].push(e);
@@ -1468,6 +1569,7 @@ function build(cfg) {
 
     // 内装（窓越しにうっすら見える）
     interior(f, yt, colH, fl['内装']);
+    fl['内装'].forEach(e => { e.info = { kind: 'int', floor: f }; });
   }
 
   // 部材の InstancedMesh を作る
@@ -1480,6 +1582,9 @@ function build(cfg) {
     for (let i = 0; i < b.count; i++) b.mesh.setMatrixAt(i, ZERO);
     world.add(b.mesh);
   }
+  // タップした部材を探すための表（InstancedMesh の何番目 → 部材）
+  pickMap = new Map();
+  for (const e of elements) for (const p of e.parts) pickMap.set(p.b.mesh.uuid + '|' + p.i, e);
 
   // 足場（各階）
   const off = 0.45 + (CFG.use === 'apartment' ? 1.6 : 0);
@@ -1493,6 +1598,7 @@ function build(cfg) {
     addMesh(g.decks, M.deck, grp);
     addMesh(g.sheets, M.sheet, grp, false);
     grp.visible = false;
+    grp.userData.info = { kind: 'scaffold', floor: f };
     world.add(grp);
     const e = newEl(V(0, bottom, 0));
     e.obj = grp;
@@ -1502,6 +1608,7 @@ function build(cfg) {
   const roofTop = yb(NF + 1) + SLAB + 1.0;
   const craneTop = buildCrane(roofTop);
   buildPour(site.items.find(i => i.type === "pump"));
+  buildGrid();
 
   // 影・霧・カメラを現場の大きさに合わせる
   shadowS = Math.max(-F.x1, F.x2, -F.z1, F.z2, 40) + 14;
@@ -1550,6 +1657,8 @@ const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 4000);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;
+controls.zoomSpeed = 0.45;     // マウスのホイールで急に寄りすぎない
+controls.zoomToCursor = true;  // マウスのある所に向かってズーム
 controls.minPolarAngle = 0.25;
 controls.maxPolarAngle = Math.PI * 0.47;
 let fitInfo = null;
@@ -1561,7 +1670,7 @@ function fitCamera(roofTop, craneTop) {
   controls.target.set(0, Math.min(roofTop * 0.45, 30), 0);
   camera.position.copy(controls.target).add(V(60, 22, 75).setLength(dist));
   controls.minDistance = Math.max(20, R * 0.6);
-  controls.maxDistance = dist * 3;
+  controls.maxDistance = dist * 2.2;
   fog.near = dist * 1.05;
   fog.far = dist * 4.2;
   controls.update();
@@ -1686,6 +1795,9 @@ function setDay(n) {
     const bare = pct(f, '外装') === 0 && !covered;
     fl.cols.forEach((c, i) => { fl.rebar[i].target = bare && c.target === 1 ? 1 : 0; });
     // 外装工事中の階：足場と養生シート（外装が終われば外す）
+    // 通り芯は、その階の床ができたら床の上にも出す
+    site.gridFloors[f].visible = pct(f, '床') > 0;
+    if (f === NF) site.gridFloors[NF + 1].visible = fl.roof.some(e => e.target === 1);
     const ext = pct(f, '外装');
     fl.scaffold.target = ext > 0 && ext < 100 ? 1 : 0;
   }
@@ -1770,6 +1882,8 @@ function fillForm() {
   $('fFloors').value = draft.floors;
   $('fSpanX').value = draft.spanX;
   $('fSpanZ').value = draft.spanZ;
+  $('fNamesX').value = namesOf(draft, 'x').join(',');
+  $('fNamesZ').value = namesOf(draft, 'z').join(',');
   $('fStart').value = draft.auto.start;
   $('fShift').value = draft.auto.shift;
   KIND_NAMES.forEach((k, i) => { $(dayFields[i]).value = draft.auto.days[k]; });
@@ -1791,7 +1905,9 @@ function renderDimNote() {
 }
 $('dimNote').addEventListener('click', e => {
   if (e.target.id !== 'dimReset') return;
-  delete draft.spansX; delete draft.spansZ; delete draft.floorH; delete draft.layout;
+  delete draft.spansX; delete draft.spansZ; delete draft.floorH; delete draft.layout; delete draft.gridNamesX; delete draft.gridNamesZ;
+  $('fNamesX').value = namesOf(draft, 'x').join(',');
+  $('fNamesZ').value = namesOf(draft, 'z').join(',');
   renderDimNote();
 });
 const dateRow = (cls, label, s, e, attrs) => `<div class="krow ${cls}"><span>${label}</span>
@@ -1834,8 +1950,8 @@ $('uses').addEventListener('click', e => {
   document.querySelectorAll('#uses button').forEach(x => x.classList.toggle('on', x === b));
 });
 $('fFloors').addEventListener('change', () => { draft.floors = Number($('fFloors').value); readAuto(); syncFloors(); renderTable(); });
-$('fSpanX').addEventListener('change', () => { draft.spanX = Number($('fSpanX').value); delete draft.spansX; renderDimNote(); });
-$('fSpanZ').addEventListener('change', () => { draft.spanZ = Number($('fSpanZ').value); delete draft.spansZ; renderDimNote(); });
+$('fSpanX').addEventListener('change', () => { draft.spanX = Number($('fSpanX').value); delete draft.spansX; delete draft.gridNamesX; $('fNamesX').value = namesOf(draft, 'x').join(','); renderDimNote(); });
+$('fSpanZ').addEventListener('change', () => { draft.spanZ = Number($('fSpanZ').value); delete draft.spansZ; delete draft.gridNamesZ; $('fNamesZ').value = namesOf(draft, 'z').join(','); renderDimNote(); });
 
 // ===== 図面・工程表から作る（PDF を GAS 経由で Claude に読ませる） =====
 const AI_KEY = 'hakoniwa-ai';
@@ -1916,6 +2032,13 @@ function applyAi(r) {
     const sx = spans(b.spansX, MAX_SPAN_X, '間口'), sz = spans(b.spansZ, MAX_SPAN_Z, '奥行');
     if (sx.length) { draft.spansX = sx; draft.spanX = sx.length; }
     if (sz.length) { draft.spansZ = sz; draft.spanZ = sz.length; }
+    // 通り芯の名前（柱の数と合うときだけ使う）
+    for (const [src, axis, key, label] of [[b.gridNamesX, 'x', 'gridNamesX', '間口'], [b.gridNamesZ, 'z', 'gridNamesZ', '奥行']]) {
+      const v = (src || []).map(s => String(s).trim().slice(0, 8)).filter(Boolean);
+      const want = spansOf(draft, axis).length + 1;
+      if (v.length === want) draft[key] = v;
+      else { delete draft[key]; if (v.length) notes.push(`通り芯の名前（${label}）が柱の数と合わなかったので、${defaultNames(want, axis)[0]}… の名前にしました`); }
+    }
     const fh = (b.floorHeights || []).filter(x => okNum(x) && x >= 2 && x <= 12).map(m1);
     if (fh.length) draft.floorH = fh.slice(0, draft.floors); else delete draft.floorH;
   }
@@ -1993,6 +2116,13 @@ $('applyBtn').addEventListener('click', () => {
   for (const it of draft.data) {
     const s = it.progress[0][0], e = it.progress[it.progress.length - 1][0];
     if (parseDate(e) < parseDate(s)) { $('err').textContent = `${it.floor}階の${it.kind}：終了日が開始日より前になっています`; return; }
+  }
+  for (const [id, axis, key, label] of [['fNamesX', 'x', 'gridNamesX', '間口'], ['fNamesZ', 'z', 'gridNamesZ', '奥行']]) {
+    const want = spansOf(draft, axis).length + 1;
+    const v = $(id).value.split(/[,、，\s]+/).map(s => s.trim()).filter(Boolean);
+    if (v.length !== want) { $('err').textContent = `通り芯の名前（${label}）は柱の数と同じ${want}個入れてください（いまは${v.length}個）`; return; }
+    if (v.some(s => s.length > 8)) { $('err').textContent = `通り芯の名前（${label}）は1つ8文字までにしてください`; return; }
+    if (v.join() === defaultNames(want, axis).join()) delete draft[key]; else draft[key] = v;
   }
   if (!validConfig(draft)) { $('err').textContent = '入力に足りないところがあります'; return; }
   saveConfig(draft);
@@ -2169,6 +2299,116 @@ arBtn.addEventListener('click', () => {
   else if (quickLook) startQuickLook();
   else toast('この端末ではARが使えません。AndroidのChrome、またはiPhone・iPadのSafariで開いてください');
 });
+
+// ===== 通り芯の表示切り替え =====
+const gridBtn = $('gridBtn');
+function setGrid(on) {
+  gridOn = on;
+  if (site.grid) site.grid.visible = on;
+  gridBtn.textContent = on ? '通り芯 ON' : '通り芯 OFF';
+  try { localStorage.setItem('hakoniwa-grid', on ? 'on' : 'off'); } catch {}
+}
+gridBtn.addEventListener('click', () => setGrid(!gridOn));
+setGrid(gridOn);
+
+// ===== 部材をタップすると、通り芯の位置と工程を出す =====
+const ITEM_LABEL = {
+  guard: '守衛所', guide: '誘導員', sign: '工事のお知らせ看板', office: '現場事務所', toilet: '仮設トイレ', rest: '作業員詰所・休憩所',
+  smoking: '喫煙所', assembly: '朝礼広場', parking: '作業員駐車場', rebar: '鉄筋置き場', formwork: '型枠置き場', scafmat: '足場材置き場',
+  waste: '廃材の分別コンテナ', cubicle: 'キュービクル', panel: '分電盤', water: '仮設水道', wash: 'タイヤ洗浄機',
+};
+const infoCard = $('infoCard');
+const marker = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 10), M.marker);
+marker.renderOrder = 10;
+marker.visible = false;
+scene.add(marker);
+const span2 = (s, e) => `${fmtShort(parseDate(s))}〜${fmtShort(parseDate(e))}`;
+function floorLine(f, k) {
+  const it = CFG.data.find(d => d.floor === f && d.kind === k);
+  if (!it) return '';
+  const date = dayToDate(Number(slider.value));
+  const p = Math.round(Math.min(100, Math.max(0, progressAt(it.progress, date))));
+  return `${k}：${span2(it.progress[0][0], it.progress[it.progress.length - 1][0])}（いま ${p}%）`;
+}
+function siteLine(key) {
+  const ph = SITE_PHASES.find(p => p.key === key), [s, e] = CFG.site[key];
+  const p = Math.round(phaseRatio(CFG.site[key], dayToDate(Number(slider.value))) * 100);
+  return `${ph.label}：${span2(s, e)}（いま ${p}%）`;
+}
+function describe(info) {
+  const NX = namesOf(CFG, 'x'), NZ = namesOf(CFG, 'z'), nx = NX.length - 1, nz = NZ.length - 1;
+  const f = info.floor;
+  switch (info.kind) {
+    case 'col': return [`${f}階 柱　${NX[info.ix]}-${NZ[info.iz]}通り`, [floorLine(f, '躯体'), floorLine(f, '外装')]];
+    case 'rebar': return [`${f}階 柱の鉄筋　${NX[info.ix]}-${NZ[info.iz]}通り`, [floorLine(f, '躯体'), f < NF ? floorLine(f + 1, '床') : '']];
+    case 'slab': return [`${f}階 床　${NX[info.i]}〜${NX[info.i + 1]}／${NZ[info.j]}〜${NZ[info.j + 1]}通り`, [floorLine(f, '床'), floorLine(f, '躯体')]];
+    case 'roof': return [`屋上（${f}階の上）`, [floorLine(f, '躯体')]];
+    case 'ext': {
+      const sides = {
+        front: [`${NZ[nz]}通り側`, NX[info.i], NX[info.i + 1]],
+        back: [`${NZ[0]}通り側`, NX[nx - 1 - info.i], NX[nx - info.i]],
+        right: [`${NX[nx]}通り側`, NZ[nz - 1 - info.i], NZ[nz - info.i]],
+        left: [`${NX[0]}通り側`, NZ[info.i], NZ[info.i + 1]],
+      }[info.side];
+      return [`${f}階 外装　${sides[0]}（${sides[1]}〜${sides[2]}）`, [floorLine(f, '外装'), floorLine(f, '内装')]];
+    }
+    case 'int': return [`${f}階 内装`, [floorLine(f, '内装')]];
+    case 'equip': return ['屋上の冷却設備', [floorLine(f, '外装')]];
+    case 'scaffold': return [`${f}階 足場・養生シート`, ['外装工事のあいだ付いています', floorLine(f, '外装')]];
+    case 'found': return ['基礎（捨てコン・フーチング・基礎梁・基礎版）', [siteLine('found')]];
+    case 'pile': return ['杭', [siteLine('pile')]];
+    case 'rig': return ['杭打ち機', [siteLine('pile')]];
+    case 'dig': return ['バックホウ・ダンプ（掘削・埋め戻し）', [siteLine('excav'), siteLine('found')]];
+    case 'crane': return ['タワークレーン', [siteLine('crane'), siteLine('craneOff')]];
+    case 'pour': return ['生コン車・ポンプ車', ['床や基礎のコンクリートを打つ日に来ます']];
+    case 'fence': return ['仮囲い・ゲート（高さ3m）', [siteLine('prep'), siteLine('ext')]];
+    case 'item': return [ITEM_LABEL[info.type] || '仮設物', [siteLine('prep'), '外構工事の始めに片付けます']];
+    case 'extsite': return ['外構（舗装・植栽・駐車場）', [siteLine('ext')]];
+  }
+  return null;
+}
+function showInfo(info, point) {
+  const d = describe(info);
+  if (!d) return hideInfo();
+  $('infoTitle').textContent = d[0];
+  $('infoBody').innerHTML = d[1].filter(Boolean).map(esc).join('<br>');
+  infoCard.classList.add('on');
+  marker.position.copy(point);
+  marker.scale.setScalar(Math.max(0.4, camera.position.distanceTo(point) / 120));
+  marker.visible = true;
+}
+function hideInfo() { infoCard.classList.remove('on'); marker.visible = false; }
+$('infoClose').addEventListener('click', hideInfo);
+const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pick(cx, cy) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  for (const b of batches.values()) b.mesh.computeBoundingSphere(); // 部材が出たり消えたりするので毎回はかり直す
+  for (const h of raycaster.intersectObject(world, true)) {
+    const o = h.object;
+    if (!o.isMesh || o === site.catcher || !shown(o)) continue;
+    if (o.isInstancedMesh) {
+      const e = pickMap.get(o.uuid + '|' + h.instanceId);
+      if (!e || e.cur < 0.5) continue;
+      return e.info ? showInfo(e.info, h.point) : hideInfo();
+    }
+    let p = o;
+    while (p && !p.userData.info) p = p.parent;
+    return p ? showInfo(p.userData.info, h.point) : hideInfo(); // 地面などを押したら閉じる
+  }
+  hideInfo();
+}
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || renderer.xr.isPresenting) return;
+  const tap = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6 && performance.now() - downAt.t < 600;
+  downAt = null;
+  if (tap) pick(e.clientX, e.clientY);
+});
+slider.addEventListener('input', () => { if (infoCard.classList.contains('on')) hideInfo(); });
 
 const clock = new THREE.Clock();
 let frames = 0, t0 = 0;
