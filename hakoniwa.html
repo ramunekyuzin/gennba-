@@ -152,6 +152,30 @@
   .krow.site { grid-template-columns: 6.5em minmax(0, 1fr) auto minmax(0, 1fr); }
   .krow span { color: var(--sub); }
   .err { color: #d9443a; font-weight: 700; min-height: 1.2em; margin: 6px 0 0; }
+
+  /* ===== AR ===== */
+  .ar-overlay {
+    display: none; position: fixed; inset: 0; z-index: 20;
+    flex-direction: column; justify-content: space-between;
+    background: transparent; pointer-events: none;
+  }
+  .ar-overlay.on { display: flex; }
+  .ar-overlay > * { pointer-events: auto; }
+  .ar-top { padding: calc(12px + env(safe-area-inset-top)) 12px 0; display: flex; flex-direction: column; gap: 8px; }
+  .ar-hint {
+    align-self: center; padding: 8px 14px; border-radius: 10px;
+    background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 16px; text-align: center;
+  }
+  .ar-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .ar-row .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(180px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    z-index: 30; max-width: calc(100% - 32px);
+    padding: 10px 16px; border-radius: 10px;
+    background: rgba(0, 0, 0, 0.78); color: #fff; font-size: 16px; text-align: center;
+    display: none;
+  }
+  .toast.on { display: block; }
 </style>
 </head>
 <body>
@@ -160,10 +184,11 @@
     <div class="title"><b>現場の箱庭</b><small id="summary"></small><small>指でまわす・2本指で拡大</small></div>
     <div class="tools">
       <button class="btn primary" id="settingsBtn" type="button">設定</button>
+      <button class="btn primary" id="arBtn" type="button">AR</button>
       <button class="btn" id="qualityBtn" type="button">高画質 ON</button>
     </div>
   </div>
-  <div class="panel">
+  <div class="panel" id="panel">
     <div class="date" id="dateLabel">----</div>
     <div class="phase" id="phaseLabel"></div>
     <input type="range" id="slider" min="0" max="100" value="0" aria-label="日付">
@@ -171,6 +196,21 @@
     <div class="legend" id="legend"></div>
   </div>
 </div>
+
+<!-- AR中にカメラ映像の上に出す操作パネル（Android） -->
+<div class="ar-overlay" id="arOverlay">
+  <div class="ar-top">
+    <div class="ar-hint" id="arHint">床や机を映して、白い輪が出たらタップ</div>
+    <div class="ar-row" id="arScales">
+      <button class="btn" type="button" data-scale="50">1/50</button>
+      <button class="btn on" type="button" data-scale="100">1/100</button>
+      <button class="btn" type="button" data-scale="200">1/200</button>
+      <button class="btn primary" type="button" id="arExit">終了</button>
+    </div>
+  </div>
+  <div id="arPanelSlot"></div>
+</div>
+<div class="toast" id="toast"></div>
 
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet" role="dialog" aria-label="設定">
@@ -229,6 +269,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
 
 // ===== 進捗サンプルデータ =====
 // 現場全体の工程（開始日・終了日）
@@ -490,7 +531,11 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stage.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xe8d9c4, 120, 480);
+const fog = new THREE.Fog(0xe8d9c4, 120, 480);
+scene.fog = fog;
+// 建物一式の親（AR では縮尺と置き場所をここで変える）
+const arRoot = new THREE.Group();
+scene.add(arRoot);
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
@@ -521,7 +566,8 @@ sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
-let sunDist = 110;
+let sunDist = 110, shadowS = 60;
+const sunDir = new THREE.Vector3(-70, 58, 62).normalize();
 
 // ===== 素材 =====
 const ENV = 0.55;
@@ -569,6 +615,7 @@ const M = {
   leaf:    std({ color: '#4f8a3c', roughness: 0.9, flatShading: true }),
   trunk:   std({ color: '#6b4a32', roughness: 0.9 }),
   line:    std({ color: '#f4f4f0', roughness: 0.6 }),
+  catcher: new THREE.ShadowMaterial({ opacity: 0.3 }),
   soil:    std({ map: tex(soilCv, { repeat: [1 / 8, 1 / 8] }), roughness: 1 }),
   asphalt: std({ map: tex(asphaltCv, { repeat: [1 / 11, 1 / 11] }), bumpMap: tex(asphaltCv, { srgb: false, repeat: [1 / 11, 1 / 11] }), bumpScale: 0.8, roughness: 0.96 }),
 };
@@ -787,7 +834,13 @@ function holedPlane(ox, oz, hx, hz) { // 四角い穴のあいた地面（XZ平�
 }
 
 function buildGround() {
-  addMesh(holedPlane(1500, 1500, FX + 1, FZ + 1), M.asphalt, world, false);
+  site.asphalt = addMesh(holedPlane(1500, 1500, FX + 1, FZ + 1), M.asphalt, world, false);
+  // AR のとき、実際の床に影を落とすための透明な板
+  site.catcher = new THREE.Mesh(new THREE.PlaneGeometry((FX + 12) * 2, (FZ + 12) * 2).rotateX(-Math.PI / 2), M.catcher);
+  site.catcher.receiveShadow = true;
+  site.catcher.position.y = -0.01;
+  site.catcher.visible = false;
+  world.add(site.catcher);
   addMesh(holedPlane(FX + 1, FZ + 1, PX, PZ), M.soil, world, false).position.y = 0.004;
   // 掘削の底と山留めの壁（深さは日付で変わる）
   const pitMat = std({ map: tex(soilCv, { repeat: [PX / 4, PZ / 4] }), roughness: 1 });
@@ -1025,11 +1078,11 @@ function build(cfg) {
   // 前の建物を片付ける
   if (world) {
     world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.isInstancedMesh) o.dispose(); });
-    scene.remove(world);
+    arRoot.remove(world);
   }
   Object.values(GEO).forEach(g => g.dispose());
   worldMats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-  world = new THREE.Group(); scene.add(world);
+  world = new THREE.Group(); arRoot.add(world);
   worldMats = []; GEO = {}; batches = new Map(); elements = []; floors = {}; site = {};
 
   CFG = cfg; NF = cfg.floors;
@@ -1146,10 +1199,8 @@ function build(cfg) {
   const craneTop = buildCrane(roofTop);
 
   // 影・霧・カメラを現場の大きさに合わせる
-  const S = Math.max(FX, FZ, 40) + 14;
-  Object.assign(sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 5, far: S * 5 });
-  sun.shadow.camera.updateProjectionMatrix();
-  sunDist = S * 1.9;
+  shadowS = Math.max(FX, FZ, 40) + 14;
+  sunDist = shadowS * 1.9;
   applyTheme();
   fitCamera(roofTop, craneTop);
 
@@ -1166,10 +1217,11 @@ function applyTheme() {
   skyMat.uniforms.top.value.set(top);
   skyMat.uniforms.horizon.value.set(hor);
   skyMat.uniforms.bottom.value.set(hor);
-  scene.fog.color.set(hor);
+  fog.color.set(hor);
   sun.color.set(dark ? '#ff9f62' : '#ffcf9e');
   sun.intensity = dark ? 2.4 : 3.2;
-  sun.position.set(...(dark ? [-80, 34, 60] : [-70, 58, 62])).setLength(sunDist);
+  sunDir.set(...(dark ? [-80, 34, 60] : [-70, 58, 62])).normalize();
+  applySun();
   hemi.intensity = dark ? 0.45 : 0.8;
   hemi.color.set(dark ? '#7f94c8' : '#a9c8ff');
   if (skyEnv) skyEnv.dispose();
@@ -1178,6 +1230,15 @@ function applyTheme() {
   M.glass.needsUpdate = true;
 }
 darkMQ.addEventListener('change', applyTheme);
+// 太陽と影の範囲（AR では模型の縮尺 k と置いた場所 center に合わせる）
+function applySun(k = arRoot.scale.x, center = arRoot.position) {
+  const s = shadowS * k;
+  Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 5 * k, far: shadowS * 5 * k });
+  sun.shadow.camera.updateProjectionMatrix();
+  sun.shadow.normalBias = 0.03 * k;
+  sun.target.position.copy(center);
+  sun.position.copy(center).addScaledVector(sunDir, sunDist * k);
+}
 
 // ===== カメラ =====
 const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 4000);
@@ -1196,8 +1257,8 @@ function fitCamera(roofTop, craneTop) {
   camera.position.copy(controls.target).add(V(60, 22, 75).setLength(dist));
   controls.minDistance = Math.max(20, R * 0.6);
   controls.maxDistance = dist * 3;
-  scene.fog.near = dist * 1.05;
-  scene.fog.far = dist * 4.2;
+  fog.near = dist * 1.05;
+  fog.far = dist * 4.2;
   controls.update();
 }
 
@@ -1484,7 +1545,7 @@ $('applyBtn').addEventListener('click', () => {
 // ===== サイズ調整・描画 =====
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
-  if (!w || !h) return;
+  if (!w || !h || renderer.xr.isPresenting) return;
   renderer.setSize(w, h, false);
   composer.setPixelRatio(renderer.getPixelRatio());
   composer.setSize(w, h);
@@ -1497,12 +1558,171 @@ new ResizeObserver(resize).observe(stage);
 resize();
 build(loadConfig());
 
+// ===== AR =====
+// Android（Chrome）：WebXR でカメラ映像の上に模型を置く。日付スライダーもそのまま使える
+// iPhone・iPad（Safari）：選んでいる日の模型を USDZ にして AR クイックルックで開く
+const arBtn = $('arBtn'), arOverlay = $('arOverlay'), arHint = $('arHint');
+const toast = msg => { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.tm); toast.tm = setTimeout(() => t.classList.remove('on'), 4000); };
+const quickLook = (() => { const a = document.createElement('a'); return !!(a.relList && a.relList.supports && a.relList.supports('ar')); })();
+let webxrOK = false;
+if (navigator.xr && navigator.xr.isSessionSupported) navigator.xr.isSessionSupported('immersive-ar').then(ok => { webxrOK = ok; }).catch(() => {});
+
+renderer.xr.enabled = true;
+let arScale = 100, hitSource = null;
+const reticle = new THREE.Mesh(new THREE.RingGeometry(0.07, 0.09, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+reticle.matrixAutoUpdate = false;
+reticle.visible = false;
+scene.add(reticle);
+const controller = renderer.xr.getController(0);
+scene.add(controller);
+controller.addEventListener('select', () => { // タップした場所に置く（何度でも置き直せる）
+  if (!reticle.visible) return;
+  arRoot.position.setFromMatrixPosition(reticle.matrix);
+  const cam = new THREE.Vector3().setFromMatrixPosition(renderer.xr.getCamera().matrixWorld);
+  arRoot.rotation.y = Math.atan2(cam.x - arRoot.position.x, cam.z - arRoot.position.z) - Math.atan2(60, 75); // いつもの向きで手前に見せる
+  arRoot.visible = true;
+  applySun();
+  arHint.textContent = 'タップで置き直し・下のスライダーで日付を変えられます';
+});
+// AR中の操作パネルを押したときは、模型を置き直さない
+for (const el of [$('arScales'), $('arPanelSlot')]) el.addEventListener('beforexrselect', e => e.preventDefault());
+$('arScales').addEventListener('click', e => {
+  const b = e.target.closest('button[data-scale]');
+  if (!b) return;
+  arScale = Number(b.dataset.scale);
+  arRoot.scale.setScalar(1 / arScale);
+  applySun();
+  document.querySelectorAll('#arScales button[data-scale]').forEach(x => x.classList.toggle('on', x === b));
+});
+$('arExit').addEventListener('click', () => { const s = renderer.xr.getSession(); if (s) s.end(); });
+
+function enterAR() {
+  arOverlay.classList.add('on');
+  $('arPanelSlot').appendChild($('panel'));
+  scene.background = null;
+  sky.visible = false;
+  scene.fog = null;
+  site.asphalt.visible = false;
+  site.catcher.visible = true;
+  controls.enabled = false;
+  arRoot.visible = false;
+  arRoot.scale.setScalar(1 / arScale);
+  arHint.textContent = '床や机を映して、白い輪が出たらタップ';
+}
+function exitAR() {
+  arOverlay.classList.remove('on');
+  document.querySelector('.app').appendChild($('panel'));
+  sky.visible = true;
+  scene.fog = fog;
+  if (site.asphalt) site.asphalt.visible = true;
+  if (site.catcher) site.catcher.visible = false;
+  controls.enabled = true;
+  arRoot.visible = true;
+  arRoot.position.set(0, 0, 0);
+  arRoot.rotation.set(0, 0, 0);
+  arRoot.scale.setScalar(1);
+  reticle.visible = false;
+  hitSource = null;
+  applySun();
+  resize();
+}
+async function startWebXR() {
+  try {
+    const session = await navigator.xr.requestSession('immersive-ar', {
+      requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'], domOverlay: { root: arOverlay },
+    });
+    enterAR();
+    session.addEventListener('end', exitAR);
+    renderer.xr.setReferenceSpaceType('local');
+    await renderer.xr.setSession(session);
+    hitSource = await session.requestHitTestSource({ space: await session.requestReferenceSpace('viewer') });
+  } catch (err) {
+    toast('ARを始められませんでした。カメラの使用を許可しているか確認してください');
+  }
+}
+function arFrame(frame) {
+  if (!frame || !hitSource) return;
+  const hits = frame.getHitTestResults(hitSource);
+  if (hits.length) {
+    reticle.matrix.fromArray(hits[0].getPose(renderer.xr.getReferenceSpace()).transform.matrix);
+    reticle.visible = true;
+  } else reticle.visible = false;
+}
+
+// --- iPhone・iPad：いま見えている模型を USDZ にする ---
+const simpleBox = new Map(); // 面取りの箱はファイルを軽くするため普通の箱にする
+function exportGeo(geo) {
+  if (!(geo instanceof RoundedBoxGeometry)) return geo;
+  if (!simpleBox.has(geo)) {
+    geo.computeBoundingBox();
+    const s = geo.boundingBox.getSize(new THREE.Vector3());
+    simpleBox.set(geo, new THREE.BoxGeometry(s.x, s.y, s.z));
+  }
+  return simpleBox.get(geo);
+}
+function forExport(geo, matrix) {
+  let g = geo.index ? geo.toNonIndexed() : geo.clone();
+  g.applyMatrix4(matrix);
+  for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+  if (!g.attributes.normal) g.computeVertexNormals();
+  if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+  return g;
+}
+async function startQuickLook() {
+  const label = arBtn.textContent;
+  arBtn.textContent = '準備中…'; arBtn.disabled = true;
+  try {
+    for (const e of elements) { if (e.cur !== e.target) { e.cur = e.target; applyEl(e); } }
+    stepElements();
+    arRoot.updateMatrixWorld(true);
+    const byMat = new Map(), m = new THREE.Matrix4(), mw = new THREE.Matrix4();
+    const push = (geo, mat, matrix) => { if (!byMat.has(mat)) byMat.set(mat, []); byMat.get(mat).push(forExport(geo, matrix)); };
+    world.traverseVisible(o => {
+      if (!o.isMesh || o === site.asphalt || o === site.catcher) return;
+      if (o.isInstancedMesh) {
+        for (let i = 0; i < o.count; i++) {
+          o.getMatrixAt(i, m);
+          if (m.determinant() === 0) continue;
+          push(exportGeo(o.geometry), o.material, mw.multiplyMatrices(o.matrixWorld, m));
+        }
+      } else push(o.geometry, o.material, o.matrixWorld);
+    });
+    const out = new THREE.Scene(), model = new THREE.Group();
+    model.scale.setScalar(1 / 100); // 机に乗る大きさ（AR クイックルックの中で拡大・縮小できる）
+    out.add(model);
+    for (const [mat, list] of byMat) model.add(new THREE.Mesh(mergeGeometries(list), mat));
+    const data = await new USDZExporter().parse(out);
+    const url = URL.createObjectURL(new Blob([data], { type: 'model/vnd.usdz+zip' }));
+    const a = document.createElement('a');
+    a.rel = 'ar';
+    a.href = url;
+    a.appendChild(document.createElement('img'));
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    window.__lastUsdzSize = data.byteLength;
+  } catch (err) {
+    toast('ARの模型を作れませんでした');
+  } finally {
+    arBtn.textContent = label; arBtn.disabled = false;
+  }
+}
+arBtn.addEventListener('click', () => {
+  if (webxrOK) startWebXR();
+  else if (quickLook) startQuickLook();
+  else toast('この端末ではARが使えません。AndroidのChrome、またはiPhone・iPadのSafariで開いてください');
+});
+
 const clock = new THREE.Clock();
 let frames = 0, t0 = 0;
-renderer.setAnimationLoop(() => {
-  controls.update();
+renderer.setAnimationLoop((time, frame) => {
   stepElements();
   animateMachines(clock.getElapsedTime());
+  if (renderer.xr.isPresenting) { // AR中はカメラ映像の上にそのまま描く
+    arFrame(frame);
+    renderer.render(scene, camera);
+    return;
+  }
+  controls.update();
   composer.render();
   // 動きが重ければ SSAO を自動で切る
   if (autoQuality && ssaoOn && frames < 120) {
