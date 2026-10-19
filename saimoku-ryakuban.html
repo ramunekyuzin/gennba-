@@ -298,10 +298,6 @@ function guessMap(){
     if(t.length) m.ks=t[0].c;
   }
   if(m.no<0&&st[0]&&st[0].isNum&&!used().includes(0)) m.no=0;
-  if(m.amt<0){
-    const t=st.filter(s=>s.isNum&&!used().includes(s.c)).sort((a,b)=>b.sum-a.sum);
-    if(t.length) m.amt=t[0].c;
-  }
   return m;
 }
 function buildRows(){
