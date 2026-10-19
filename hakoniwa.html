@@ -245,8 +245,7 @@
       <div id="pdfList"></div>
       <label class="btn file-btn">PDFを選ぶ<input type="file" id="pdfInput" accept="application/pdf,.pdf" multiple hidden></label>
       <div class="grid" style="margin-top:10px">
-        <label class="f wide">GASのURL<input type="url" id="aiUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
-        <label class="f wide">合言葉<input type="password" id="aiPass" autocomplete="off"></label>
+        <label class="f wide">合言葉（はじめの1回だけ。この端末に残ります）<input type="password" id="aiPass" autocomplete="off"></label>
         <button class="btn primary wide" id="aiBtn" type="button">AIで読み取る</button>
       </div>
       <div id="aiResult"></div>
@@ -1657,8 +1656,17 @@ const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 4000);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;
-controls.zoomSpeed = 0.45;     // マウスのホイールで急に寄りすぎない
-controls.zoomToCursor = true;  // マウスのある所に向かってズーム
+// パソコンのホイール・タッチパッドは自前でズームする（回した量に合わせて少しずつ。OrbitControls の1段ずつのズームは急すぎる）
+renderer.domElement.addEventListener('wheel', e => {
+  if (renderer.xr.isPresenting) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY; // 行・ページ単位をピクセルに
+  const step = Math.max(-120, Math.min(120, px)); // 1回の動きの上限
+  const off = camera.position.clone().sub(controls.target);
+  const d = Math.min(controls.maxDistance, Math.max(controls.minDistance, off.length() * Math.exp(step * 0.0012)));
+  camera.position.copy(controls.target).add(off.setLength(d));
+}, { passive: false, capture: true });
 controls.minPolarAngle = 0.25;
 controls.maxPolarAngle = Math.PI * 0.47;
 let fitInfo = null;
@@ -1955,9 +1963,11 @@ $('fSpanZ').addEventListener('change', () => { draft.spanZ = Number($('fSpanZ').
 
 // ===== 図面・工程表から作る（PDF を GAS 経由で Claude に読ませる） =====
 const AI_KEY = 'hakoniwa-ai';
+// AI読み取りのGAS（「現場の箱庭AI」）。合言葉が無いと動かないので、URLは公開してよい
+const AI_URL = 'https://script.google.com/macros/s/AKfycbyLHUyvwQaeA2b2LdDMEx7vBagQpVE7NZAG3r5dPU9-aIG7GtJL5xdJdhuxmx6NJyDg/exec';
 const KIND_OPTS = [['schedule', '工程表'], ['site', '配置図・仮設計画図'], ['plan', '平面図・立面図'], ['other', 'その他']];
 let pdfs = []; // { name, size, kind, data(base64) }
-try { const s = JSON.parse(localStorage.getItem(AI_KEY)) || {}; $('aiUrl').value = s.url || ''; $('aiPass').value = s.pass || ''; } catch {}
+try { const s = JSON.parse(localStorage.getItem(AI_KEY)) || {}; $('aiPass').value = s.pass || ''; } catch {}
 const guessKind = n => /工程|スケジュール|schedule/i.test(n) ? 'schedule' : /配置|仮設|計画図|site/i.test(n) ? 'site'
   : /平面|立面|断面|矩計|plan|elev/i.test(n) ? 'plan' : 'other';
 const readB64 = file => new Promise((ok, ng) => {
@@ -1985,13 +1995,12 @@ $('pdfList').addEventListener('click', e => { const d = e.target.dataset.del; if
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function showAi(html) { $('aiResult').innerHTML = html ? `<div class="ai-box">${html}</div>` : ''; }
 $('aiBtn').addEventListener('click', async () => {
-  const url = $('aiUrl').value.trim(), pass = $('aiPass').value;
+  const url = AI_URL, pass = $('aiPass').value;
   if (!pdfs.length) return showAi('<b class="warn">PDFを選んでください</b>');
-  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) return showAi('<b class="warn">GASのURL（https://script.google.com/…/exec）を入れてください</b>');
   if (!pass) return showAi('<b class="warn">合言葉を入れてください</b>');
   const total = pdfs.reduce((a, p) => a + p.size, 0);
   if (total > 20 * 1048576) return showAi('<b class="warn">PDFは1回で合計20MBまでです。分けて読み込んでください</b>');
-  try { localStorage.setItem(AI_KEY, JSON.stringify({ url, pass })); } catch {}
+  try { localStorage.setItem(AI_KEY, JSON.stringify({ pass })); } catch {}
   const btn = $('aiBtn'), label = btn.textContent;
   btn.disabled = true; btn.textContent = 'AIが読み取り中…（1〜3分かかります）';
   showAi('');
@@ -2009,7 +2018,7 @@ $('aiBtn').addEventListener('click', async () => {
     showAi(`<b>読み取れたもの</b>${li(j.result.readFrom || [])}<b class="warn">確かめてほしいこと</b>${li([...(j.result.warnings || []), ...notes])}
       <span class="note">内容を確かめて、下の「この内容で建てる」を押すと反映されます。</span>`);
   } catch (err) {
-    showAi(`<b class="warn">読み取れませんでした：${esc(err.message || err)}</b><span class="note">GASのURL・合言葉・デプロイの設定（全員がアクセスできる）を確かめてください。</span>`);
+    showAi(`<b class="warn">読み取れませんでした：${esc(err.message || err)}</b><span class="note">合言葉を確かめてください。直らないときは、管理する人に GAS のデプロイ（全員がアクセスできる）を確かめてもらってください。</span>`);
   } finally {
     btn.disabled = false; btn.textContent = label;
   }
