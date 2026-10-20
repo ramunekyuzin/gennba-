@@ -211,6 +211,21 @@
   .team-bar.on { display: flex; }
   .team-bar .btn { min-height: 36px; padding: 0 10px; }
   .people-list { margin: 6px 0 10px; padding-left: 1.2em; }
+  /* 動画 */
+  .movie-cap, .movie-top { display: none; position: absolute; z-index: 6; }
+  body.filming .movie-cap, body.filming .movie-top { display: flex; }
+  body.filming .tools, body.filming .title, body.filming .panel, body.filming .haul-card, body.filming .info-card, body.filming .team-bar { display: none !important; }
+  body.filming .stage canvas { object-fit: contain; background: #000; }
+  .movie-cap {
+    left: 0; right: 0; bottom: 0; flex-direction: column; gap: 2px;
+    padding: 28px 18px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, rgba(0,0,0,.6)); color: #fff; pointer-events: none;
+  }
+  .movie-cap b { font-size: 22px; }
+  .movie-cap span { font-size: 16px; }
+  .movie-top { top: calc(10px + env(safe-area-inset-top)); right: 12px; align-items: center; gap: 8px; }
+  .movie-top span { padding: 6px 10px; border-radius: 8px; background: rgba(200,30,30,.85); color: #fff; font-weight: 700; }
+  .movie-top span:empty { display: none; }
   /* 搬入シミュレーション */
   .haul-card {
     position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5;
@@ -269,6 +284,7 @@
       <button class="btn primary" id="walkBtn" type="button">歩く</button>
       <button class="btn primary" id="teamBtn" type="button">みんなで</button>
       <button class="btn primary" id="haulBtn" type="button">搬入</button>
+      <button class="btn primary" id="movieBtn" type="button">動画</button>
       <button class="btn" id="gridBtn" type="button">通り芯 ON</button>
       <button class="btn" id="qualityBtn" type="button">高画質 ON</button>
     </div>
@@ -284,6 +300,8 @@
       </div>
       <details id="haulDetails"><summary id="haulSum">この日の搬入（目安）</summary><ul class="haul-count" id="haulCount"></ul></details>
     </div>
+    <div class="movie-cap" id="movieCap"><b id="movieDate"></b><span id="moviePhase"></span></div>
+    <div class="movie-top" id="movieTop"><span id="movieRec"></span><button class="btn" id="movieStop" type="button">やめる</button></div>
     <div class="walk-ui" id="walkUi">
       <div class="walk-top"><b id="walkLevel">地面</b><span>スティック（パソコンはWASD）で歩く・なぞって向き</span></div>
       <div class="walk-btns">
@@ -317,6 +335,33 @@
   <div id="arPanelSlot"></div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- 動画 -->
+<div class="sheet-bg" id="movieBg">
+  <div class="sheet" role="dialog" aria-label="動画">
+    <div class="sheet-head"><h2>動画をつくる</h2><button class="btn" id="movieClose" type="button">閉じる</button></div>
+    <div class="sheet-body">
+      <p class="note">カメラが現場のまわりを回りながら、更地から竣工まで日付を進めます。</p>
+      <h4>長さ</h4>
+      <div class="swatches" id="movieLen"><button class="btn on" type="button" data-v="30">30秒</button><button class="btn" type="button" data-v="60">60秒</button></div>
+      <h4>画質</h4>
+      <div class="swatches" id="movieQ"><button class="btn on" type="button" data-v="720">ふつう（1280×720）</button><button class="btn" type="button" data-v="1080">高画質（1920×1080）</button></div>
+      <div class="grid" style="margin-top:12px">
+        <button class="btn" id="moviePlay" type="button">見るだけ</button>
+        <button class="btn primary" id="movieRecBtn" type="button">録画する</button>
+      </div>
+      <div id="movieDone" hidden>
+        <h3>動画ができました</h3>
+        <p class="note" id="movieInfo"></p>
+        <div class="grid">
+          <button class="btn primary" id="movieSave" type="button">端末に保存する</button>
+          <button class="btn" id="movieShare" type="button">共有する（写真に保存など）</button>
+        </div>
+      </div>
+      <p class="err" id="movieErr"></p>
+    </div>
+  </div>
+</div>
 
 <!-- みんなで入れる現場 -->
 <div class="sheet-bg" id="teamBg">
@@ -425,6 +470,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { Sky } from 'three/addons/objects/Sky.js';
 import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
 
 // ===== 進捗サンプルデータ =====
@@ -768,8 +815,21 @@ const skyMat = new THREE.ShaderMaterial({
 const sky = new THREE.Mesh(new THREE.SphereGeometry(1500, 32, 16), skyMat);
 scene.add(sky);
 const skyScene = new THREE.Scene();
-skyScene.add(new THREE.Mesh(sky.geometry, skyMat));
+const skyGrad = new THREE.Mesh(sky.geometry, skyMat);
+skyScene.add(skyGrad);
 let skyEnv = null;
+const roomEnv = scene.environment;
+// 本物の空（大気で光が散らばる計算）。昼・夕方・夕暮れに使い、夜はグラデーションの空
+const realSky = new Sky();
+realSky.scale.setScalar(3000);
+realSky.material.uniforms.skyGain = { value: 0.5 }; // そのままだと明るすぎるので空だけ暗くする
+realSky.material.fragmentShader = realSky.material.fragmentShader
+  .replace('uniform vec3 up;', 'uniform vec3 up;\nuniform float skyGain;')
+  .replace('gl_FragColor = vec4( retColor, 1.0 );', 'gl_FragColor = vec4( retColor * skyGain, 1.0 );');
+scene.add(realSky);
+const realSkyEnv = new THREE.Mesh(realSky.geometry, realSky.material); // 映り込み用
+realSkyEnv.scale.setScalar(3000);
+skyScene.add(realSkyEnv);
 
 // 光：夕方寄りの太陽 + 空の青い環境光
 const hemi = new THREE.HemisphereLight(0xa9c8ff, 0x5b5148, 0.8);
@@ -1129,6 +1189,7 @@ function buildGround() {
   site.catcher.visible = false;
   world.add(site.catcher);
   addMesh(holedPlane(site1, { x1: -PX, x2: PX, z1: -PZ, z2: PZ }), M.soil, world, false).position.y = 0.004;
+  buildGroundMarks(site1);
   // 掘削の底と山留めの壁（深さは日付で変わる）
   const pitMat = std({ map: tex(soilCv, { repeat: [PX / 4, PZ / 4] }), roughness: 1 });
   worldMats.push(pitMat);
@@ -1553,6 +1614,162 @@ function buildCrane(roofTop) { // タワークレーン（組立・解体で背�
   return top + 8;
 }
 
+// ===== 地面のタイヤの跡・水たまり =====
+function buildGroundMarks(r) {
+  const W = r.x2 - r.x1, H = r.z2 - r.z1, N = 1024, sx = N / W, sz = N / H;
+  const col = document.createElement('canvas'), rough = document.createElement('canvas');
+  col.width = rough.width = col.height = rough.height = N;
+  const g = col.getContext('2d'), q = rough.getContext('2d');
+  q.fillStyle = '#ffffff'; q.fillRect(0, 0, N, N);
+  const px = (x, z) => [(x - r.x1) * sx, (z - r.z1) * sz];
+  const rnd = rng(77);
+  // ゲートの向きを正面にした座標で、ゲートから建物のまわりをまわる道
+  const C = GF.C, bx = GF.bx + 5, bz = GF.bz + 5, gp = GATE.pos;
+  const loop = [];
+  for (let k = 0; k <= 64; k++) { // 角の丸い四角
+    const t = k / 64 * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+    loop.push([Math.sign(c) * Math.pow(Math.abs(c), 0.35) * bx, Math.sign(s) * Math.pow(Math.abs(s), 0.35) * bz]);
+  }
+  const entry = [[gp, C.z2 + 1], [gp, C.z2 - 4], [gp * 0.6, (C.z2 + bz) / 2], [gp * 0.3, bz]];
+  const track = (pts, a) => {
+    for (const off of [-0.9, 0.9]) for (let pass = 0; pass < 3; pass++) {
+      g.strokeStyle = `rgba(62,46,34,${a})`; g.lineWidth = 0.32 * sx; g.lineCap = 'round';
+      g.beginPath();
+      pts.forEach(([cx, cz], i) => {
+        const n = pts[Math.min(i + 1, pts.length - 1)], p = pts[Math.max(i - 1, 0)], dx = n[0] - p[0], dz = n[1] - p[1], L = Math.hypot(dx, dz) || 1;
+        const j = (rnd() - 0.5) * 0.25, [wx, wz] = GF.toW(cx - dz / L * (off + j), cz + dx / L * (off + j)), [X, Y] = px(wx, wz);
+        i ? g.lineTo(X, Y) : g.moveTo(X, Y);
+      });
+      g.stroke();
+    }
+  };
+  track(loop, 0.16); track(entry, 0.2);
+  // 水たまり（ここだけ光る）
+  for (let k = 0; k < 7; k++) {
+    const p = loop[Math.floor(rnd() * loop.length)], [wx, wz] = GF.toW(p[0] + (rnd() - 0.5) * 3, p[1] + (rnd() - 0.5) * 3), [X, Y] = px(wx, wz);
+    const rx = (0.8 + rnd() * 1.6) * sx, ry = rx * (0.5 + rnd() * 0.5);
+    const gr = g.createRadialGradient(X, Y, 0, X, Y, rx);
+    gr.addColorStop(0, 'rgba(70,78,84,0.75)'); gr.addColorStop(0.8, 'rgba(80,70,60,0.45)'); gr.addColorStop(1, 'rgba(80,70,60,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(X, Y, rx, ry, rnd() * 3, 0, Math.PI * 2); g.fill();
+    q.fillStyle = '#1a1a1a'; q.beginPath(); q.ellipse(X, Y, rx * 0.75, ry * 0.75, 0, 0, Math.PI * 2); q.fill();
+  }
+  const geo = holedPlane(r, { x1: -PX, x2: PX, z1: -PZ, z2: PZ }), pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) - r.x1) / W, 1 - (pos.getZ(i) - r.z1) / H);
+  const mat = new THREE.MeshStandardMaterial({ map: tex(col), roughnessMap: tex(rough, { srgb: false }), transparent: true, depthWrite: false, roughness: 1, metalness: 0, envMapIntensity: 1.2, polygonOffset: true, polygonOffsetFactor: -2 });
+  mat.map.repeat.set(1, 1); mat.roughnessMap.repeat.set(1, 1);
+  worldMats.push(mat);
+  site.marks = addMesh(geo, mat, world, false);
+  site.marks.position.y = 0.008;
+}
+// 柱の型枠の跡（継ぎ目とセパ穴）
+const FORM_COL = (() => {
+  const c = noiseCanvas(256, { base: 214, fine: 18, mottle: 26, cells: 5, dots: 300, dotRange: [150, 180], seed: 61 });
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(120,118,112,0.55)';
+  g.fillRect(126, 0, 3, 256); g.fillRect(0, 126, 256, 3); // 型枠の継ぎ目
+  for (const x of [64, 192]) for (const y of [32, 96, 160, 224]) { g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.fillStyle = 'rgba(95,92,88,0.8)'; g.fill(); }
+  return std({ color: '#e2dfd8', map: tex(c), bumpMap: tex(c, { srgb: false }), bumpScale: 0.8, roughness: 0.88 });
+})();
+
+// ===== まわりの街（道路の白線・歩道・街路樹・電柱・となりのビル） =====
+const cityGroup = new THREE.Group(), lifeGroup = new THREE.Group();
+scene.add(cityGroup, lifeGroup);
+const life = { sp: null, built: null, people: [], cars: [], truck: null, last: 0 }; // 作業員と車の動き（あとで作る）
+function windowCanvas(lit) { // 4×4の窓。lit のときは夜に点く窓だけ明るく
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d'), rnd = rng(lit ? 91 : 93);
+  g.fillStyle = lit ? '#000000' : '#ffffff'; g.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const x = i * 128, y = j * 128;
+    if (lit) { if (rnd() < 0.45) { g.fillStyle = rnd() < 0.7 ? '#ffd9a0' : '#e8f0ff'; g.fillRect(x + 14, y + 24, 100, 70); } }
+    else { g.fillStyle = '#4a5866'; g.fillRect(x + 14, y + 24, 100, 70); g.fillStyle = '#d9dde0'; g.fillRect(x + 62, y + 24, 3, 70); g.fillStyle = '#c8c5bf'; g.fillRect(x, y + 104, 128, 6); }
+  }
+  return c;
+}
+const WIN_MAP = tex(windowCanvas(false)), WIN_LIT = tex(windowCanvas(true));
+const CITY_MATS = ['#d9d4ca', '#b9bdc2', '#ece9e2', '#c9a88c', '#9fa7ad'].map(c => std({ color: c, map: WIN_MAP, emissiveMap: WIN_LIT, emissive: '#ffffff', emissiveIntensity: 0, roughness: 0.75 }));
+const cityMat = {
+  walk: std({ color: '#b8b4ac', map: concreteMap, roughness: 0.9 }),
+  curb: std({ color: '#d6d3cc', roughness: 0.8 }),
+  line: new THREE.MeshStandardMaterial({ color: '#f2f2ee', roughness: 0.6 }),
+  pole: std({ color: '#a7a49c', roughness: 0.7 }),
+  wire: new THREE.LineBasicMaterial({ color: '#2a2d31' }),
+  roof: std({ color: '#8f8c86', roughness: 0.9 }),
+};
+function cityBox(w, h, d, mat) { // 窓の大きさがどのビルでも同じになるように UV をのばす
+  const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, bay = 3.5 * 4;
+  const span = [d, d, 0, 0, w, w]; // +x, -x, 上, 下, +z, -z
+  for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) {
+    const i = f * 4 + k;
+    if (!span[f]) uv.setXY(i, 0.02, 0.02); // 屋上は壁の色
+    else uv.setXY(i, uv.getX(i) * span[f] / bay, uv.getY(i) * h / bay);
+  }
+  const own = mat.clone(); // カメラの前に来たら、このビルだけ透かす
+  CITY_OWN.push(own);
+  const m = new THREE.Mesh(g, own); m.castShadow = m.receiveShadow = true;
+  m.userData.r = Math.hypot(w, d) / 2;
+  return m;
+}
+const CITY_OWN = [];
+function buildCity() {
+  cityGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  cityGroup.clear();
+  CITY_OWN.splice(0).forEach(m => m.dispose());
+  const C = GF.C, th = GF.th, rnd = rng(17);
+  const add = (o, cx, cz, rotC = 0) => { const [x, z] = GF.toW(cx, cz); o.position.x = x; o.position.z = z; o.rotation.y = rotC + th; cityGroup.add(o); return o; };
+  const flat = (w, d, mat, cx, cz, y = 0.02) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2), mat); m.receiveShadow = true; m.position.y = y; return add(m, cx, cz); };
+  const x0 = C.x1 - 70, x1 = C.x2 + 70, cxm = (x0 + x1) / 2, L = x1 - x0;
+  // 前の道路：歩道（手前・向こう）と白線
+  const walk = (w, cz) => { const m = new THREE.Mesh(new THREE.BoxGeometry(L, 0.15, w), cityMat.walk); m.position.y = 0.075; m.receiveShadow = true; add(m, cxm, cz); };
+  walk(2.6, C.z2 + 1.6); walk(3, C.z2 + 16.5);
+  for (const z of [C.z2 + 3.25, C.z2 + 14.75]) flat(L, 0.15, cityMat.line, cxm, z);
+  for (let x = x0; x < x1; x += 8) flat(4, 0.15, cityMat.line, x + 2, C.z2 + 9); // 中央の破線
+  // ゲートの前は歩道を切り下げる（色だけ変える）
+  flat(GATE.width + 2, 2.6, cityMat.curb, GATE.pos, C.z2 + 1.6, 0.16);
+  // 街路樹（ゲートの前はあける）
+  const leafGeo = new THREE.IcosahedronGeometry(1.6, 1), trunkGeo = new THREE.CylinderGeometry(0.13, 0.18, 2.6, 8);
+  const tree = (cx, cz) => {
+    const t = new THREE.Group(), s = 0.85 + rnd() * 0.4;
+    const tr = new THREE.Mesh(trunkGeo, M.trunk); tr.position.y = 1.3; tr.castShadow = true;
+    const lf = new THREE.Mesh(leafGeo, M.leaf); lf.position.y = 3.4; lf.scale.set(s, s * 1.15, s); lf.castShadow = true;
+    t.add(tr, lf); add(t, cx, cz);
+  };
+  for (let x = x0 + 4; x < x1; x += 9) {
+    if (Math.abs(x - GATE.pos) > GATE.width / 2 + 3) tree(x, C.z2 + 2.2);
+    tree(x + 4.5, C.z2 + 17.2);
+  }
+  // 電柱と電線（向こうの歩道）
+  const poleGeo = new THREE.CylinderGeometry(0.16, 0.22, 12, 10), armGeo = new THREE.BoxGeometry(0.12, 0.12, 1.8), poles = [];
+  for (let x = x0 + 10; x < x1; x += 32) {
+    const p = new THREE.Group();
+    const m = new THREE.Mesh(poleGeo, cityMat.pole); m.position.y = 6; m.castShadow = true;
+    const a = new THREE.Mesh(armGeo, cityMat.pole); a.position.y = 11; p.add(m, a);
+    add(p, x, C.z2 + 17.9); poles.push(x);
+  }
+  for (const dx of [-0.8, 0, 0.8]) for (let k = 0; k < poles.length - 1; k++) {
+    const pts = [];
+    for (let s = 0; s <= 8; s++) {
+      const x = poles[k] + (poles[k + 1] - poles[k]) * s / 8, sag = Math.sin(Math.PI * s / 8) * 0.6;
+      const [wx, wz] = GF.toW(x + 0, C.z2 + 17.9);
+      const [ox, oz] = GF.toW(0, dx); // 腕の向き（道路と直角）にずらす
+      pts.push(new THREE.Vector3(wx + ox, 11.05 - sag, wz + oz));
+    }
+    cityGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), cityMat.wire));
+  }
+  // となりのビル（うしろ・左右・道路の向こう）
+  const row = (a0, a1, place) => {
+    for (let a = a0; a < a1;) {
+      const w = 12 + rnd() * 14, d = 12 + rnd() * 10, h = (2 + Math.floor(rnd() * (rnd() < 0.15 ? 9 : 4))) * 3.5; // たいていは2〜5階、ときどき高いビル
+      place(a + w / 2, w, d, h, CITY_MATS[Math.floor(rnd() * CITY_MATS.length)]);
+      a += w + 2 + rnd() * 3;
+    }
+  };
+  row(x0, x1, (a, w, d, h, m) => add(cityBox(w, h, d, m), a, C.z2 + 20 + d / 2).position.setY(h / 2)); // 道路の向こう
+  row(x0, x1, (a, w, d, h, m) => add(cityBox(w, h, d, m), a, C.z1 - 9 - d / 2).position.setY(h / 2)); // うしろ
+  row(C.z1, C.z2 - 2, (a, w, d, h, m) => { add(cityBox(d, h, w, m), C.x1 - 9 - d / 2, a).position.setY(h / 2); });
+  row(C.z1, C.z2 - 2, (a, w, d, h, m) => { add(cityBox(d, h, w, m), C.x2 + 9 + d / 2, a).position.setY(h / 2); });
+}
+
 // ===== 建物を組み立てる（設定が変わるたびに作り直す） =====
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 let floors = {};
@@ -1669,6 +1886,7 @@ function build(cfg) {
   ];
 
   buildGround();
+  buildCity();
   buildPrep();
   buildFoundation();
   buildExterior();
@@ -1686,7 +1904,7 @@ function build(cfg) {
     GZ.forEach((gz, iz) => GX.forEach((gx, ix) => {
       const c = newEl(V(gx, yt, gz));
       c.info = { kind: 'col', floor: f, ix, iz };
-      P(c, M.column, 0.8, colH, 0.8, gx, yt + colH / 2, gz, 0.05);
+      P(c, FORM_COL, 0.8, colH, 0.8, gx, yt + colH / 2, gz, 0.05);
       fl['躯体'].push(c); fl.cols.push(c);
       const r = newEl(V(gx, y0 + H, gz));
       const rg = GEO.rebar ||= new THREE.CylinderGeometry(0.016, 0.016, 1.1, 6);
@@ -1806,11 +2024,12 @@ function applyLook(look) {
 
 // ===== 時間帯（昼・夕方・夜。自動のときは画面の明るさ設定で夕方／夕暮れ） =====
 const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+// sky：本物の空の太陽の高さ（度）と空気のにごり。bloom：明るい所のにじみ
 const SKIES = {
-  day:     { top: '#3f86d6', hor: '#d3e6f3', sun: '#fff6e8', si: 3.6, dir: [-40, 95, 50], hemi: '#b4d2ff', hi: 1.0, exp: 0.95 },
-  evening: { top: '#5f93cf', hor: '#f1dcc0', sun: '#ffcf9e', si: 3.2, dir: [-70, 58, 62], hemi: '#a9c8ff', hi: 0.8, exp: 0.95 },
-  dusk:    { top: '#1b2a52', hor: '#e39a6c', sun: '#ff9f62', si: 2.4, dir: [-80, 34, 60], hemi: '#7f94c8', hi: 0.45, exp: 0.95 },
-  night:   { top: '#060a1a', hor: '#1c2442', sun: '#a8b8ff', si: 0.55, dir: [-40, 70, 30], hemi: '#5a6a9a', hi: 0.3, exp: 1.15 },
+  day:     { top: '#3f86d6', hor: '#d3e6f3', sun: '#fff6e8', si: 3.6, dir: [-40, 95, 50], hemi: '#b4d2ff', hi: 1.0, exp: 0.95, sky: { el: 52, tur: 2.2, ray: 1.0, mie: 0.004, g: 0.8 }, bloom: 0.1 },
+  evening: { top: '#5f93cf', hor: '#f1dcc0', sun: '#ffcf9e', si: 3.2, dir: [-70, 58, 62], hemi: '#a9c8ff', hi: 0.8, exp: 0.95, sky: { el: 20, tur: 4.5, ray: 1.8, mie: 0.006, g: 0.85 }, bloom: 0.16 },
+  dusk:    { top: '#1b2a52', hor: '#e39a6c', sun: '#ff9f62', si: 2.4, dir: [-80, 34, 60], hemi: '#7f94c8', hi: 0.45, exp: 0.95, sky: { el: 2.5, tur: 8, ray: 3, mie: 0.012, g: 0.93 }, bloom: 0.3 },
+  night:   { top: '#060a1a', hor: '#1c2442', sun: '#a8b8ff', si: 0.55, dir: [-40, 70, 30], hemi: '#5a6a9a', hi: 0.3, exp: 1.15, sky: null, bloom: 0.6 },
 };
 function applyTheme() {
   const T = SKIES[timeMode === 'auto' ? (darkMQ.matches ? 'dusk' : 'evening') : timeMode];
@@ -1829,8 +2048,21 @@ function applyTheme() {
   const night = T === SKIES.night;
   M.iwall.emissive.set(night ? '#ffcf8a' : '#000000'); M.iwall.emissiveIntensity = night ? 0.6 : 0;
   M.ifloor.emissive.set(night ? '#ffe2b0' : '#000000'); M.ifloor.emissiveIntensity = night ? 0.45 : 0;
+  for (const m of [...CITY_MATS, ...CITY_OWN]) m.emissiveIntensity = night ? 0.9 : T === SKIES.dusk ? 0.35 : 0; // まわりのビルの窓あかり
+  // 本物の空：太陽の向きは影の向きと同じで、高さだけ見た目に合わせる
+  const S = T.sky;
+  realSky.visible = realSkyEnv.visible = !!S && sky.userData.show !== false;
+  skyGrad.visible = !S;
+  sky.visible = !S && sky.userData.show !== false;
+  if (S) {
+    const u = realSky.material.uniforms, az = Math.atan2(T.dir[0], T.dir[2]), el = THREE.MathUtils.degToRad(S.el);
+    u.turbidity.value = S.tur; u.rayleigh.value = S.ray; u.mieCoefficient.value = S.mie; u.mieDirectionalG.value = S.g;
+    u.sunPosition.value.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+  }
+  bloomPass.strength = T.bloom;
   if (skyEnv) skyEnv.dispose();
   skyEnv = pmrem.fromScene(skyScene, 0.02);
+  scene.environment = S ? skyEnv.texture : roomEnv; // 昼は空を、夜は明るめの部屋の光を映す
   M.glass.envMap = skyEnv.texture; // ガラスには空を映す
   M.glass.needsUpdate = true;
 }
@@ -1884,15 +2116,24 @@ const ssaoPass = new SSAOPass(scene, camera, 1, 1);
 ssaoPass.kernelRadius = 1.2;
 ssaoPass.minDistance = 0.00002;
 ssaoPass.maxDistance = 0.003;
+// 明るい所（夜の窓・ガラスの照り返し）が少しにじむ
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.15, 0.45, 0.92);
 composer.addPass(new RenderPass(scene, camera));
 composer.addPass(ssaoPass);
+composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
 const qualityBtn = document.getElementById('qualityBtn');
 let ssaoOn = true, autoQuality = true;
-function setSSAO(on) {
+function setSSAO(on) { // 高画質：陰（SSAO）・にじみ・細かい影
   ssaoOn = on;
   ssaoPass.enabled = on;
+  bloomPass.enabled = on;
+  const size = on ? 4096 : 2048;
+  if (sun.shadow.mapSize.x !== size) {
+    sun.shadow.mapSize.set(size, size);
+    if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+  }
   qualityBtn.textContent = on ? '高画質 ON' : '高画質 OFF';
 }
 // 重い端末では最初から切る
@@ -2011,6 +2252,8 @@ function setDay(n) {
 
 function updateSite(sp, pour) {
   site.pour.visible = pour;
+  site.marks.visible = sp.prep > 0 && sp.ext < 0.6; // 工事中だけタイヤの跡と水たまり
+  life.sp = sp;
   // 準備工事（外構工事の最初に撤去）
   const fenceGone = Math.round(site.fenceCount * clamp01(sp.ext / 0.25));
   const shownPrep = Math.round(site.prepList.length * sp.prep);
@@ -2370,7 +2613,9 @@ $('applyBtn').addEventListener('click', () => {
 });
 
 // ===== サイズ調整・描画 =====
+let movieFixed = false; // 録画中は画面の大きさを変えない
 function resize() {
+  if (movieFixed) return;
   const w = stage.clientWidth, h = stage.clientHeight;
   if (!w || !h || renderer.xr.isPresenting) return;
   renderer.setSize(w, h, false);
@@ -2427,7 +2672,8 @@ function enterAR() {
   arOverlay.classList.add('on');
   $('arPanelSlot').appendChild($('panel'));
   scene.background = null;
-  sky.visible = false;
+  sky.visible = realSky.visible = false; sky.userData.show = false;
+  cityGroup.visible = lifeGroup.visible = false;
   scene.fog = null;
   site.asphalt.visible = false;
   site.catcher.visible = true;
@@ -2439,7 +2685,9 @@ function enterAR() {
 function exitAR() {
   arOverlay.classList.remove('on');
   document.querySelector('.app').appendChild($('panel'));
-  sky.visible = true;
+  sky.userData.show = true;
+  cityGroup.visible = lifeGroup.visible = true;
+  applyTheme();
   scene.fog = fog;
   if (site.asphalt) site.asphalt.visible = true;
   if (site.catcher) site.catcher.visible = false;
@@ -3285,7 +3533,7 @@ function planHaul(v, tgt, obs) {
   for (const off of offs) {
     const [gx, gz] = GF.toW(GATE.pos + off, C.z2 + 1), gate = { x: gx, z: gz, a: Math.PI + th };
     let b1 = null;
-    for (const side of [-1, 1]) for (const lane of [4, 8]) {
+    for (const side of [-1, 1]) for (const lane of [6, 11]) { // 前の道路の2車線
       const [sx, sz] = GF.toW(GATE.pos + off + side * 40, C.z2 + lane), a0 = (side < 0 ? Math.PI / 2 : -Math.PI / 2) + th;
       const [fx, fz] = fwdOf(a0), q0 = { x: sx, z: sz, a: a0 }, pre = { x: sx - fx * 20, z: sz - fz * 20, a: a0 };
       for (const w of dubinsAll(q0, gate, r).slice(0, 2)) {
@@ -3665,6 +3913,301 @@ slider.addEventListener('input', () => {
 $('walkBtn').addEventListener('click', haulClose);
 $('arBtn').addEventListener('click', haulClose);
 
+// ===== 現場の動き（場内を歩く作業員・前の道路の車・資材を運んでくるトラック） =====
+function workerMesh() {
+  const g = new THREE.Group(), legs = [];
+  for (const s of [-1, 1]) {
+    const hip = new THREE.Group(); hip.position.set(s * 0.1, 0.85, 0);
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.82, 0.2), M.navy); leg.position.y = -0.41; leg.castShadow = true;
+    hip.add(leg); g.add(hip); legs.push(hip);
+  }
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.28), M.vest); body.position.y = 1.15; body.castShadow = true;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), M.skin); head.position.y = 1.58;
+  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.helmet); hat.position.y = 1.62;
+  g.add(body, head, hat);
+  return { g, legs };
+}
+const CAR_COLORS = ['#f2f2ef', '#2d2f33', '#9aa3ab', '#8a1f24', '#2f4f7a', '#d8d2c2'];
+function carMesh(color) {
+  const g = new THREE.Group(), body = std({ color, metalness: 0.6, roughness: 0.35 });
+  hb(g, body, 1.75, 0.7, 4.4, 0, 0.62, 0);
+  hb(g, body, 1.6, 0.55, 2.3, 0, 1.22, -0.25);
+  hb(g, M.glass, 1.62, 0.42, 2.1, 0, 1.24, -0.25);
+  const lamp = new THREE.MeshStandardMaterial({ color: '#fff6dd', emissive: '#fff2cc', emissiveIntensity: 1.5 });
+  const tail = new THREE.MeshStandardMaterial({ color: '#c0281e', emissive: '#ff2010', emissiveIntensity: 1.2 });
+  for (const s of [-0.6, 0.6]) { hb(g, lamp, 0.3, 0.12, 0.05, s, 0.75, 2.2); hb(g, tail, 0.3, 0.12, 0.05, s, 0.8, -2.2); }
+  const wheel = new THREE.CylinderGeometry(0.33, 0.33, 0.24, 14).rotateZ(Math.PI / 2);
+  for (const sx of [-0.88, 0.88]) for (const sz of [-1.4, 1.4]) { const w = new THREE.Mesh(wheel, M.track); w.position.set(sx, 0.33, sz); g.add(w); }
+  return g;
+}
+function buildLife() {
+  lifeGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  lifeGroup.clear();
+  life.people = []; life.cars = []; life.truck = null; life.built = world;
+  const rnd = rng(29);
+  // 作業員：建物のまわりを歩く
+  for (let k = 0; k < 8; k++) {
+    const w = workerMesh(), off = k % 3 === 0 ? 4.6 : 3.2;
+    lifeGroup.add(w.g);
+    life.people.push({ ...w, s: rnd(), dir: rnd() < 0.5 ? 1 : -1, speed: 1.0 + rnd() * 0.4, off, pause: 0 });
+  }
+  // 前の道路の車（2車線を反対向きに）
+  const C = GF.C;
+  for (let k = 0; k < 5; k++) {
+    const g = carMesh(CAR_COLORS[k % CAR_COLORS.length]);
+    lifeGroup.add(g);
+    life.cars.push({ g, x: C.x1 - 70 + rnd() * (C.x2 - C.x1 + 140), lane: k % 2, speed: 8 + rnd() * 4 });
+  }
+  // 資材を運んでくるトラック：道路からゲートを通って入り、荷おろしのあと道路までバックで出て、走り去る
+  const v = VEH.t10, r = turnR(v), th = GF.th;
+  const [gx, gz] = GF.toW(GATE.pos, C.z2 + 1), gate = { x: gx, z: gz, a: Math.PI + th };
+  const [sx, sz] = GF.toW(GATE.pos - 45, C.z2 + 6), a0 = Math.PI / 2 + th, [fx, fz] = fwdOf(a0);
+  const q0 = { x: sx, z: sz, a: a0 }, pre = { x: sx - fx * 40, z: sz - fz * 40, a: a0 };
+  const w1 = dubinsAll(q0, gate, r)[0], [tx, tz] = GF.toW(GATE.pos, C.z2 - 9);
+  if (w1) {
+    const inPts = [...sampleSegs(pre, [[0, 40]], r), ...sampleSegs(q0, w1.segs, r), ...sampleSegs(gate, [[0, Math.hypot(tx - gx, tz - gz)]], r)];
+    const outPts = sampleSegs(q0, [[0, 160]], r);
+    const m = vehMesh('t10');
+    lifeGroup.add(m.g);
+    life.truck = { g: m.g, inPts, back: 160, outPts, t: 0, phase: 'wait', i: 0 };
+  }
+}
+// カメラと現場のあいだにあるビルは透かす
+const _cd = new THREE.Vector3();
+function fadeCity() {
+  _cd.subVectors(camera.position, controls.target).setY(0);
+  const camD = _cd.length(), R = Math.hypot(EX, EZ);
+  _cd.normalize();
+  for (const b of cityGroup.children) {
+    if (!b.isMesh || !b.userData.r) continue;
+    const dx = b.position.x - controls.target.x, dz = b.position.z - controls.target.z;
+    const along = dx * _cd.x + dz * _cd.z, side = Math.abs(dx * _cd.z - dz * _cd.x);
+    const hide = along > R * 0.3 && along < camD + b.userData.r && side < b.userData.r + R * 1.4;
+    const m = b.material, to = hide ? 0 : 1;
+    m.opacity += (to - m.opacity) * 0.15;
+    const tr = m.opacity < 0.98;
+    if (tr !== m.transparent) { m.transparent = tr; m.depthWrite = !tr; m.needsUpdate = true; }
+    b.castShadow = !tr;
+    b.visible = m.opacity > 0.04;
+  }
+}
+function lifeActive() {
+  const sp = life.sp;
+  return !!sp && sp.prep > 0.5 && sp.ext < 0.9;
+}
+let fixedDt = null; // 動画を1コマずつ作るときは、動きもその分だけ進める
+function stepLife() {
+  const now = performance.now(), dt = fixedDt != null ? fixedDt : Math.min(0.1, (now - (life.last || now)) / 1000);
+  life.last = now;
+  if (!world || renderer.xr.isPresenting) return;
+  if (life.built !== world) buildLife();
+  const on = lifeActive(), wx = EX + 0.5, wz = EZ + 0.5;
+  // 作業員（角の丸い四角の上を歩く）
+  for (const p of life.people) {
+    p.g.visible = on;
+    if (!on) continue;
+    const hx = wx + p.off, hz = wz + p.off, per = 4 * (hx + hz);
+    if (p.pause > 0) p.pause -= dt; else p.s = (p.s + p.dir * p.speed * dt / per + 1) % 1;
+    if (p.pause <= 0 && Math.random() < dt * 0.05) p.pause = 2 + Math.random() * 4; // ときどき立ち止まる
+    let d = p.s * per, x, z, a;
+    if (d < 2 * hx) { x = -hx + d; z = hz; a = Math.PI / 2; }
+    else if ((d -= 2 * hx) < 2 * hz) { x = hx; z = hz - d; a = Math.PI; }
+    else if ((d -= 2 * hz) < 2 * hx) { x = hx - d; z = -hz; a = -Math.PI / 2; }
+    else { d -= 2 * hx; x = -hx; z = -hz + d; a = 0; }
+    p.g.position.set(x, 0, z); p.g.rotation.y = p.dir > 0 ? a : a + Math.PI;
+    const sw = p.pause > 0 ? 0 : Math.sin(now / 1000 * 7 * p.speed) * 0.45;
+    p.legs[0].rotation.x = sw; p.legs[1].rotation.x = -sw;
+  }
+  // 道路の車
+  const C = GF.C, xa = C.x1 - 70, xb = C.x2 + 70;
+  for (const c of life.cars) {
+    c.x += (c.lane ? -1 : 1) * c.speed * dt;
+    if (c.x > xb) c.x = xa; if (c.x < xa) c.x = xb;
+    const [x, z] = GF.toW(c.x, C.z2 + (c.lane ? 12 : 6));
+    c.g.position.set(x, 0, z); c.g.rotation.y = (c.lane ? -Math.PI / 2 : Math.PI / 2) + GF.th;
+  }
+  // 資材のトラック（搬入シミュレーション中は出さない）
+  const T = life.truck;
+  if (T) {
+    T.g.visible = on && !haul.on && T.phase !== 'wait';
+    T.t += dt;
+    const step = 9 * dt / 0.25;
+    if (T.phase === 'wait' && T.t > 20) { T.phase = 'in'; T.i = 0; T.t = 0; }
+    else if (T.phase === 'in') { T.i = Math.min(T.inPts.length - 1, T.i + step); if (T.i >= T.inPts.length - 1) { T.phase = 'unload'; T.t = 0; } }
+    else if (T.phase === 'unload' && T.t > 10) { T.phase = 'back'; }
+    else if (T.phase === 'back') { T.i = Math.max(T.back, T.i - step * 0.5); if (T.i <= T.back) { T.phase = 'out'; T.i = 0; } }
+    else if (T.phase === 'out') { T.i = Math.min(T.outPts.length - 1, T.i + step); if (T.i >= T.outPts.length - 1) { T.phase = 'wait'; T.t = 0; } }
+    const s = T.phase === 'out' ? T.outPts[Math.floor(T.i)] : T.phase !== 'wait' ? T.inPts[Math.floor(T.i)] : null;
+    if (s) { T.g.position.set(s.x, 0, s.z); T.g.rotation.y = s.a; }
+  }
+}
+
+// ===== 動画（カメラが回りながら更地から竣工まで。録画して端末に保存できる） =====
+const movie = { on: false, rec: null, len: 30, q: 720, t: 0, last: 0, saved: null, blob: null, ext: 'webm', comp: null, ctx: null, day: -1 };
+function pickType() {
+  if (!window.MediaRecorder) return null;
+  for (const t of ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'])
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  return null;
+}
+// 1コマずつ描いて mp4 にまとめる（端末が遅くても、なめらかな30コマ/秒になる）
+const MUXER_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.mjs';
+async function makeEncoder(w, h) {
+  if (!window.VideoEncoder || !window.VideoFrame) return null;
+  const bitrate = h >= 1080 ? 16e6 : 8e6;
+  let config = null;
+  for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42001f']) {
+    const c = { codec, width: w, height: h, bitrate, framerate: 30, latencyMode: 'realtime' };
+    try { if ((await VideoEncoder.isConfigSupported(c)).supported) { config = c; break; } } catch {}
+  }
+  if (!config) return null;
+  const { Muxer, ArrayBufferTarget } = await import(MUXER_URL);
+  const muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: w, height: h }, fastStart: 'in-memory' });
+  const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: e => { $('movieErr').textContent = `録画に失敗しました：${e.message}`; } });
+  enc.configure(config);
+  return { enc, muxer };
+}
+async function startMovie(record) {
+  $('movieErr').textContent = '';
+  let coder = null, type = null;
+  if (record) {
+    const h = movie.q, w = Math.round(h * 16 / 9);
+    try { coder = await makeEncoder(w, h); } catch { coder = null; }
+    if (!coder) type = pickType();
+    if (!coder && (!type || !document.createElement('canvas').captureStream)) {
+      $('movieErr').textContent = 'この端末のブラウザでは録画できません。「見るだけ」は使えます。';
+      return;
+    }
+  }
+  if (walking) stopWalk();
+  haulClose(); hideInfo();
+  $('movieBg').classList.remove('open');
+  movie.saved = { pos: camera.position.clone(), tgt: controls.target.clone(), day: Number(slider.value) };
+  movie.on = true; movie.t = 0; movie.last = performance.now(); movie.day = -1;
+  movie.base = camera.position.distanceTo(controls.target);
+  movie.a0 = Math.atan2(camera.position.z - controls.target.z, camera.position.x - controls.target.x);
+  controls.enabled = false;
+  document.body.classList.add('filming');
+  if (record) {
+    const h = movie.q, w = Math.round(h * 16 / 9);
+    movieFixed = true;
+    renderer.setPixelRatio(1);
+    renderer.setSize(w, h, false);
+    composer.setPixelRatio(1); composer.setSize(w, h);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    movie.comp = document.createElement('canvas'); movie.comp.width = w; movie.comp.height = h;
+    movie.ctx = movie.comp.getContext('2d');
+    const done = blob => {
+      movie.blob = blob;
+      $('movieInfo').textContent = `${movie.len}秒・${w}×${h}・${(blob.size / 1048576).toFixed(1)}MB（${movie.ext}）`;
+      $('movieDone').hidden = false;
+      $('movieShare').hidden = !(navigator.canShare && navigator.canShare({ files: [movieFile()] }));
+      $('movieBg').classList.add('open');
+    };
+    if (coder) { // 1コマずつ
+      movie.ext = 'mp4'; movie.frame = 0;
+      movie.rec = {
+        coder, stop: async () => {
+          await coder.enc.flush(); coder.enc.close(); coder.muxer.finalize();
+          done(new Blob([coder.muxer.target.buffer], { type: 'video/mp4' }));
+        },
+      };
+    } else { // 画面をそのまま録る（WebCodecs が無いブラウザ）
+      const chunks = [];
+      movie.ext = type.includes('mp4') ? 'mp4' : 'webm';
+      const r = new MediaRecorder(movie.comp.captureStream(30), { mimeType: type, videoBitsPerSecond: h >= 1080 ? 16e6 : 8e6 });
+      r.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      r.onstop = () => done(new Blob(chunks, { type: type.split(';')[0] }));
+      r.start(1000);
+      movie.rec = r;
+    }
+    $('movieRec').textContent = '● 録画中';
+  } else {
+    $('movieRec').textContent = '';
+    camera.aspect = stage.clientWidth / stage.clientHeight; camera.updateProjectionMatrix();
+  }
+}
+function endMovie() {
+  if (!movie.on) return;
+  movie.on = false; fixedDt = null; movie.hold = false;
+  document.body.classList.remove('filming');
+  if (movie.rec) { const r = movie.rec; movie.rec = null; r.stop(); }
+  if (movieFixed) {
+    movieFixed = false;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+  }
+  resize();
+  const s = movie.saved;
+  camera.position.copy(s.pos); controls.target.copy(s.tgt); controls.enabled = true; controls.update();
+  slider.value = s.day; setDay(s.day);
+  if (haul.on) haulCounts();
+}
+function stepMovie() {
+  const now = performance.now(), coder = movie.rec && movie.rec.coder;
+  const dt = coder ? (movie.hold ? 0 : 1 / 30) : Math.min(0.1, (now - movie.last) / 1000); // 1コマずつのときは、必ず1/30秒ずつ進める
+  movie.last = now; movie.t += dt;
+  fixedDt = coder ? dt : null;
+  const T = movie.len, k = Math.min(1, movie.t / T), e = k * k * (3 - 2 * k);
+  // 日付：はじめと終わりは少しゆっくり
+  const day = Math.round(Math.min(1, Math.max(0, (k - 0.04) / 0.9)) * totalDays);
+  if (day !== movie.day) { movie.day = day; slider.value = day; setDay(day); }
+  $('movieDate').textContent = dateLabel.textContent;
+  $('moviePhase').textContent = phaseLabel.textContent;
+  // カメラ：ぐるっと回りながら、途中で寄って、最後は引いて全体を見せる
+  const roof = fitInfo ? fitInfo.roofTop : 20;
+  const ang = movie.a0 + e * Math.PI * 1.6, near = Math.sin(Math.PI * k);
+  const dist = movie.base * (1.15 - 0.45 * near), el = 0.5 - 0.22 * near;
+  controls.target.set(0, roof * (0.15 + 0.3 * e), 0);
+  camera.position.set(Math.cos(ang) * Math.cos(el) * dist, controls.target.y + Math.sin(el) * dist, Math.sin(ang) * Math.cos(el) * dist);
+  camera.lookAt(controls.target);
+  if (movie.rec) $('movieRec').textContent = `● 録画中 ${Math.min(T, Math.floor(movie.t))}/${T}秒`;
+  if (movie.t > T + 1.5) endMovie(); // 竣工の姿を少し見せてから終わる
+}
+function movieCapture() { // 録画用のキャンバスに3Dの絵と日付の字幕を重ねる
+  if (!movie.on || !movie.rec) return;
+  const c = movie.ctx, w = movie.comp.width, h = movie.comp.height;
+  c.drawImage(renderer.domElement, 0, 0, w, h);
+  const band = h * 0.2, gr = c.createLinearGradient(0, h - band, 0, h);
+  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.62)');
+  c.fillStyle = gr; c.fillRect(0, h - band, w, band);
+  c.fillStyle = '#fff'; c.textBaseline = 'alphabetic';
+  c.font = `bold ${Math.round(h * 0.05)}px ${FONT}`; c.fillText(dateLabel.textContent, h * 0.04, h * 0.89);
+  c.font = `${Math.round(h * 0.032)}px ${FONT}`; c.fillText(phaseLabel.textContent, h * 0.04, h * 0.95);
+  c.font = `bold ${Math.round(h * 0.03)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.85)';
+  c.fillText(`現場の箱庭　${USES[CFG.use].label}・${NF}階建て`, h * 0.04, h * 0.07);
+  const coder = movie.rec.coder;
+  if (coder) {
+    movie.hold = coder.enc.encodeQueueSize > 24; // 書き出しが追いつくまで待つ
+    if (movie.hold) return;
+    const f = new VideoFrame(movie.comp, { timestamp: Math.round(movie.frame * 1e6 / 30), duration: Math.round(1e6 / 30) });
+    coder.enc.encode(f, { keyFrame: movie.frame % 60 === 0 });
+    f.close();
+    movie.frame++;
+  }
+}
+const movieName = () => `現場の箱庭_${iso(new Date()).replace(/-/g, '')}.${movie.ext}`;
+const movieFile = () => new File([movie.blob], movieName(), { type: movie.blob.type });
+$('movieBtn').addEventListener('click', () => { $('movieErr').textContent = ''; $('movieDone').hidden = true; $('movieBg').classList.add('open'); });
+$('movieClose').addEventListener('click', () => $('movieBg').classList.remove('open'));
+$('movieBg').addEventListener('click', e => { if (e.target === $('movieBg')) $('movieBg').classList.remove('open'); });
+for (const [id, key] of [['movieLen', 'len'], ['movieQ', 'q']]) $(id).addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]');
+  if (!b) return;
+  movie[key] = Number(b.dataset.v);
+  $(id).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+});
+$('moviePlay').addEventListener('click', () => startMovie(false));
+$('movieRecBtn').addEventListener('click', () => startMovie(true));
+$('movieStop').addEventListener('click', endMovie);
+$('movieSave').addEventListener('click', () => {
+  if (!movie.blob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(movie.blob); a.download = movieName();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+});
+$('movieShare').addEventListener('click', () => { if (movie.blob) navigator.share({ files: [movieFile()], title: '現場の箱庭' }).catch(() => {}); });
+
 const clock = new THREE.Clock();
 let frames = 0, t0 = 0;
 renderer.setAnimationLoop((time, frame) => {
@@ -3675,15 +4218,18 @@ renderer.setAnimationLoop((time, frame) => {
     renderer.render(scene, camera);
     return;
   }
-  if (walking) stepWalk(); else controls.update();
+  if (movie.on) stepMovie(); else if (walking) stepWalk(); else controls.update();
   scaleGridLabels();
   sendPresence();
   stepHaul();
+  stepLife();
+  if (!walking) fadeCity();
   // ピンと人の印は、遠くから見ても同じくらいの大きさにする（足もとを中心に大きくする）
   for (const o of teamGroup.children) o.scale.setScalar(Math.max(1, camera.position.distanceTo(o.position) / 22));
   composer.render();
+  movieCapture();
   // 動きが重ければ SSAO を自動で切る
-  if (autoQuality && ssaoOn && frames < 120) {
+  if (autoQuality && ssaoOn && frames < 120 && !movie.on) { // 録画中は遅くても画質を落とさない
     frames++;
     if (frames === 30) t0 = performance.now();
     if (frames === 120 && (performance.now() - t0) / 90 > 30) setSSAO(false);
