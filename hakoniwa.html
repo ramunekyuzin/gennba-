@@ -211,6 +211,11 @@
   .team-bar.on { display: flex; }
   .team-bar .btn { min-height: 36px; padding: 0 10px; }
   .people-list { margin: 6px 0 10px; padding-left: 1.2em; }
+  /* 本物の街 */
+  .place-map { display: block; width: 100%; max-width: 420px; aspect-ratio: 1; margin: 8px 0; border: 1px solid var(--line); border-radius: 10px; touch-action: none; background: var(--field); }
+  .credit { position: absolute; right: 8px; bottom: 6px; z-index: 2; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,.7); color: #333; font-size: 16px; pointer-events: none; }
+  .credit[hidden] { display: none; }
+  body.hauling .credit, body.walking .credit { display: none; }
   /* 動画 */
   .movie-cap, .movie-top { display: none; position: absolute; z-index: 6; }
   body.filming .movie-cap, body.filming .movie-top { display: flex; }
@@ -300,6 +305,7 @@
       </div>
       <details id="haulDetails"><summary id="haulSum">この日の搬入（目安）</summary><ul class="haul-count" id="haulCount"></ul></details>
     </div>
+    <div class="credit" id="credit" hidden>出典：国土地理院</div>
     <div class="movie-cap" id="movieCap"><b id="movieDate"></b><span id="moviePhase"></span></div>
     <div class="movie-top" id="movieTop"><span id="movieRec"></span><button class="btn" id="movieStop" type="button">やめる</button></div>
     <div class="walk-ui" id="walkUi">
@@ -425,6 +431,19 @@
         <label class="f">仮囲いの色<select id="fFence"></select></label>
         <label class="f wide">時間帯<select id="fTime"></select></label>
       </div>
+      <h3>場所（本物の街に建てる）</h3>
+      <p class="note">住所を入れて「探す」を押すと、まわりの航空写真と建物を出します。下の写真をなぞると敷地が動き、「建物の向き」で回せます。ゲートのある辺（オレンジの線）を道路に合わせてください。</p>
+      <div class="grid">
+        <label class="f wide">住所<input type="text" id="fAddr" placeholder="例：東京都千代田区丸の内1丁目" autocomplete="off"></label>
+        <button class="btn primary" id="placeFind" type="button">探す</button>
+        <button class="btn" id="placeClear" type="button">場所を使わない</button>
+      </div>
+      <div id="placeBox" hidden>
+        <canvas id="placeMap" width="640" height="640" class="place-map" aria-label="敷地の位置合わせ"></canvas>
+        <label class="f">建物の向き（北から右回り）<span id="fRotVal"></span></label>
+        <input type="range" id="fRot" min="-180" max="180" step="1" aria-label="建物の向き">
+      </div>
+      <p class="note" id="placeNote"></p>
       <h3>工期（かんたん設定）</h3>
       <div class="grid">
         <label class="f wide">着工日（準備工事の開始）<input type="date" id="fStart"></label>
@@ -648,6 +667,7 @@ function validConfig(c) {
     if (!okSpans(c.spansX, MAX_SPAN_X) || !okSpans(c.spansZ, MAX_SPAN_Z) || !okLayout(c.layout)) return false;
     if (!okNames(c.gridNamesX) || !okNames(c.gridNamesZ)) return false;
     if (c.look !== undefined && !okLook(c.look)) return false;
+    if (c.place !== undefined && !(c.place && okNum(c.place.lat) && Math.abs(c.place.lat) < 85 && okNum(c.place.lon) && Math.abs(c.place.lon) <= 180 && okNum(c.place.rot))) return false;
     if (c.floorH !== undefined && !(Array.isArray(c.floorH) && c.floorH.every(v => okNum(v) && v >= 2 && v <= 12))) return false;
     if (!validIso(c.auto.start) || !(c.auto.shift >= 1)) return false;
     if (!KIND_NAMES.every(k => c.auto.days[k] >= 1)) return false;
@@ -1003,13 +1023,51 @@ function makeGateFrame(rect, gate) {
   return { th, deg: SIDE_DEG[gate.side] || 0, toW, toC, C, bx, bz };
 }
 
-function slabPanels(y, mat, list, info = {}) {
+// 柱の鉄筋かご（主筋8本＋帯筋）
+function cageGeo(h) {
+  const g = [], s = 0.3;
+  for (const [x, z] of [[-s, -s], [s, -s], [s, s], [-s, s], [0, -s], [0, s], [-s, 0], [s, 0]])
+    g.push(new THREE.CylinderGeometry(0.016, 0.016, h + 1.0, 5).translate(x, (h + 1.0) / 2, z));
+  for (let y = 0.1; y < h; y += 0.15) {
+    for (const z of [-s, s]) g.push(new THREE.BoxGeometry(2 * s, 0.012, 0.012).translate(0, y, z));
+    for (const x of [-s, s]) g.push(new THREE.BoxGeometry(0.012, 0.012, 2 * s).translate(x, y, 0));
+  }
+  return mergeGeometries(g);
+}
+// 床の型枠の上に並べた配筋（テクスチャ）
+const DECK_MAT = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c98a3e'; g.fillRect(0, 0, 256, 256);
+  g.fillStyle = 'rgba(120,70,30,0.35)'; g.fillRect(0, 127, 256, 2); g.fillRect(127, 0, 2, 256); // コンパネの継ぎ目
+  g.strokeStyle = '#5a3a28'; g.lineWidth = 3;
+  for (let i = 8; i < 256; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 256); g.moveTo(0, i); g.lineTo(256, i); g.stroke(); }
+  return std({ map: tex(c, { repeat: [1, 1] }), roughness: 0.8 });
+})();
+function slabPanels(y, mat, list, info = {}, shoreFrom = null) {
   const XI = GX.slice(0, -1).map((x, i) => [i === 0 ? -EX : x, i === GX.length - 2 ? EX : GX[i + 1]]);
   const ZI = GZ.slice(0, -1).map((z, i) => [i === 0 ? -EZ : z, i === GZ.length - 2 ? EZ : GZ[i + 1]]);
   const tmp = [];
   XI.forEach(([x1, x2], i) => ZI.forEach(([z1, z2], j) => {
     const w = x2 - x1, d = z2 - z1, cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
     const e = newEl(V(cx, y, cz), 'xz');
+    if (info.kind === 'deck') { // 型枠（配筋の模様）と、下からの支保工（パイプサポート）
+      const deck = rbox(w - 0.1, 0.04, d - 0.1, 0.005);
+      if (!deck.userData.uvs) { // 1.5mごとに配筋の模様がくり返すようにする
+        const uv = deck.attributes.uv;
+        for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * w / 1.5, uv.getY(k) * d / 1.5);
+        deck.userData.uvs = true;
+      }
+      addPart(e, deck, DECK_MAT, m4(cx, y + 0.06, cz));
+      if (shoreFrom != null) {
+        const L = y - shoreFrom, sg = GEO['shore' + L] ||= new THREE.CylinderGeometry(0.03, 0.03, L, 6).translate(0, L / 2, 0);
+        for (let x = x1 + 0.9; x < x2 - 0.5; x += 1.2) for (let z = z1 + 0.9; z < z2 - 0.5; z += 1.2) addPart(e, sg, M.pipe, m4(x, shoreFrom, z));
+        for (let x = x1 + 0.9; x < x2 - 0.5; x += 1.2) P(e, M.trunk, 0.1, 0.1, d - 0.4, x, y - 0.06, cz, 0.01); // 大引き
+      }
+      e.info = { ...info, i, j };
+      tmp.push([i + j, e]);
+      return;
+    }
     P(e, mat, w, SLAB, d, cx, y + SLAB / 2, cz, 0.05);
     e.info = { ...info, i, j };
     tmp.push([i + j, e]);
@@ -1154,6 +1212,14 @@ function scaffoldGeos(h, off) {
       decks.push(new THREE.BoxGeometry(ao.x * 2, t, dz).translate(0, L + t / 2, s * (ai.z + ao.z) / 2));
       decks.push(new THREE.BoxGeometry(dx, t, ai.z * 2).translate(s * (ai.x + ao.x) / 2, L + t / 2, 0));
     }
+    // 昇り降りの階段（正面の右寄り。1段ごとに折り返す）
+    const run = 2.4, x0 = ao.x - 5, zc = (ai.z + ao.z) / 2, back = lifts.indexOf(L) % 2 === 1;
+    const xa = back ? x0 + run : x0, xb = back ? x0 : x0 + run, n = Math.max(4, Math.round(lift / 0.22));
+    for (let k = 0; k < n; k++) {
+      const x = xa + (xb - xa) * (k + 0.5) / n, y = L + lift * (k + 1) / n;
+      decks.push(new THREE.BoxGeometry(run / n + 0.02, 0.035, dz * 0.8).translate(x, y, zc));
+    }
+    for (const zz of [zc - dz * 0.4, zc + dz * 0.4]) pipes.push(pipe(V(xa, L + 0.9, zz), V(xb, L + lift + 0.9, zz), r * 0.8)); // 手すり
   }
   const sx = ao.x + 0.08, sz = ao.z + 0.08;
   const plane = (w, ry, x, z) => {
@@ -1257,6 +1323,48 @@ function buildPrep() { // 準備工事：仮囲い（3.6mずつ）・ゲート�
     e.info = { kind: 'item', type: it.type };
     Object.assign(it, { el: e, wx: x, wz: z, wdeg: deg || 0 }); // 搬入のときにぶつかる物として使う
     list.push(e);
+  }
+  // ゲートまわり：カラーコーンとコーンバー・敷鉄板・安全看板
+  const gp = GATE.pos, gw = GATE.width;
+  for (const s of [-1, 1]) {
+    const e = itemEl('office', ...W(gp + s * (gw / 2 - 0.6), C.z2 - 0.8), GF.deg, t => {
+      for (let k = 0; k < 4; k++) {
+        const z = -k * 1.6;
+        addPart(t, GEO.cone ||= new THREE.ConeGeometry(0.18, 0.7, 12).translate(0, 0.38, 0), SITE_MAT.cone, m4(0, 0, z));
+        addPart(t, GEO.coneBand ||= new THREE.CylinderGeometry(0.115, 0.135, 0.12, 12).translate(0, 0.42, 0), SITE_MAT.white, m4(0, 0, z));
+        P(t, M.trunk, 0.36, 0.04, 0.36, 0, 0.02, z, 0.01);
+        if (k < 3) P(t, SITE_MAT.bar, 0.05, 0.05, 1.6, 0, 0.62, z - 0.8, 0.01);
+      }
+    });
+    e.info = { kind: 'item', type: 'cones' };
+    list.push(e);
+  }
+  const pl = itemEl('office', ...W(gp, C.z2 - 10.5), GF.deg, t => {
+    for (const x of [-1.6, 0, 1.6]) P(t, SITE_MAT.plate, 1.5, 0.025, 6.0, x, 0.013, 0, 0.005);
+  });
+  pl.info = { kind: 'item', type: 'plates' };
+  list.push(pl);
+  const sf = itemEl('office', ...W(Math.min(C.x2 - 3, gp + gw / 2 + 6), C.z2 + 0.45), GF.deg, t => {
+    for (const x of [-0.9, 0.9]) P(t, M.pipe, 0.06, 2.0, 0.06, x, 1.0, 0, 0.01);
+    addPart(t, GEO.safety ||= new THREE.BoxGeometry(2.0, 1.2, 0.04), SITE_MAT.safety, m4(0, 1.5, 0.04));
+  });
+  sf.info = { kind: 'item', type: 'safety' };
+  list.push(sf);
+  // 投光器（夜に点く）
+  site.floods = [];
+  for (const [cx, cz] of [[C.x1 + 1.2, C.z2 - 1.2], [C.x2 - 1.2, C.z1 + 1.2], [C.x1 + 1.2, C.z1 + 1.2], [C.x2 - 1.2, C.z2 - 1.2]]) {
+    const [x, z] = W(cx, cz), ang = Math.atan2(-x, -z);
+    const e = itemEl('office', x, z, THREE.MathUtils.radToDeg(ang), t => {
+      P(t, M.pipe, 0.12, 6.0, 0.12, 0, 3.0, 0, 0.02);
+      P(t, M.fan, 0.9, 0.5, 0.25, 0, 6.1, 0.1, 0.03);
+      addPart(t, GEO.floodLens ||= new THREE.BoxGeometry(0.8, 0.4, 0.02), SITE_MAT.flood, m4(0, 6.1, 0.24));
+    });
+    e.info = { kind: 'item', type: 'flood' };
+    list.push(e);
+    const L = new THREE.SpotLight('#fff1d6', 0, 70, 0.75, 0.6, 1.2);
+    L.position.set(x, 6.1, z); L.target.position.set(x * 0.4, 0, z * 0.4);
+    world.add(L, L.target);
+    site.floods.push({ L, e });
   }
   site.prepList = list;
 }
@@ -1661,6 +1769,25 @@ function buildGroundMarks(r) {
   site.marks = addMesh(geo, mat, world, false);
   site.marks.position.y = 0.008;
 }
+// ゲートまわりの小物と投光器
+const SITE_MAT = {
+  cone: std({ color: '#f0641e', roughness: 0.5 }),
+  white: std({ color: '#f4f4f0', roughness: 0.4 }),
+  bar: std({ map: tex((() => { const c = document.createElement('canvas'); c.width = 64; c.height = 8; const g = c.getContext('2d'); for (let x = 0; x < 64; x += 16) { g.fillStyle = '#f2c200'; g.fillRect(x, 0, 8, 8); g.fillStyle = '#1b1b1b'; g.fillRect(x + 8, 0, 8, 8); } return c; })(), { repeat: [1, 4], rotate: Math.PI / 2 }), roughness: 0.5 }),
+  plate: std({ color: '#5b5e60', metalness: 0.7, roughness: 0.55 }),
+  safety: std({ map: tex((() => {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 300;
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 512, 300);
+    g.fillStyle = '#1f8a43'; g.fillRect(40, 70, 160, 50); g.fillRect(95, 15, 50, 160); // 緑十字
+    g.fillStyle = '#1f8a43'; g.font = `bold 64px ${FONT}`; g.textBaseline = 'middle'; g.fillText('安全第一', 220, 95);
+    g.fillStyle = '#c0392b'; g.font = `bold 40px ${FONT}`; g.fillText('ゼロ災害で行こう', 40, 235);
+    g.strokeStyle = '#1f8a43'; g.lineWidth = 8; g.strokeRect(4, 4, 504, 292);
+    return c;
+  })()), roughness: 0.6 }),
+  flood: new THREE.MeshStandardMaterial({ color: '#fffaf0', emissive: '#fff4dd', emissiveIntensity: 0 }),
+};
+let nightNow = false;
 // 柱の型枠の跡（継ぎ目とセパ穴）
 const FORM_COL = (() => {
   const c = noiseCanvas(256, { base: 214, fine: 18, mottle: 26, cells: 5, dots: 300, dotRange: [150, 180], seed: 61 });
@@ -1768,6 +1895,176 @@ function buildCity() {
   row(x0, x1, (a, w, d, h, m) => add(cityBox(w, h, d, m), a, C.z1 - 9 - d / 2).position.setY(h / 2)); // うしろ
   row(C.z1, C.z2 - 2, (a, w, d, h, m) => { add(cityBox(d, h, w, m), C.x1 - 9 - d / 2, a).position.setY(h / 2); });
   row(C.z1, C.z2 - 2, (a, w, d, h, m) => { add(cityBox(d, h, w, m), C.x2 + 9 + d / 2, a).position.setY(h / 2); });
+}
+
+// ===== 本物の街（国土地理院の航空写真＋OpenStreetMap の建物） =====
+const REAL_R = 300; // 敷地の中心から何mまで出すか
+const REAL_WIN = WIN_MAP.clone(), REAL_LIT = WIN_LIT.clone();
+REAL_WIN.repeat.set(1 / 14, 1 / 14); REAL_LIT.repeat.set(1 / 14, 1 / 14); // 1mあたりの窓の大きさをそろえる
+REAL_WIN.needsUpdate = REAL_LIT.needsUpdate = true;
+const REAL_WALLS = ['#dcd7cd', '#c3c6c9', '#ece9e2', '#cdb39b', '#a9afb4', '#e3ddd0'].map(c => std({ color: c, map: REAL_WIN, emissiveMap: REAL_LIT, emissive: '#ffffff', emissiveIntensity: 0, roughness: 0.78 }));
+const REAL_ROOF = std({ color: '#8d8a84', roughness: 0.9 });
+const loadImg = src => new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+function buildingHeight(t) { // 高さ（無ければ階数から、それも無ければ種類から目安）
+  const h = parseFloat(t.height || t['building:height']);
+  if (h > 0) return Math.min(h, 300);
+  const lv = parseFloat(t['building:levels']);
+  if (lv > 0) return lv * 3.3 + 0.5;
+  return { house: 7, detached: 7, residential: 8, apartments: 13, commercial: 13, office: 16, retail: 7, industrial: 9, warehouse: 9, garage: 3, shed: 3, school: 13, hospital: 16 }[t.building] || 8;
+}
+// 地図のベクトルタイル（.pbf）を読む（必要なところだけの小さな読み取り）
+function readMVT(buf) {
+  const u = new Uint8Array(buf), dv = new DataView(buf);
+  let p = 0;
+  const varint = () => { let r = 0, s = 1, b; do { b = u[p++]; r += (b & 0x7f) * s; s *= 128; } while (b & 0x80); return r; };
+  const skip = w => { if (w === 0) varint(); else if (w === 1) p += 8; else if (w === 2) p += varint(); else if (w === 5) p += 4; };
+  const msg = (end, on) => { while (p < end) { const k = varint(), f = Math.floor(k / 8), w = k & 7; if (!on(f, w)) skip(w); } };
+  const layers = [];
+  msg(u.length, (f, w) => {
+    if (f !== 3 || w !== 2) return false;
+    const end = varint() + p, L = { name: '', keys: [], values: [], features: [], extent: 4096 };
+    msg(end, (f2, w2) => {
+      if (f2 === 1) { const n = varint(); L.name = new TextDecoder().decode(u.subarray(p, p + n)); p += n; return true; }
+      if (f2 === 3) { const n = varint(); L.keys.push(new TextDecoder().decode(u.subarray(p, p + n))); p += n; return true; }
+      if (f2 === 5) { L.extent = varint(); return true; }
+      if (f2 === 4) { const e2 = varint() + p; let v = null; msg(e2, (f3, w3) => {
+        if (f3 === 1) { const n = varint(); v = new TextDecoder().decode(u.subarray(p, p + n)); p += n; return true; }
+        if (f3 === 2) { v = dv.getFloat32(p, true); p += 4; return true; }
+        if (f3 === 3) { v = dv.getFloat64(p, true); p += 8; return true; }
+        if (f3 === 4 || f3 === 5) { v = varint(); return true; }
+        if (f3 === 6) { const n = varint(); v = (n >>> 1) ^ -(n & 1); return true; }
+        return false;
+      }); L.values.push(v); return true; }
+      if (f2 === 2) { const e2 = varint() + p, F = { tags: [], type: 0, geom: [] }; msg(e2, (f3, w3) => {
+        if (f3 === 2) { const e3 = varint() + p; while (p < e3) F.tags.push(varint()); return true; }
+        if (f3 === 3) { F.type = varint(); return true; }
+        if (f3 === 4) { const e3 = varint() + p; while (p < e3) F.geom.push(varint()); return true; }
+        return false;
+      }); L.features.push(F); return true; }
+      return false;
+    });
+    layers.push(L);
+    return true;
+  });
+  return layers;
+}
+function mvtRings(g) { // 形のコマンドを、点の並び（輪）にする
+  const rings = []; let x = 0, y = 0, ring = null, i = 0;
+  const zz = n => (n >>> 1) ^ -(n & 1);
+  while (i < g.length) {
+    const c = g[i++], id = c & 7, n = c >> 3;
+    if (id === 7) { if (ring) rings.push(ring); ring = null; continue; }
+    for (let k = 0; k < n; k++) {
+      x += zz(g[i++]); y += zz(g[i++]);
+      if (id === 1) { if (ring) rings.push(ring); ring = [[x, y]]; } else if (ring) ring.push([x, y]);
+    }
+  }
+  if (ring) rings.push(ring);
+  return rings;
+}
+// 日本国内：国土地理院のベクトルタイルの建物（普通・堅ろう・高層の区別から高さを決める）
+async function fetchBuildingsGSI(p) {
+  const z = 16, n = 2 ** z, lr = p.lat * Math.PI / 180;
+  const wx = (p.lon + 180) / 360 * n * 256, wy = (1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2 * n * 256;
+  const mpp = Math.cos(lr) * 2 * Math.PI * 6378137 / (256 * n), pr = REAL_R / mpp, list = [], seen = new Set();
+  const HT = { 3101: 7, 3102: 14, 3103: 40, 3111: 4, 3112: 9 }; // 普通建物・堅ろう建物・高層建物・普通無壁舎・堅ろう無壁舎
+  const jobs = [];
+  for (let ty = Math.floor((wy - pr) / 256); ty <= Math.floor((wy + pr) / 256); ty++) for (let tx = Math.floor((wx - pr) / 256); tx <= Math.floor((wx + pr) / 256); tx++)
+    jobs.push(fetch(`https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/${z}/${tx}/${ty}.pbf`).then(r => r.ok ? r.arrayBuffer() : null).then(buf => {
+      if (!buf) return;
+      for (const L of readMVT(buf)) {
+        if (L.name !== 'building') continue;
+        for (const F of L.features) {
+          if (F.type !== 3) continue;
+          const t = {}; for (let k = 0; k < F.tags.length; k += 2) t[L.keys[F.tags[k]]] = L.values[F.tags[k + 1]];
+          for (const ring of mvtRings(F.geom)) {
+            const pts = ring.map(([x, y]) => [+(((tx + x / L.extent) * 256 - wx) * mpp).toFixed(2), +(((ty + y / L.extent) * 256 - wy) * mpp).toFixed(2)]);
+            let a = 0; for (let k = 0; k < pts.length; k++) { const [x1, y1] = pts[k], [x2, y2] = pts[(k + 1) % pts.length]; a += x1 * y2 - x2 * y1; }
+            if (a <= 8) continue; // 穴（内側の輪）と、ごく小さいものは飛ばす
+            const key = pts.slice(0, 3).map(q => q.map(v => Math.round(v)).join(',')).join(';');
+            if (seen.has(key)) continue; seen.add(key); // タイルの境目で重なった分
+            list.push({ h: HT[t.ftCode] || 8, pts });
+          }
+        }
+      }
+    }).catch(() => {}));
+  await Promise.all(jobs);
+  return list;
+}
+const inJapan = p => p.lat > 20 && p.lat < 46 && p.lon > 122 && p.lon < 154;
+async function fetchBuildings(p) {
+  const key = `hakoniwa-bld:${p.lat.toFixed(4)},${p.lon.toFixed(4)}`;
+  try { const c = JSON.parse(localStorage.getItem(key)); if (c) return c; } catch {}
+  if (inJapan(p)) {
+    const list = await fetchBuildingsGSI(p);
+    try { localStorage.setItem(key, JSON.stringify(list)); } catch {}
+    return list;
+  }
+  const q = `[out:json][timeout:25];way["building"](around:${REAL_R},${p.lat},${p.lon});out tags geom;`;
+  const res = await (await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q))).json();
+  const kx = 111320 * Math.cos(p.lat * Math.PI / 180), kz = 110574;
+  const list = (res.elements || []).filter(w => w.geometry && w.geometry.length >= 4).map(w => ({
+    h: +buildingHeight(w.tags || {}).toFixed(1),
+    pts: w.geometry.map(g => [+((g.lon - p.lon) * kx).toFixed(2), +(-(g.lat - p.lat) * kz).toFixed(2)]), // 東へ・南へ何m
+  }));
+  try { localStorage.setItem(key, JSON.stringify(list)); } catch {}
+  return list;
+}
+function buildReal(p) {
+  cityGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.map && o.material.map.userData.aerial) o.material.map.dispose(); });
+  cityGroup.clear();
+  CITY_OWN.splice(0).forEach(m => m.dispose());
+  const token = {}; cityGroup.userData.token = token;
+  const r = p.rot * Math.PI / 180, cr = Math.cos(r), sr = Math.sin(r);
+  const toWorld = (e, s) => [e * cr + s * sr, -e * sr + s * cr]; // 地図（東・南）→ 建物の向きの座標
+  // まわりの地面（写真の外）
+  const far = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000).rotateX(-Math.PI / 2), M.asphalt);
+  far.position.y = -0.06; far.receiveShadow = true; cityGroup.add(far);
+  // 航空写真
+  (async () => {
+    const n = 2 ** PLACE_Z, lr = p.lat * Math.PI / 180;
+    const wx = (p.lon + 180) / 360 * n * 256, wy = (1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2 * n * 256;
+    const mpp = Math.cos(lr) * 2 * Math.PI * 6378137 / (256 * n), pr = REAL_R / mpp;
+    const tx0 = Math.floor((wx - pr) / 256), tx1 = Math.floor((wx + pr) / 256), ty0 = Math.floor((wy - pr) / 256), ty1 = Math.floor((wy + pr) / 256);
+    const cols = tx1 - tx0 + 1, rows = ty1 - ty0 + 1, c = document.createElement('canvas');
+    c.width = cols * 256; c.height = rows * 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#7d7f7c'; g.fillRect(0, 0, c.width, c.height);
+    const jobs = [];
+    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++)
+      jobs.push(loadImg(`https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${PLACE_Z}/${tx}/${ty}.jpg`).then(im => { if (im) g.drawImage(im, (tx - tx0) * 256, (ty - ty0) * 256); }));
+    await Promise.all(jobs);
+    if (cityGroup.userData.token !== token) return;
+    const t = tex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.anisotropy = 8; t.userData.aerial = true;
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(cols * 256 * mpp, rows * 256 * mpp).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95, envMapIntensity: 0.3 }));
+    plane.receiveShadow = true;
+    const e = ((tx0 + cols / 2) * 256 - wx) * mpp, s = ((ty0 + rows / 2) * 256 - wy) * mpp;
+    const holder = new THREE.Group(); holder.rotation.y = r; // 地図ごと回す
+    plane.position.set(e, -0.03, s); holder.add(plane); cityGroup.add(holder);
+  })();
+  // まわりの建物
+  (async () => {
+    let list;
+    try { list = await fetchBuildings(p); } catch { toast('まわりの建物を読めませんでした（時間をおいて開き直してください）'); return; }
+    if (cityGroup.userData.token !== token) return;
+    const site2 = grow(F, 3), inSite = (x, z) => x > site2.x1 && x < site2.x2 && z > site2.z1 && z < site2.z2;
+    const items = list.map(b => {
+      const w = b.pts.map(([e, s]) => toWorld(e, s));
+      const cx = w.reduce((a, q) => a + q[0], 0) / w.length, cz = w.reduce((a, q) => a + q[1], 0) / w.length;
+      return { h: b.h, w, cx, cz, d: Math.hypot(cx, cz) };
+    }).filter(b => b.d < REAL_R && !b.w.some(([x, z]) => inSite(x, z))).sort((a, b) => a.d - b.d).slice(0, 500);
+    items.forEach((b, i) => {
+      const shape = new THREE.Shape(b.w.map(([x, z]) => new THREE.Vector2(x - b.cx, -(z - b.cz))));
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: b.h, bevelEnabled: false }).rotateX(-Math.PI / 2);
+      const wall = REAL_WALLS[i % REAL_WALLS.length].clone(), roof = REAL_ROOF.clone();
+      CITY_OWN.push(wall, roof);
+      const m = new THREE.Mesh(geo, [roof, wall]);
+      m.position.set(b.cx, 0, b.cz); m.castShadow = m.receiveShadow = true;
+      m.userData.r = Math.max(...b.w.map(([x, z]) => Math.hypot(x - b.cx, z - b.cz)));
+      cityGroup.add(m);
+    });
+    applyTheme(); // 夜なら窓あかりを点ける
+  })();
 }
 
 // ===== 建物を組み立てる（設定が変わるたびに作り直す） =====
@@ -1886,7 +2183,10 @@ function build(cfg) {
   ];
 
   buildGround();
-  buildCity();
+  if (cfg.place) buildReal(cfg.place); else buildCity(); // 場所があれば本物の街
+  site.asphalt.visible = !cfg.place;
+  document.getElementById("credit").hidden = !cfg.place;
+  if (cfg.place) document.getElementById("credit").textContent = inJapan(cfg.place) ? "出典：国土地理院" : "出典：国土地理院・© OpenStreetMap";
   buildPrep();
   buildFoundation();
   buildExterior();
@@ -1895,10 +2195,12 @@ function build(cfg) {
 
   for (let f = 1; f <= NF; f++) {
     const y0 = yb(f), H = hs[f], yt = y0 + SLAB, colH = H - SLAB;
-    const fl = { '床': [], '躯体': [], '外装': [], '内装': [], cols: [], rebar: [], roof: [], scaffold: null };
+    const fl = { '床': [], '躯体': [], '外装': [], '内装': [], cols: [], rebar: [], roof: [], scaffold: null, cage: [], form: [], deck: [] };
     floors[f] = fl;
 
     slabPanels(y0, M.slab, fl['床'], { kind: 'slab', floor: f });
+    // 床を打つ前：型枠（上に配筋）と、下の階からの支保工
+    slabPanels(y0, M.slab, fl.deck, { kind: 'deck', floor: f }, f > 1 ? yb(f - 1) + SLAB : null);
 
     // 躯体（柱 0.8m角）＋ 柱頭から出る鉄筋
     GZ.forEach((gz, iz) => GX.forEach((gx, ix) => {
@@ -1906,6 +2208,16 @@ function build(cfg) {
       c.info = { kind: 'col', floor: f, ix, iz };
       P(c, FORM_COL, 0.8, colH, 0.8, gx, yt + colH / 2, gz, 0.05);
       fl['躯体'].push(c); fl.cols.push(c);
+      // コンクリートを打つ前：鉄筋かご → 型枠
+      const k = newEl(V(gx, yt, gz));
+      addPart(k, GEO['cage' + colH] ||= cageGeo(colH), M.rebar, m4(gx, yt, gz));
+      k.info = { kind: 'cage', floor: f, ix, iz };
+      fl.cage.push(k);
+      const fm = newEl(V(gx, yt, gz));
+      P(fm, M.plywood, 0.9, colH - 0.05, 0.9, gx, yt + colH / 2, gz, 0.01);
+      for (let h = 0.5; h < colH - 0.2; h += 0.9) P(fm, M.pipe, 1.0, 0.06, 1.0, gx, yt + h, gz, 0.01); // 締め付けの単管
+      fm.info = { kind: 'form', floor: f, ix, iz };
+      fl.form.push(fm);
       const r = newEl(V(gx, y0 + H, gz));
       const rg = GEO.rebar ||= new THREE.CylinderGeometry(0.016, 0.016, 1.1, 6);
       for (const [dx, dz] of [[-.28, -.28], [.28, -.28], [.28, .28], [-.28, .28], [0, -.28], [0, .28], [-.28, 0], [.28, 0]])
@@ -1979,6 +2291,15 @@ function build(cfg) {
     addMesh(g.pipes, M.pipe, grp);
     addMesh(g.decks, M.deck, grp);
     addMesh(g.sheets, M.sheet, grp, false);
+    if (f === 2) { // 朝顔（2階の高さに、外へ斜めに張り出した防護棚）
+      const ax = EX + off + 0.9, az = EZ + off + 0.9, a = THREE.MathUtils.degToRad(20), wd = 2.0;
+      const parts = [];
+      for (const s of [-1, 1]) {
+        parts.push(new THREE.BoxGeometry(ax * 2 + wd * 2, 0.03, wd).rotateX(-s * a).translate(0, wd / 2 * Math.sin(a), s * (az + wd / 2 * Math.cos(a))));
+        parts.push(new THREE.BoxGeometry(wd, 0.03, az * 2).rotateZ(s * a).translate(s * (ax + wd / 2 * Math.cos(a)), wd / 2 * Math.sin(a), 0));
+      }
+      addMesh(mergeGeometries(parts), M.deck, grp);
+    }
     grp.visible = false;
     grp.userData.info = { kind: 'scaffold', floor: f };
     world.add(grp);
@@ -2048,6 +2369,9 @@ function applyTheme() {
   const night = T === SKIES.night;
   M.iwall.emissive.set(night ? '#ffcf8a' : '#000000'); M.iwall.emissiveIntensity = night ? 0.6 : 0;
   M.ifloor.emissive.set(night ? '#ffe2b0' : '#000000'); M.ifloor.emissiveIntensity = night ? 0.45 : 0;
+  nightNow = night;
+  SITE_MAT.flood.emissiveIntensity = night ? 2 : 0;
+  if (site.floods) site.floods.forEach(f => { f.L.intensity = night ? 60 : 0; f.L.visible = night && f.e.target === 1; });
   for (const m of [...CITY_MATS, ...CITY_OWN]) m.emissiveIntensity = night ? 0.9 : T === SKIES.dusk ? 0.35 : 0; // まわりのビルの窓あかり
   // 本物の空：太陽の向きは影の向きと同じで、高さだけ見た目に合わせる
   const S = T.sky;
@@ -2233,6 +2557,16 @@ function setDay(n) {
       const list = fl[k], shown = Math.round(list.length * pct(f, k) / 100);
       list.forEach((e, i) => { e.target = i < shown ? 1 : 0; });
     }
+    // コンクリートより先に進む作業：柱は 鉄筋かご → 型枠、床は 支保工と型枠（配筋）
+    const nC = fl.cols.length, pc = pct(f, '躯体'), ps = pct(f, '床');
+    const startC = pc > 0 || ps >= 70;
+    const colN = Math.round(nC * pc / 100), formN = startC ? Math.round(nC * Math.min(100, pc + 18) / 100) : 0, cageN = startC ? Math.round(nC * Math.min(100, pc + 35) / 100) : 0;
+    fl.form.forEach((e, i) => { e.target = i >= colN && i < formN ? 1 : 0; });
+    fl.cage.forEach((e, i) => { e.target = i >= formN && i < cageN ? 1 : 0; });
+    const nD = fl.deck.length, below = f > 1 ? pct(f - 1, '躯体') : (sp.found >= 0.85 ? 100 : 0);
+    const deckN = ps > 0 || below >= 70 ? Math.round(nD * Math.min(100, ps + 30) / 100) : 0;
+    const stripped = f > 1 && pct(f - 1, '外装') > 0; // 下の階の外装が始まるころには支保工を外す
+    fl.deck.forEach((e, i) => { e.target = i < deckN && !stripped && !(ps >= 100 && f === 1) ? 1 : 0; });
     // 躯体だけの階：上にまだ床が無ければ柱頭から鉄筋が出る
     const covered = f < NF ? pct(f + 1, '床') > 0 : fl.roof.some(e => e.target === 1);
     const bare = pct(f, '外装') === 0 && !covered;
@@ -2264,6 +2598,7 @@ function updateSite(sp, pour) {
     if (e.tag === 'office' && sp.ext > 0.12) on = false;
     e.target = on ? 1 : 0;
   });
+  site.floods.forEach(f => { f.L.visible = nightNow && f.e.target === 1; }); // 投光器は立っている間の夜だけ
   // 基礎工事：最後の15%で埋め戻し
   const nF = site.foundList.length, shownF = Math.round(nF * clamp01(sp.found / 0.85));
   site.foundList.forEach((e, i) => { e.target = i < shownF ? 1 : 0; });
@@ -2355,6 +2690,85 @@ $('wallSwatches').addEventListener('input', e => { if (e.target.id === 'wallPick
 for (const [id, k] of [['fGlass', 'glass'], ['fFrame', 'frame'], ['fRoof', 'roof'], ['fFence', 'fence'], ['fTime', 'time']])
   $(id).addEventListener('change', () => setLook(k, $(id).value));
 
+// --- 場所：住所を探して、航空写真の上で敷地の位置と向きを合わせる ---
+const PLACE_Z = 18;
+const tileImgs = new Map();
+function tileImg(x, y) { // 国土地理院の航空写真（シームレス空中写真）
+  const k = `${x}/${y}`;
+  if (!tileImgs.has(k)) {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => drawPlaceMap();
+    im.src = `https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${PLACE_Z}/${x}/${y}.jpg`;
+    tileImgs.set(k, im);
+  }
+  return tileImgs.get(k);
+}
+function fenceOf(cfg) { // 設定から、建物の半分の大きさと仮囲いの範囲を出す（build と同じ決め方）
+  const sx = spansOf(cfg, 'x').reduce((a, b) => a + b, 0), sz = spansOf(cfg, 'z').reduce((a, b) => a + b, 0);
+  const ex = sx / 2 + 1, ez = sz / 2 + 1, px = ex + 2, pz = ez + 2, lf = cfg.layout && cfg.layout.fence;
+  const f = lf ? { x1: Math.min(lf.x1, -px - 6), x2: Math.max(lf.x2, px + 6), z1: Math.min(lf.z1, -pz - 6), z2: Math.max(lf.z2, pz + 6) } : { x1: -(ex + 16), x2: ex + 16, z1: -(ez + 14), z2: ez + 14 };
+  return { ex, ez, f, side: (cfg.layout && cfg.layout.gate && cfg.layout.gate.side) || 'front' };
+}
+function drawPlaceMap() {
+  const p = draft && draft.place, cv = $('placeMap');
+  $('placeBox').hidden = !p;
+  if (!p) return;
+  const g = cv.getContext('2d'), W = cv.width, n = 2 ** PLACE_Z;
+  const wx = (p.lon + 180) / 360 * n * 256, lr = p.lat * Math.PI / 180, wy = (1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2 * n * 256;
+  const mpp = Math.cos(lr) * 2 * Math.PI * 6378137 / (256 * n), scale = 1 / mpp; // 1m あたりの点の数
+  g.fillStyle = '#9aa0a6'; g.fillRect(0, 0, W, W);
+  const x0 = wx - W / 2, y0 = wy - W / 2;
+  for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + W) / 256); ty++) for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W) / 256); tx++) {
+    const im = tileImg(tx, ty);
+    if (im.complete && im.naturalWidth) g.drawImage(im, tx * 256 - x0, ty * 256 - y0);
+  }
+  // 敷地（仮囲い）と建物。ゲートの辺はオレンジ
+  const { ex, ez, f, side } = fenceOf(draft), r = p.rot * Math.PI / 180;
+  g.save(); g.translate(W / 2, W / 2); g.rotate(r); g.scale(scale, scale);
+  g.lineWidth = 3 / scale;
+  g.fillStyle = 'rgba(255,255,255,0.18)'; g.strokeStyle = '#ffffff';
+  g.fillRect(f.x1, f.z1, f.x2 - f.x1, f.z2 - f.z1); g.strokeRect(f.x1, f.z1, f.x2 - f.x1, f.z2 - f.z1);
+  g.fillStyle = 'rgba(232,137,28,0.55)'; g.fillRect(-ex, -ez, ex * 2, ez * 2);
+  g.strokeStyle = '#e8891c'; g.lineWidth = 6 / scale; g.beginPath();
+  if (side === 'front') { g.moveTo(f.x1, f.z2); g.lineTo(f.x2, f.z2); }
+  else if (side === 'back') { g.moveTo(f.x1, f.z1); g.lineTo(f.x2, f.z1); }
+  else if (side === 'left') { g.moveTo(f.x1, f.z1); g.lineTo(f.x1, f.z2); }
+  else { g.moveTo(f.x2, f.z1); g.lineTo(f.x2, f.z2); }
+  g.stroke(); g.restore();
+  g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(W - 46, 8, 38, 38); g.fillStyle = '#fff'; g.font = `bold 26px ${FONT}`; g.textAlign = 'center'; g.fillText('北', W - 27, 37);
+  $('fRot').value = p.rot; $('fRotVal').textContent = `　${p.rot}°`;
+  $('placeNote').textContent = `${p.addr || ''}（北緯${p.lat.toFixed(5)}・東経${p.lon.toFixed(5)}）　出典：国土地理院`;
+  cv.dataset.mpp = mpp; // 写真の1点が何mか
+}
+$('placeFind').addEventListener('click', async () => {
+  const q = $('fAddr').value.trim();
+  if (!q) return ($('placeNote').textContent = '住所を入れてください');
+  $('placeNote').textContent = '探しています…';
+  try {
+    const res = await (await fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(q))).json();
+    if (!res.length) return ($('placeNote').textContent = '見つかりませんでした。市区町村から入れてみてください');
+    const [lon, lat] = res[0].geometry.coordinates;
+    draft.place = { lat, lon, rot: (draft.place && draft.place.rot) || 0, addr: res[0].properties.title };
+    drawPlaceMap();
+  } catch { $('placeNote').textContent = '探せませんでした。インターネットにつながっているか確かめてください'; }
+});
+$('placeClear').addEventListener('click', () => { delete draft.place; $('placeNote').textContent = '場所を使わないようにしました（「この内容で建てる」で反映）'; drawPlaceMap(); });
+$('fRot').addEventListener('input', () => { if (draft.place) { draft.place.rot = Number($('fRot').value); drawPlaceMap(); } });
+{ // 写真をなぞって敷地を動かす
+  let last = null;
+  const cv = $('placeMap');
+  cv.addEventListener("pointerdown", e => { last = [e.clientX, e.clientY]; try { cv.setPointerCapture(e.pointerId); } catch {} });
+  cv.addEventListener('pointermove', e => {
+    if (!last || !draft.place) return;
+    const k = (Number(cv.dataset.mpp) || 0.6) * cv.width / (cv.getBoundingClientRect().width || cv.width), dx = (e.clientX - last[0]) * k, dy = (e.clientY - last[1]) * k;
+    last = [e.clientX, e.clientY];
+    const p = draft.place;
+    p.lat += dy / 110574; p.lon -= dx / (111320 * Math.cos(p.lat * Math.PI / 180)); // 写真を動かした分だけ、敷地は反対へ
+    drawPlaceMap();
+  });
+  cv.addEventListener('pointerup', () => { last = null; });
+}
+
 function fillForm() {
   document.querySelectorAll('#uses button').forEach(b => b.classList.toggle('on', b.dataset.use === draft.use));
   $('fFloors').value = draft.floors;
@@ -2369,6 +2783,9 @@ function fillForm() {
   renderDimNote();
   renderLook();
   renderTable();
+  $('fAddr').value = (draft.place && draft.place.addr) || '';
+  $('placeNote').textContent = '';
+  drawPlaceMap();
 }
 // 図面から読んだ寸法・配置を使っているときの説明
 const m1 = v => +v.toFixed(2);
@@ -2689,7 +3106,7 @@ function exitAR() {
   cityGroup.visible = lifeGroup.visible = true;
   applyTheme();
   scene.fog = fog;
-  if (site.asphalt) site.asphalt.visible = true;
+  if (site.asphalt) site.asphalt.visible = !CFG.place;
   if (site.catcher) site.catcher.visible = false;
   controls.enabled = true;
   arRoot.visible = true;
@@ -2821,11 +3238,7 @@ function nameSprite(text, color) {
   return s;
 }
 function makeAvatar(name, color) {
-  const g = new THREE.Group(), m = std({ color, roughness: 0.6 });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 1.2, 12), m); body.position.y = 0.75;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), M.skin); head.position.y = 1.5;
-  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.helmet); hat.position.y = 1.56;
-  g.add(body, head, hat);
+  const g = workerMesh(std({ color, roughness: 0.6 })).g; // 人の色はベストの色
   const label = nameSprite(name, color); label.position.y = 2.4; g.add(label);
   g.userData.label = label;
   return g;
@@ -3162,6 +3575,7 @@ const ITEM_LABEL = {
   guard: '守衛所', guide: '誘導員', sign: '工事のお知らせ看板', office: '現場事務所', toilet: '仮設トイレ', rest: '作業員詰所・休憩所',
   smoking: '喫煙所', assembly: '朝礼広場', parking: '作業員駐車場', rebar: '鉄筋置き場', formwork: '型枠置き場', scafmat: '足場材置き場',
   waste: '廃材の分別コンテナ', cubicle: 'キュービクル', panel: '分電盤', water: '仮設水道', wash: 'タイヤ洗浄機',
+  cones: 'カラーコーンとコーンバー', plates: '敷鉄板', safety: '安全看板', flood: '投光器（夜に点く）',
 };
 const infoCard = $('infoCard');
 const marker = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 10), M.marker);
@@ -3187,6 +3601,9 @@ function describe(info) {
   switch (info.kind) {
     case 'pin': return [`📍 ${info.pin.text || 'ピン'}`, [info.pin.title ? `場所：${info.pin.title}` : '', `${info.pin.name || ''}さんが立てました`]];
     case 'col': return [`${f}階 柱　${NX[info.ix]}-${NZ[info.iz]}通り`, [floorLine(f, '躯体'), floorLine(f, '外装')]];
+    case 'cage': return [`${f}階 柱の配筋　${NX[info.ix]}-${NZ[info.iz]}通り`, ['鉄筋を組んでいるところ（このあと型枠→コンクリート）', floorLine(f, '躯体')]];
+    case 'form': return [`${f}階 柱の型枠　${NX[info.ix]}-${NZ[info.iz]}通り`, ['型枠を建てたところ（このあとコンクリートを打つ）', floorLine(f, '躯体')]];
+    case 'deck': return [`${f}階 床の型枠・支保工`, ['型枠の上に配筋して、このあと床のコンクリートを打つ', floorLine(f, '床')]];
     case 'rebar': return [`${f}階 柱の鉄筋　${NX[info.ix]}-${NZ[info.iz]}通り`, [floorLine(f, '躯体'), f < NF ? floorLine(f + 1, '床') : '']];
     case 'slab': return [`${f}階 床　${NX[info.i]}〜${NX[info.i + 1]}／${NZ[info.j]}〜${NZ[info.j + 1]}通り`, [floorLine(f, '床'), floorLine(f, '躯体')]];
     case 'roof': return [`屋上（${f}階の上）`, [floorLine(f, '躯体')]];
@@ -3586,44 +4003,120 @@ function zoneHit(z, obs) {
 
 // --- 車の形 ---
 function hb(g, mat, w, h, d, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; }
+// 角を丸めた箱・タイヤ（ホイールつき）・キャブなど、車を作る部品
+function rb(g, mat, w, h, d, x, y, z, r = 0.08) { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2.1, h / 2.1, d / 2.1)), mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; }
+const VM = {
+  tire: std({ color: '#1d1f22', roughness: 0.85 }),
+  rim: std({ color: '#c9ced3', metalness: 0.85, roughness: 0.3 }),
+  chassis: std({ color: '#26292d', metalness: 0.5, roughness: 0.6 }),
+  chrome: std({ color: '#dfe3e6', metalness: 0.95, roughness: 0.18 }),
+  grille: std({ color: '#2b2e33', metalness: 0.6, roughness: 0.45 }),
+  lamp: new THREE.MeshStandardMaterial({ color: '#fff7e0', emissive: '#fff2cc', emissiveIntensity: 0.8 }),
+  tail: new THREE.MeshStandardMaterial({ color: '#c0281e', emissive: '#ff2010', emissiveIntensity: 0.6 }),
+  amber: new THREE.MeshStandardMaterial({ color: '#f39a1e', emissive: '#ff8a00', emissiveIntensity: 0.4 }),
+  glassDark: std({ color: '#263544', metalness: 0.9, roughness: 0.08, envMapIntensity: 1.3 }),
+  drum: std({ map: tex((() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#ebe7dc'; g.fillRect(0, 0, 256, 64);
+    g.fillStyle = '#e8891c';
+    for (let x = -64; x < 256; x += 64) { g.beginPath(); g.moveTo(x, 64); g.lineTo(x + 24, 64); g.lineTo(x + 88, 0); g.lineTo(x + 64, 0); g.fill(); } // らせんの模様
+    return c;
+  })()), metalness: 0.35, roughness: 0.4 }),
+};
+function wheelSet(g, z, W, r = 0.5, dual = false) { // 左右のタイヤ（後ろはダブルタイヤ）
+  const tire = GEO['tire' + r] ||= new THREE.CylinderGeometry(r, r, 0.32, 18).rotateZ(Math.PI / 2);
+  const rim = GEO['rim' + r] ||= new THREE.CylinderGeometry(r * 0.55, r * 0.55, 0.34, 12).rotateZ(Math.PI / 2);
+  for (const s of [-1, 1]) for (const k of dual ? [0, 1] : [0]) {
+    const x = s * (W / 2 - 0.2 - k * 0.34);
+    const t = new THREE.Mesh(tire, VM.tire); t.position.set(x, r, z); t.castShadow = true; g.add(t);
+    if (k === 0) { const m = new THREE.Mesh(rim, VM.rim); m.position.set(x + s * 0.01, r, z); g.add(m); }
+  }
+}
+function cab(g, W, front, color, h = 2.2, len = 2.1) { // キャブ：窓・ミラー・バンパー・ライト・グリル
+  const y0 = 0.95, zc = front - len / 2;
+  rb(g, color, W, h, len, 0, y0 + h / 2, zc, 0.22);
+  rb(g, VM.glassDark, W - 0.12, h * 0.36, 0.06, 0, y0 + h * 0.7, front + 0.005, 0.03); // フロントガラス
+  for (const s of [-1, 1]) {
+    rb(g, VM.glassDark, 0.05, h * 0.32, len * 0.55, s * (W / 2 + 0.005), y0 + h * 0.7, zc + len * 0.12, 0.02); // 横の窓
+    hb(g, VM.chassis, 0.45, 0.04, 0.04, s * (W / 2 + 0.2), y0 + h * 0.72, front - 0.2); // ミラーの腕
+    rb(g, VM.chassis, 0.08, 0.38, 0.22, s * (W / 2 + 0.42), y0 + h * 0.66, front - 0.2, 0.03); // ミラー
+    hb(g, VM.lamp, 0.34, 0.14, 0.04, s * (W / 2 - 0.35), y0 + 0.28, front + 0.03); // ライト
+    hb(g, VM.amber, 0.12, 0.08, 0.03, s * (W / 2 - 0.1), y0 + 0.28, front + 0.03);
+    hb(g, VM.chassis, 0.4, 0.06, 0.25, s * (W / 2 - 0.25), y0 - 0.25, front - 0.6); // ステップ
+  }
+  rb(g, VM.grille, W * 0.6, h * 0.28, 0.04, 0, y0 + h * 0.3, front + 0.02, 0.02);
+  rb(g, VM.chassis, W + 0.06, 0.32, 0.22, 0, y0 - 0.05, front + 0.05, 0.05); // バンパー
+  for (const x of [-0.5, 0, 0.5]) hb(g, VM.amber, 0.14, 0.05, 0.08, x, y0 + h + 0.02, zc + len * 0.35); // 屋根のマーカー
+}
+function chassis(g, v, front, rear) { // フレーム・燃料タンク・泥よけ・テールランプ
+  for (const s of [-1, 1]) hb(g, VM.chassis, 0.16, 0.28, front - rear - 0.4, s * 0.45, 0.85, (front + rear) / 2);
+  const tank = new THREE.Mesh(GEO.tank ||= new THREE.CylinderGeometry(0.28, 0.28, 1.1, 14).rotateX(Math.PI / 2), VM.chrome);
+  tank.position.set(v.W / 2 - 0.35, 0.75, front - 3.0); g.add(tank);
+  for (const s of [-1, 1]) { hb(g, VM.tail, 0.25, 0.1, 0.04, s * (v.W / 2 - 0.25), 0.95, rear - 0.02); hb(g, VM.chassis, 0.5, 0.04, 0.6, s * (v.W / 2 - 0.25), 1.12, 0); }
+}
 function vehMesh(key) {
-  const v = VEH[key], g = new THREE.Group(), front = v.L - v.oh, rear = -v.oh, mid = (front + rear) / 2;
-  const wheel = new THREE.CylinderGeometry(key === 'rough' ? 0.65 : 0.5, key === 'rough' ? 0.65 : 0.5, 0.4, 14).rotateZ(Math.PI / 2);
-  const wheels = (grp, zs, W) => zs.forEach(z => [-1, 1].forEach(s => { const m = new THREE.Mesh(wheel, M.track); m.position.set(s * (W / 2 - 0.25), wheel.parameters.radiusTop, z); grp.add(m); }));
-  hb(g, HM.deck, v.W - 0.4, 0.35, v.L - 0.4, 0, 0.85, mid);
-  const cabMat = { t10: HM.blue, trailer: HM.red, pump: M.pumpBody, rough: M.crane }[key] || HM.white;
-  if (key === 'rough') {
-    hb(g, M.crane, v.W, 1.0, v.L - 0.6, 0, 1.5, mid);
-    hb(g, cabMat, 1.0, 1.5, 1.8, -v.W / 2 + 0.55, 2.6, front - 1.6);
-    hb(g, M.glass, 0.05, 0.8, 1.4, -v.W / 2 + 0.03, 2.8, front - 1.6);
-    hb(g, M.crane, 0.9, 0.9, 9.5, 0.4, 2.5, mid + 0.6); // たたんだブーム
-    hb(g, HM.deck, 2.0, 0.8, 2.4, 0.2, 2.4, rear + 1.4); // カウンターウェイト
+  const v = VEH[key], g = new THREE.Group(), front = v.L - v.oh, rear = -v.oh;
+  const dual = key === 't10' || key === 'mixer' || key === 'pump';
+  const r = key === 'rough' ? 0.66 : 0.5;
+  if (key !== 'rough') chassis(g, v, front, rear);
+  const cabMat = { t10: HM.blue, trailer: HM.red, pump: M.pumpBody, mixer: HM.white }[key] || HM.white;
+  if (key === 'rough') { // ラフタークレーン：車体・小さな運転席・伸び縮みするブーム・フック
+    rb(g, M.crane, v.W, 1.1, v.L - 0.4, 0, 1.45, (front + rear) / 2, 0.12);
+    for (const z of [rear + 0.8, front - 0.8]) for (const s of [-1, 1]) hb(g, VM.chassis, 0.6, 0.3, 0.5, s * (v.W / 2 + 0.15), 1.1, z); // アウトリガーの箱
+    const deckY = 2.0, tz = rear + 3.2;
+    rb(g, VM.chassis, 2.0, 0.5, 2.0, 0, deckY + 0.25, tz, 0.08); // 旋回台
+    rb(g, M.crane, 1.0, 1.6, 1.8, -v.W / 2 + 0.55, deckY + 0.8, front - 1.6, 0.12); // 運転席
+    rb(g, VM.glassDark, 0.05, 0.8, 1.3, -v.W / 2 + 0.04, deckY + 1.05, front - 1.6, 0.02);
+    rb(g, VM.glassDark, 0.9, 0.7, 0.05, -v.W / 2 + 0.55, deckY + 1.05, front - 0.68, 0.02);
+    rb(g, HM.deck, 2.0, 0.9, 1.2, 0.2, deckY + 0.75, rear + 1.0, 0.06); // カウンターウェイト
+    const boom = new THREE.Group(); boom.position.set(0.35, deckY + 0.9, tz); boom.rotation.x = -0.08; g.add(boom);
+    [[0.95, 0.85, 0], [0.8, 0.7, 2.5], [0.65, 0.55, 5.0]].forEach(([w, h, z0]) => rb(boom, M.crane, w, h, 6.0, 0, 0, z0 + 3.0, 0.06)); // ブームの段
+    hb(boom, VM.chassis, 0.5, 0.5, 0.4, 0, 0, 11.2);
+    rb(g, VM.chassis, 0.45, 0.6, 0.35, 0.35, 2.0, front + 1.1, 0.05); // フック
   } else {
-    hb(g, cabMat, v.W, 2.3, 2.2, 0, 2.0, front - 1.1);
-    hb(g, M.glass, v.W - 0.2, 0.9, 0.05, 0, 2.55, front + 0.01);
+    cab(g, v.W, front, cabMat, key === 'trailer' ? 2.5 : 2.2, key === 'trailer' ? 2.4 : 2.1);
   }
-  if (key === 't4' || key === 't10') {
-    const len = v.L - 2.5, c = rear + len / 2;
-    hb(g, HM.deck, v.W, 0.15, len, 0, 1.3, c);
-    for (const s of [-1, 1]) hb(g, HM.white, 0.06, 0.4, len, s * (v.W / 2 - 0.03), 1.55, c);
-    for (const x of [-0.6, 0, 0.6]) hb(g, M.rebar, 0.5, 0.4, len - 0.6, x, 1.6, c); // 鉄筋の束
-  } else if (key === 'mixer') {
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.2, 4.0, 18).rotateX(Math.PI / 2), HM.drum);
-    drum.position.set(0, 2.3, rear + 2.8); drum.rotation.x = -0.2; drum.castShadow = true; g.add(drum);
-  } else if (key === 'pump') {
-    hb(g, M.pumpBody, v.W, 1.2, 5.0, 0, 1.6, rear + 3.0);
-    hb(g, M.pumpBody, 0.5, 0.5, 8.0, 0, 2.6, rear + 4.3);
+  if (key === 't4' || key === 't10') { // 平ボディ：荷台・あおり・鳥居・積み荷
+    const len = v.L - 2.6, c = rear + len / 2, top = 1.3;
+    rb(g, HM.deck, v.W, 0.16, len, 0, top, c, 0.02);
+    for (const s of [-1, 1]) {
+      hb(g, VM.chrome, 0.04, 0.42, len, s * (v.W / 2 - 0.02), top + 0.29, c); // あおり
+      for (let z = c - len / 2 + 0.6; z < c + len / 2; z += 1.2) hb(g, VM.chassis, 0.05, 0.42, 0.05, s * (v.W / 2), top + 0.29, z);
+    }
+    hb(g, VM.chrome, v.W, 0.42, 0.04, 0, top + 0.29, rear + 0.02);
+    for (const s of [-1, 1]) hb(g, VM.chrome, 0.08, 1.4, 0.08, s * (v.W / 2 - 0.1), top + 0.75, c + len / 2 - 0.05); // 鳥居
+    hb(g, VM.chrome, v.W, 0.08, 0.08, 0, top + 1.45, c + len / 2 - 0.05);
+    for (const x of [-0.55, 0, 0.55]) rb(g, M.rebar, 0.5, 0.38, len - 0.7, x, top + 0.28, c, 0.08); // 鉄筋の束
+    for (const z of [c - len / 3, c, c + len / 3]) hb(g, HM.blue, v.W + 0.02, 0.02, 0.05, 0, top + 0.48, z); // ラッシングベルト
+  } else if (key === 'mixer') { // 生コン車：模様のあるドラム・シュート・はしご
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.25, 4.2, 24).rotateX(Math.PI / 2), VM.drum);
+    drum.position.set(0, 2.25, rear + 2.7); drum.rotation.x = -0.18; drum.castShadow = true; g.add(drum);
+    hb(g, VM.chassis, 0.4, 0.6, 0.2, 0, 1.6, rear + 0.3);
+    rb(g, VM.chrome, 0.35, 0.08, 1.4, 0, 1.25, rear - 0.5, 0.02); // シュート
+    for (const s of [-1, 1]) hb(g, VM.chrome, 0.04, 1.8, 0.04, s * 0.2, 1.9, rear + 0.1);
+    for (let y = 1.2; y < 2.8; y += 0.3) hb(g, VM.chrome, 0.44, 0.03, 0.03, 0, y, rear + 0.1); // はしご
+  } else if (key === 'pump') { // ポンプ車：本体・たたんだブーム・ホッパー・アウトリガー
+    rb(g, M.pumpBody, v.W, 1.1, 4.6, 0, 1.6, rear + 3.2, 0.1);
+    for (let k = 0; k < 3; k++) rb(g, M.pumpBody, 0.45, 0.45, 7.6 - k * 0.6, 0, 2.45 + k * 0.5, rear + 4.2 + k * 0.2, 0.05);
+    rb(g, VM.chassis, 1.4, 0.7, 0.9, 0, 1.2, rear + 0.3, 0.06); // ホッパー
+    for (const z of [rear + 1.8, front - 2.6]) for (const s of [-1, 1]) hb(g, M.pumpBody, 0.5, 0.3, 0.4, s * (v.W / 2 + 0.1), 1.0, z);
   } else if (key === 'trailer') {
-    hb(g, HM.deck, 1.6, 0.2, 1.2, 0, 1.15, 0.3); // カプラー
+    rb(g, VM.chassis, 1.6, 0.2, 1.3, 0, 1.15, 0.3, 0.03); // カプラー
   }
-  wheels(g, v.wheels, v.W);
+  // タイヤ（前は1本、後ろはダブル）
+  v.wheels.forEach(z => wheelSet(g, z, v.W, r, (dual || key === 't4' || key === 'trailer') && z < v.wb - 0.1));
   let tg = null;
-  if (v.trailer) {
-    const T = v.trailer;
+  if (v.trailer) { // トレーラーの荷台：鉄骨を積んで、後ろは3軸
+    const T = v.trailer, zc = T.front - T.len / 2;
     tg = new THREE.Group();
-    hb(tg, HM.deck, v.W, 0.25, T.len, 0, 1.35, T.front - T.len / 2);
-    for (const x of [-0.8, 0, 0.8]) hb(tg, M.hsteel, 0.4, 0.45, T.len - 1.2, x, 1.72, T.front - T.len / 2); // 鉄骨
-    wheels(tg, [-T.Lt - 0.7, -T.Lt + 0.7], v.W);
+    rb(tg, HM.deck, v.W, 0.28, T.len, 0, 1.35, zc, 0.03);
+    for (const s of [-1, 1]) hb(tg, VM.chassis, 0.2, 0.4, T.len - 0.4, s * 0.5, 1.0, zc);
+    for (const x of [-0.75, 0, 0.75]) { // 鉄骨（H形）
+      hb(tg, M.hsteel, 0.4, 0.04, T.len - 1.4, x, 1.53, zc); hb(tg, M.hsteel, 0.04, 0.36, T.len - 1.4, x, 1.71, zc); hb(tg, M.hsteel, 0.4, 0.04, T.len - 1.4, x, 1.89, zc);
+    }
+    for (const z of [-T.Lt - 1.3, -T.Lt, -T.Lt + 1.3]) wheelSet(tg, z, v.W, 0.5, true);
+    for (const s of [-1, 1]) hb(tg, VM.tail, 0.25, 0.1, 0.04, s * (v.W / 2 - 0.25), 1.15, T.front - T.len - 0.02);
   }
   return { g, tg };
 }
@@ -3914,30 +4407,69 @@ $('walkBtn').addEventListener('click', haulClose);
 $('arBtn').addEventListener('click', haulClose);
 
 // ===== 現場の動き（場内を歩く作業員・前の道路の車・資材を運んでくるトラック） =====
-function workerMesh() {
-  const g = new THREE.Group(), legs = [];
+const WM = {
+  vest: std({ map: tex((() => { // 反射テープつきのベスト
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#c6ec4a'; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#e8eef0'; g.fillRect(0, 20, 64, 7); g.fillRect(0, 40, 64, 7);
+    return c;
+  })()), roughness: 0.6, emissive: '#2a3600', emissiveIntensity: 0.35 }),
+  boot: std({ color: '#2a2724', roughness: 0.8 }),
+  belt: std({ color: '#2a2f38', roughness: 0.7 }),
+  glove: std({ color: '#e9e4d6', roughness: 0.9 }),
+};
+function workerMesh(vestMat = WM.vest, hatMat = M.helmet) { // 腕と脚が動く作業員（ヘルメット・反射ベスト・安全帯）
+  const g = new THREE.Group(), legs = [], arms = [];
+  const seg = (mat, w, h, d, y) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.y = y; m.castShadow = true; return m; };
   for (const s of [-1, 1]) {
-    const hip = new THREE.Group(); hip.position.set(s * 0.1, 0.85, 0);
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.82, 0.2), M.navy); leg.position.y = -0.41; leg.castShadow = true;
-    hip.add(leg); g.add(hip); legs.push(hip);
+    const hip = new THREE.Group(); hip.position.set(s * 0.1, 0.9, 0);
+    hip.add(seg(M.navy, 0.15, 0.46, 0.18, -0.23));
+    const knee = new THREE.Group(); knee.position.y = -0.46; hip.add(knee);
+    knee.add(seg(M.navy, 0.13, 0.4, 0.16, -0.2));
+    const boot = seg(WM.boot, 0.14, 0.1, 0.28, -0.42); boot.position.z = 0.04; knee.add(boot);
+    g.add(hip); legs.push({ hip, knee });
+    const sh = new THREE.Group(); sh.position.set(s * 0.27, 1.38, 0);
+    sh.add(seg(WM.vest === vestMat ? M.navy : vestMat, 0.1, 0.32, 0.12, -0.16));
+    const el = new THREE.Group(); el.position.y = -0.32; sh.add(el);
+    el.add(seg(M.navy, 0.09, 0.28, 0.1, -0.14));
+    el.add(seg(WM.glove, 0.09, 0.09, 0.1, -0.31));
+    g.add(sh); arms.push(sh);
   }
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.28), M.vest); body.position.y = 1.15; body.castShadow = true;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), M.skin); head.position.y = 1.58;
-  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.helmet); hat.position.y = 1.62;
-  g.add(body, head, hat);
-  return { g, legs };
+  g.add(seg(vestMat, 0.42, 0.56, 0.25, 1.15)); // 胴（ベスト）
+  g.add(seg(WM.belt, 0.44, 0.08, 0.27, 0.9)); // 安全帯
+  const hook = seg(VM.chrome, 0.06, 0.12, 0.04, 0.84); hook.position.x = 0.18; hook.position.z = -0.14; g.add(hook);
+  const neck = seg(M.skin, 0.1, 0.08, 0.1, 1.46); g.add(neck);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 10), M.skin); head.position.y = 1.6; head.scale.set(1, 1.1, 1); g.add(head);
+  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), hatMat); hat.position.y = 1.64; hat.castShadow = true; g.add(hat);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.015, 18), hatMat); brim.position.set(0, 1.645, 0.02); g.add(brim);
+  return { g, legs, arms };
+}
+function poseWorker(p, sw) { // 歩く：脚と腕を前後に振る（ひざも少し曲げる）
+  p.legs[0].hip.rotation.x = sw; p.legs[1].hip.rotation.x = -sw;
+  p.legs[0].knee.rotation.x = Math.max(0, -sw) * 0.9; p.legs[1].knee.rotation.x = Math.max(0, sw) * 0.9;
+  p.arms[0].rotation.x = -sw * 0.8; p.arms[1].rotation.x = sw * 0.8;
 }
 const CAR_COLORS = ['#f2f2ef', '#2d2f33', '#9aa3ab', '#8a1f24', '#2f4f7a', '#d8d2c2'];
 function carMesh(color) {
-  const g = new THREE.Group(), body = std({ color, metalness: 0.6, roughness: 0.35 });
-  hb(g, body, 1.75, 0.7, 4.4, 0, 0.62, 0);
-  hb(g, body, 1.6, 0.55, 2.3, 0, 1.22, -0.25);
-  hb(g, M.glass, 1.62, 0.42, 2.1, 0, 1.24, -0.25);
-  const lamp = new THREE.MeshStandardMaterial({ color: '#fff6dd', emissive: '#fff2cc', emissiveIntensity: 1.5 });
-  const tail = new THREE.MeshStandardMaterial({ color: '#c0281e', emissive: '#ff2010', emissiveIntensity: 1.2 });
-  for (const s of [-0.6, 0.6]) { hb(g, lamp, 0.3, 0.12, 0.05, s, 0.75, 2.2); hb(g, tail, 0.3, 0.12, 0.05, s, 0.8, -2.2); }
-  const wheel = new THREE.CylinderGeometry(0.33, 0.33, 0.24, 14).rotateZ(Math.PI / 2);
-  for (const sx of [-0.88, 0.88]) for (const sz of [-1.4, 1.4]) { const w = new THREE.Mesh(wheel, M.track); w.position.set(sx, 0.33, sz); g.add(w); }
+  const g = new THREE.Group(), body = std({ color, metalness: 0.7, roughness: 0.28, envMapIntensity: 1.1 });
+  rb(g, body, 1.76, 0.62, 4.4, 0, 0.66, 0, 0.22); // 車体
+  rb(g, body, 1.58, 0.56, 2.2, 0, 1.2, -0.3, 0.2); // 屋根まわり
+  rb(g, VM.glassDark, 1.6, 0.4, 2.0, 0, 1.2, -0.3, 0.15); // 窓
+  rb(g, VM.grille, 1.0, 0.16, 0.05, 0, 0.6, 2.2, 0.02);
+  for (const s of [-1, 1]) {
+    hb(g, VM.lamp, 0.36, 0.12, 0.05, s * 0.6, 0.78, 2.19);
+    hb(g, VM.tail, 0.34, 0.12, 0.05, s * 0.6, 0.82, -2.19);
+    rb(g, body, 0.1, 0.12, 0.18, s * 0.93, 1.0, 0.75, 0.03); // ミラー
+  }
+  for (const z of [-1.4, 1.4]) {
+    const tire = GEO.carTire ||= new THREE.CylinderGeometry(0.33, 0.33, 0.24, 16).rotateZ(Math.PI / 2);
+    const rim = GEO.carRim ||= new THREE.CylinderGeometry(0.2, 0.2, 0.25, 12).rotateZ(Math.PI / 2);
+    for (const s of [-1, 1]) {
+      const t = new THREE.Mesh(tire, VM.tire); t.position.set(s * 0.8, 0.33, z); g.add(t);
+      const m = new THREE.Mesh(rim, VM.rim); m.position.set(s * 0.81, 0.33, z); g.add(m);
+    }
+  }
   return g;
 }
 function buildLife() {
@@ -3983,12 +4515,15 @@ function fadeCity() {
     const dx = b.position.x - controls.target.x, dz = b.position.z - controls.target.z;
     const along = dx * _cd.x + dz * _cd.z;
     const hide = along > R * 0.3 && along < camD + b.userData.r; // カメラ側のビルは全部
-    const m = b.material, to = hide ? 0 : 1;
-    m.opacity += (to - m.opacity) * 0.25;
-    const tr = m.opacity < 0.98;
-    if (tr !== m.transparent) { m.transparent = tr; m.depthWrite = !tr; m.needsUpdate = true; }
-    b.castShadow = !tr;
-    b.visible = m.opacity > 0.04;
+    const ms = Array.isArray(b.material) ? b.material : [b.material], to = hide ? 0 : 1; // 本物の街の建物は屋根と壁の2つ
+    let op = 1;
+    for (const m of ms) {
+      m.opacity += (to - m.opacity) * 0.25; op = m.opacity;
+      const tr = m.opacity < 0.98;
+      if (tr !== m.transparent) { m.transparent = tr; m.depthWrite = !tr; m.needsUpdate = true; }
+    }
+    b.castShadow = op >= 0.98;
+    b.visible = op > 0.04;
   }
 }
 function lifeActive() {
@@ -4016,11 +4551,12 @@ function stepLife() {
     else { d -= 2 * hx; x = -hx; z = -hz + d; a = 0; }
     p.g.position.set(x, 0, z); p.g.rotation.y = p.dir > 0 ? a : a + Math.PI;
     const sw = p.pause > 0 ? 0 : Math.sin(now / 1000 * 7 * p.speed) * 0.45;
-    p.legs[0].rotation.x = sw; p.legs[1].rotation.x = -sw;
+    poseWorker(p, sw);
   }
   // 道路の車
   const C = GF.C, xa = C.x1 - 70, xb = C.x2 + 70;
   for (const c of life.cars) {
+    c.g.visible = !CFG.place; // 本物の街では、道路の向きがわからないので走らせない
     c.x += (c.lane ? -1 : 1) * c.speed * dt;
     if (c.x > xb) c.x = xa; if (c.x < xa) c.x = xb;
     const [x, z] = GF.toW(c.x, C.z2 + (c.lane ? 12 : 6));
