@@ -3981,10 +3981,10 @@ function fadeCity() {
   for (const b of cityGroup.children) {
     if (!b.isMesh || !b.userData.r) continue;
     const dx = b.position.x - controls.target.x, dz = b.position.z - controls.target.z;
-    const along = dx * _cd.x + dz * _cd.z, side = Math.abs(dx * _cd.z - dz * _cd.x);
-    const hide = along > R * 0.3 && along < camD + b.userData.r && side < b.userData.r + R * 1.4;
+    const along = dx * _cd.x + dz * _cd.z;
+    const hide = along > R * 0.3 && along < camD + b.userData.r; // カメラ側のビルは全部
     const m = b.material, to = hide ? 0 : 1;
-    m.opacity += (to - m.opacity) * 0.15;
+    m.opacity += (to - m.opacity) * 0.25;
     const tr = m.opacity < 0.98;
     if (tr !== m.transparent) { m.transparent = tr; m.depthWrite = !tr; m.needsUpdate = true; }
     b.castShadow = !tr;
