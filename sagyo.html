@@ -166,6 +166,8 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
 #memberPanel .mhelp{font-size:13px;color:var(--sub);margin-top:8px;line-height:1.7}
 /* 優先度バッジ */
 .badge.prio{margin-left:0;border:1px solid currentColor}.badge.prio-0{background:var(--late);color:var(--danger)}.badge.prio-1{color:var(--primary)}.badge.prio-2{color:var(--sub)}
+/* 登録日時 */
+.item .created{font-size:14px;color:var(--sub);margin-top:4px}
 
   </style>
 </head>
@@ -254,6 +256,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
       <option value="date">期限順</option>
       <option value="work">作業内容順</option>
       <option value="gyosha">業者順</option>
+      <option value="created">登録が新しい順</option>
     </select>
     </div><div><label for="showDone">表示する作業</label><select id="showDone" onchange="render()">
       <option value="open">未完了のみ</option>
@@ -406,6 +409,16 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
     function isDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s || ''); }
     function dateKey(s) { return isDate(s) ? s : (s === '未定' ? '9998' : '9999'); } // 未定は末尾
     function prioOf(r) { return ['高','中','低'].includes(r['優先度']) ? r['優先度'] : '中'; } // 未入力は中
+    // 登録日時: GASからは 'yyyy-MM-dd HH:mm'(古い行は 'yyyy/MM/dd HH:mm:ss' のこともある)
+    function parseCreated(r) {
+      const m = String(r['登録日時'] || '').match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
+      return m ? { y: m[1], mo: m[2].padStart(2,'0'), d: m[3].padStart(2,'0'), h: m[4] || '', mi: m[5] || '' } : null;
+    }
+    function createdKey(r) { const c = parseCreated(r); return c ? `${c.y}-${c.mo}-${c.d} ${c.h.padStart(2,'0')}:${c.mi}` : ''; }
+    function createdLabel(r) {
+      const c = parseCreated(r); if (!c) return '';
+      return fmtJp(`${c.y}-${c.mo}-${c.d}`) + (c.h ? ` ${+c.h}:${c.mi}` : '');
+    }
     function prioRank(r) { return { '高': 0, '中': 1, '低': 2 }[prioOf(r)]; }
 
     function getFiltered() {
@@ -423,6 +436,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
         if (sortKey === 'date')   return dateKey(a['期限']).localeCompare(dateKey(b['期限']));
         if (sortKey === 'work')   return String(a['作業内容']).localeCompare(String(b['作業内容']), 'ja');
         if (sortKey === 'gyosha') return String(a['業者']).localeCompare(String(b['業者']), 'ja') || dateKey(a['期限']).localeCompare(dateKey(b['期限']));
+        if (sortKey === 'created') return createdKey(b).localeCompare(createdKey(a));
         return 0;
       });
       return list;
@@ -457,6 +471,7 @@ body{max-width:1400px;font-size:16px;line-height:1.75}
             <span class="tags"><span class="badge prio prio-${prioRank(r)}">優先度：${prioOf(r)}</span>${torokuTag(who)}<span class="gyosha">${esc(r['業者'])}</span></span>
           </div>
           <div class="work">${esc(r['作業内容'])}</div>
+          ${createdLabel(r) ? `<div class="created">登録:${esc(createdLabel(r))}</div>` : ''}
           ${r['備考'] ? `<div class="memo"><span class="memo-caption">備考</span>${esc(r['備考'])}</div>` : ''}
           ${filesHtml(r['添付'])}
           ${acts}
