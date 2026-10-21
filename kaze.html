@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>今の風速</title>
+<meta name="color-scheme" content="light dark">
+<style>
+:root{color-scheme:light;--bg:#f1f3f6;--paper:#fff;--field:#f7f8fa;--ink:#24272e;--muted:#69707d;--line:#dfe3ea;--accent:#2f6fd6;--soft:#e6eefc;--gust:#c0392b}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#14161b;--paper:#1f222a;--field:#191c23;--ink:#eef1f6;--muted:#a7aebb;--line:#363b47;--accent:#8db4ff;--soft:#26324a;--gust:#ff9a8f}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px;color:var(--ink);background:var(--bg);line-height:1.7}
+.app{max-width:560px;margin:auto;padding:20px 16px 40px}
+h1{font-size:20px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px 16px;margin-top:18px}
+label{display:block;font-size:16px;font-weight:600;color:var(--muted);margin-bottom:6px}
+select{width:100%;min-height:50px;padding:12px 14px;font:inherit;font-size:18px;font-weight:700;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink)}
+select:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+button{font:inherit;font-size:16px;width:100%;min-height:50px;margin-top:12px;padding:12px 16px;font-weight:600;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
+button.main{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+button:disabled{opacity:.6}
+.place{font-size:16px;font-weight:600;color:var(--muted)}
+.result{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 0}
+.result+.result{border-top:1px solid var(--line)}
+.result span{font-size:16px;font-weight:600;color:var(--muted)}
+.result strong{font-size:30px;text-align:right}
+.result small{font-size:16px;font-weight:600}
+#gust{color:var(--gust)}
+h2{font-size:16px;font-weight:700;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:16px}
+th,td{padding:10px 6px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600}
+td.g{color:var(--gust)}
+.note{font-size:16px;color:var(--muted);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>今の風速</h1>
+
+  <div class="card">
+    <label for="city">場所を選ぶ</label>
+    <select id="city">
+      <option value="35.8325,140.1458">印西市</option>
+      <option value="35.7917,140.0561">白井市</option>
+      <option value="35.7764,140.3183">成田市</option>
+      <option value="35.8642,140.0281">我孫子市</option>
+      <option value="35.7239,140.2242">佐倉市</option>
+      <option value="35.7225,140.0997">八千代市</option>
+    </select>
+    <button id="load" class="main" type="button">この場所の風を調べる</button>
+    <button id="here" type="button">今いる場所で調べる</button>
+  </div>
+
+  <div class="card">
+    <p class="place" id="place">-</p>
+    <div class="result"><span>風速</span><strong id="speed">-</strong></div>
+    <div class="result"><span>最大瞬間風速</span><strong id="gust">-</strong></div>
+    <div class="result"><span>風の向き</span><strong id="dir">-</strong></div>
+    <p class="note" id="msg"></p>
+  </div>
+
+  <div class="card">
+    <h2>このあと6時間</h2>
+    <table>
+      <thead><tr><th>時刻</th><th>風速</th><th>最大瞬間</th></tr></thead>
+      <tbody id="hours"><tr><td colspan="3">-</td></tr></tbody>
+    </table>
+    <p class="note">数字は Open-Meteo の予報モデルの値です。現場の風速計の値を優先してください。</p>
+  </div>
+</div>
+
+<script>
+const cityEl = document.getElementById('city');
+const loadBtn = document.getElementById('load');
+const hereBtn = document.getElementById('here');
+const placeEl = document.getElementById('place');
+const speedEl = document.getElementById('speed');
+const gustEl = document.getElementById('gust');
+const dirEl = document.getElementById('dir');
+const msgEl = document.getElementById('msg');
+const hoursEl = document.getElementById('hours');
+
+const DIRS = ['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+
+// 角度(0〜360)を16方位にする。風は「吹いてくる向き」
+function dirName(deg) {
+  return DIRS[Math.round(deg / 22.5) % 16];
+}
+
+function ms(n) {
+  return n.toFixed(1) + '<small> m/s</small>';
+}
+
+// "2026-10-21T11:30" → "11:30"
+function hhmm(t) {
+  return t.slice(11, 16);
+}
+
+function setBusy(busy) {
+  loadBtn.disabled = busy;
+  hereBtn.disabled = busy;
+}
+
+async function load(lat, lon, name) {
+  setBusy(true);
+  msgEl.textContent = '調べています…';
+  try {
+    const url = 'https://api.open-meteo.com/v1/forecast'
+      + '?latitude=' + lat + '&longitude=' + lon
+      + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m'
+      + '&hourly=wind_speed_10m,wind_gusts_10m&forecast_hours=7'
+      + '&wind_speed_unit=ms&timezone=Asia%2FTokyo';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    const c = d.current;
+
+    placeEl.textContent = name + '(' + hhmm(c.time) + ' 時点)';
+    speedEl.innerHTML = ms(c.wind_speed_10m);
+    gustEl.innerHTML = ms(c.wind_gusts_10m);
+    dirEl.textContent = dirName(c.wind_direction_10m);
+    msgEl.textContent = '';
+
+    // 1件目は今の時間帯なので、その次から6件出す
+    const h = d.hourly;
+    let rows = '';
+    for (let i = 1; i < h.time.length; i++) {
+      rows += '<tr><td>' + hhmm(h.time[i]) + '</td>'
+        + '<td>' + h.wind_speed_10m[i].toFixed(1) + ' m/s</td>'
+        + '<td class="g">' + h.wind_gusts_10m[i].toFixed(1) + ' m/s</td></tr>';
+    }
+    hoursEl.innerHTML = rows;
+  } catch (e) {
+    msgEl.textContent = '調べられませんでした。電波のいい所でもう一度押してください。';
+  }
+  setBusy(false);
+}
+
+function loadCity() {
+  const [lat, lon] = cityEl.value.split(',');
+  load(lat, lon, cityEl.options[cityEl.selectedIndex].text);
+}
+
+loadBtn.addEventListener('click', loadCity);
+cityEl.addEventListener('change', loadCity);
+
+hereBtn.addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    msgEl.textContent = 'この端末では今いる場所がわかりません。';
+    return;
+  }
+  msgEl.textContent = '今いる場所を調べています…';
+  navigator.geolocation.getCurrentPosition(
+    p => load(p.coords.latitude.toFixed(4), p.coords.longitude.toFixed(4), '今いる場所'),
+    () => { msgEl.textContent = '場所の許可がないので調べられません。上から場所を選んでください。'; },
+    { timeout: 10000 }
+  );
+});
+
+loadCity();
+</script>
+</body>
+</html>
