@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF QR作成</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    background: #f3f5f8; color: #222;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 4px 0 16px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .card {
+    background: #fff; border-radius: 12px; padding: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 16px;
+  }
+  label { display: block; font-weight: bold; font-size: 14px; margin: 12px 0 6px; }
+  label:first-child { margin-top: 0; }
+  input, textarea {
+    width: 100%; font-size: 16px; padding: 10px;
+    border: 1px solid #ccd; border-radius: 8px; font-family: inherit;
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  .msg { font-size: 13px; margin-top: 6px; min-height: 18px; }
+  .msg.err { color: #c62828; }
+  .msg.ok { color: #2e7d32; }
+  .hint { font-size: 12px; color: #777; margin-top: 4px; }
+
+  .thumbs {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+  .thumb {
+    background: #f6f7f9; border: 3px solid transparent; border-radius: 10px;
+    padding: 6px; cursor: pointer; text-align: center; font-family: inherit;
+  }
+  .thumb canvas { width: 100%; height: auto; display: block; border: 1px solid #ddd; background: #fff; }
+  .thumb span { display: block; font-size: 13px; font-weight: bold; margin-top: 6px; color: #333; }
+  .thumb.sel { border-color: #1565c0; background: #e3f0fd; }
+
+  .btns { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  button.act {
+    flex: 1; min-width: 120px; font-size: 16px; font-weight: bold;
+    padding: 14px; border: none; border-radius: 10px; cursor: pointer;
+    background: #1565c0; color: #fff; font-family: inherit;
+  }
+  button.act.sub { background: #455a64; }
+  button.act:disabled { opacity: .4; cursor: default; }
+  #previewNote { font-size: 13px; color: #c62828; margin-bottom: 8px; min-height: 18px; }
+  .print-area { text-align: center; }
+  .print-area img { width: 100%; max-width: 480px; border: 1px solid #ddd; }
+
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff; padding: 0; margin: 0; }
+    .no-print { display: none !important; }
+    .wrap { max-width: none; }
+    .card { box-shadow: none; padding: 0; margin: 0; border-radius: 0; }
+    .print-area img { width: 210mm; height: 297mm; max-width: none; border: none; display: block; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="no-print">PDF QR作成</h1>
+
+  <div class="card no-print">
+    <label for="url">DropboxのURL</label>
+    <input id="url" type="url" placeholder="https://www.dropbox.com/scl/fi/...">
+    <div id="urlMsg" class="msg"></div>
+
+    <label for="title">見出し</label>
+    <input id="title" type="text" value="協議会資料">
+    <div class="hint">空にすると見出しなしになります</div>
+
+    <label for="text">文言</label>
+    <textarea id="text">最新版はこちらを読み込んでください</textarea>
+    <div class="hint">改行するとそのまま改行されます</div>
+  </div>
+
+  <div class="card no-print">
+    <h2>デザインを選ぶ</h2>
+    <div id="thumbs" class="thumbs"></div>
+  </div>
+
+  <div class="card">
+    <div class="btns no-print">
+      <button id="btnPrint" class="act" disabled>印刷(A4)</button>
+      <button id="btnSave" class="act sub" disabled>画像保存</button>
+    </div>
+    <div id="previewNote" class="no-print"></div>
+    <div class="print-area"><img id="previewImg" alt="プレビュー"></div>
+  </div>
+</div>
+
+<script>
+// ===== 基本設定 =====
+const W = 1240, H = 1754; // A4縦(150dpi相当)
+const SANS = '"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif';
+const SERIF = '"Hiragino Mincho ProN","Yu Mincho","MS Mincho",serif';
+const SAMPLE_URL = 'https://www.dropbox.com/';
+const LOGO = new Image();
+LOGO.src = 'data:image/png;base64,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';
+
+// ===== 描画ヘルパー =====
+function setFont(ctx, size, weight, family) {
+  ctx.font = `${weight} ${size}px ${family}`;
+}
+function wrapLines(ctx, text, maxW) {
+  if (!text) return [];
+  const out = [];
+  text.split('\n').forEach(para => {
+    let line = '';
+    for (const ch of para) {
+      if (ctx.measureText(line + ch).width > maxW && line) {
+        out.push(line); line = ch;
+      } else line += ch;
+    }
+    out.push(line);
+  });
+  return out;
+}
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function bg(ctx, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, W, H);
+}
+function drawQR(ctx, qr, x, y, size) {
+  const m = size * 0.06;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x - m, y - m, size + m * 2, size + m * 2);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(qr, x, y, size, size);
+  ctx.imageSmoothingEnabled = true;
+}
+
+// 文字ブロック(中央揃え)
+function txt(ctx, text, size, color, o = {}) {
+  const weight = o.weight || 'bold';
+  const family = o.family || SANS;
+  const maxW = o.maxW || (W - 240);
+  const lh = size * (o.lh || 1.4);
+  setFont(ctx, size, weight, family);
+  const lines = wrapLines(ctx, text, maxW);
+  return {
+    h: lines.length * lh,
+    draw: y => {
+      setFont(ctx, size, weight, family);
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      lines.forEach((l, i) => ctx.fillText(l, W / 2, y + i * lh + (lh - size) / 2));
+    }
+  };
+}
+function gap(n) { return { h: n }; }
+function qrItem(ctx, qr, size, o = {}) {
+  const pad = o.pad || 0;
+  const it = {
+    qr: true, pad, h: size + pad * 2,
+    draw: y => {
+      const s = it.h - pad * 2;
+      if (o.card) {
+        const cw = s + pad * 2;
+        ctx.fillStyle = o.card;
+        rr(ctx, (W - cw) / 2, y, cw, it.h, o.radius || 0);
+        ctx.fill();
+      }
+      drawQR(ctx, qr, (W - s) / 2, y + pad, s);
+    }
+  };
+  return it;
+}
+function badge(ctx, label, bgc, fg, size) {
+  const h = size * 1.6;
+  return {
+    h,
+    draw: y => {
+      setFont(ctx, size, 'bold', SANS);
+      const w = ctx.measureText(label).width + size * 1.6;
+      ctx.fillStyle = bgc;
+      rr(ctx, (W - w) / 2, y, w, h, h * 0.2);
+      ctx.fill();
+      ctx.fillStyle = fg;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, W / 2, y + h / 2 + 2);
+    }
+  };
+}
+function hline(ctx, w, thick, color) {
+  return { h: thick, draw: y => { ctx.fillStyle = color; ctx.fillRect((W - w) / 2, y, w, thick); } };
+}
+// 縦に並べて中央配置(はみ出す時はQRを縮める)
+function stack(top, bottom, items) {
+  const avail = bottom - top;
+  let total = items.reduce((a, b) => a + b.h, 0);
+  if (total > avail) {
+    const q = items.find(i => i.qr);
+    if (q) {
+      q.h = Math.max(300 + q.pad * 2, q.h - (total - avail));
+      total = items.reduce((a, b) => a + b.h, 0);
+    }
+  }
+  let y = top + Math.max(0, (avail - total) / 2);
+  items.forEach(it => { if (it.draw) it.draw(y); y += it.h; });
+}
+
+// ===== デザイン一覧 =====
+const TEMPLATES = [
+  {
+    name: 'シンプル',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#fff');
+      stack(140, H - 140, [
+        txt(ctx, t, 110, '#111'),
+        gap(t ? 40 : 0),
+        t ? hline(ctx, 240, 8, '#111') : gap(0),
+        gap(70),
+        qrItem(ctx, qr, 760),
+        gap(80),
+        txt(ctx, s, 58, '#333', { weight: 'normal' })
+      ]);
+    }
+  },
+  {
+    name: '帯タイトル(青)',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#fff');
+      const ti = txt(ctx, t, 110, '#fff');
+      const bandH = Math.max(300, ti.h + 160);
+      ctx.fillStyle = '#185FA5';
+      ctx.fillRect(0, 0, W, bandH);
+      ti.draw((bandH - ti.h) / 2);
+      ctx.fillRect(0, H - 60, W, 60);
+      stack(bandH + 60, H - 120, [
+        txt(ctx, s, 62, '#0C447C'),
+        gap(70),
+        qrItem(ctx, qr, 780)
+      ]);
+    }
+  },
+  {
+    name: '現場掲示(トラ柄)',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#F5B800');
+      ctx.save();
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 60;
+      ctx.beginPath();
+      for (let i = -H; i < W + H; i += 170) {
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i + H, H);
+      }
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(80, 80, W - 160, H - 160);
+      stack(180, H - 180, [
+        badge(ctx, 'お知らせ', '#F5B800', '#222', 64),
+        gap(50),
+        txt(ctx, t, 100, '#111', { maxW: W - 360 }),
+        gap(60),
+        qrItem(ctx, qr, 680),
+        gap(60),
+        txt(ctx, s, 56, '#333', { maxW: W - 360 })
+      ]);
+    }
+  },
+  {
+    name: '読み取り案内つき',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#fff');
+      ctx.fillStyle = '#0F6E56';
+      ctx.fillRect(0, 0, W, 24);
+      ctx.fillRect(0, H - 24, W, 24);
+      const steps = {
+        h: 210,
+        draw: y => {
+          const labels = ['カメラを起動', 'QRにかざす', 'PDFが開く'];
+          const g = 30, bw = (W - 240 - g * 2) / 3;
+          labels.forEach((lb, i) => {
+            const x = 120 + i * (bw + g);
+            ctx.fillStyle = '#E1F5EE';
+            rr(ctx, x, y, bw, 210, 24);
+            ctx.fill();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = '#0F6E56';
+            setFont(ctx, 70, 'bold', SANS);
+            ctx.fillText(String(i + 1), x + bw / 2, y + 25);
+            ctx.fillStyle = '#085041';
+            setFont(ctx, 42, 'bold', SANS);
+            ctx.fillText(lb, x + bw / 2, y + 125);
+          });
+        }
+      };
+      stack(110, H - 100, [
+        txt(ctx, t, 100, '#111'),
+        gap(30),
+        txt(ctx, s, 56, '#333', { weight: 'normal' }),
+        gap(60),
+        qrItem(ctx, qr, 700),
+        gap(70),
+        steps
+      ]);
+    }
+  },
+  {
+    name: '重要(赤)',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#fff');
+      const b = badge(ctx, '重要', '#fff', '#C62828', 56);
+      const ti = txt(ctx, t, 104, '#fff');
+      const bandH = 80 + b.h + (t ? 40 + ti.h : 0) + 80;
+      ctx.fillStyle = '#C62828';
+      ctx.fillRect(0, 0, W, bandH);
+      b.draw(80);
+      if (t) ti.draw(80 + b.h + 40);
+      const si = txt(ctx, s, 58, '#B71C1C', { maxW: W - 360 });
+      const box = s ? {
+        h: si.h + 80,
+        draw: y => {
+          ctx.strokeStyle = '#C62828';
+          ctx.lineWidth = 8;
+          rr(ctx, 120, y, W - 240, si.h + 80, 24);
+          ctx.stroke();
+          si.draw(y + 40);
+        }
+      } : gap(0);
+      stack(bandH + 70, H - 90, [box, gap(70), qrItem(ctx, qr, 720)]);
+    }
+  },
+  {
+    name: 'ネイビー',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#0C2D4E');
+      stack(120, H - 120, [
+        txt(ctx, t, 104, '#fff'),
+        gap(60),
+        qrItem(ctx, qr, 680, { pad: 60, card: '#fff', radius: 40 }),
+        gap(70),
+        txt(ctx, s, 58, '#DCE8F5', { weight: 'normal' })
+      ]);
+    }
+  },
+  {
+    name: 'グリーン枠',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#EAF3DE');
+      ctx.fillStyle = '#fff';
+      rr(ctx, 60, 60, W - 120, H - 120, 60);
+      ctx.fill();
+      ctx.strokeStyle = '#2E7D32';
+      ctx.lineWidth = 24;
+      ctx.stroke();
+      stack(170, H - 170, [
+        txt(ctx, t, 100, '#1B5E20', { maxW: W - 340 }),
+        gap(50),
+        qrItem(ctx, qr, 720),
+        gap(60),
+        txt(ctx, s, 56, '#2E7D32', { maxW: W - 340 })
+      ]);
+    }
+  },
+  {
+    name: '吹き出し',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#FFF6E0');
+      let top = 120;
+      if (t) {
+        const ti = txt(ctx, t, 96, '#E65100', { maxW: W - 400 });
+        const bh = ti.h + 140;
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#EF6C00';
+        ctx.lineWidth = 10;
+        rr(ctx, 120, 120, W - 240, bh, 50);
+        ctx.fill();
+        ctx.stroke();
+        const by = 120 + bh;
+        ctx.beginPath();
+        ctx.moveTo(W / 2 - 55, by - 6);
+        ctx.lineTo(W / 2, by + 75);
+        ctx.lineTo(W / 2 + 55, by - 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(W / 2 - 55, by);
+        ctx.lineTo(W / 2, by + 75);
+        ctx.lineTo(W / 2 + 55, by);
+        ctx.stroke();
+        ti.draw(120 + 70);
+        top = by + 130;
+      }
+      stack(top, H - 100, [
+        qrItem(ctx, qr, 760, { pad: 30, card: '#fff', radius: 30 }),
+        gap(60),
+        txt(ctx, s, 58, '#5D4037')
+      ]);
+    }
+  },
+  {
+    name: '公文書風(明朝)',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#fff');
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(60, 60, W - 120, H - 120);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(92, 92, W - 184, H - 184);
+      stack(170, H - 170, [
+        txt(ctx, t, 100, '#111', { family: SERIF, maxW: W - 340 }),
+        gap(t ? 40 : 0),
+        t ? hline(ctx, 420, 3, '#111') : gap(0),
+        gap(50),
+        txt(ctx, s, 54, '#222', { family: SERIF, weight: 'normal', maxW: W - 340 }),
+        gap(70),
+        qrItem(ctx, qr, 680)
+      ]);
+    }
+  },
+  {
+    name: 'QR大きめ',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#fff');
+      stack(80, H - 80, [
+        txt(ctx, t, 76, '#111'),
+        gap(40),
+        qrItem(ctx, qr, 1040),
+        gap(40),
+        txt(ctx, s, 48, '#333', { weight: 'normal' })
+      ]);
+    }
+  },
+  {
+    name: 'ダーク×イエロー',
+    draw(ctx, qr, t, s) {
+      bg(ctx, '#1E1E1E');
+      ctx.fillStyle = '#FFD54F';
+      ctx.fillRect(0, 0, W, 30);
+      ctx.fillRect(0, H - 30, W, 30);
+      stack(140, H - 140, [
+        txt(ctx, t, 104, '#FFD54F'),
+        gap(60),
+        qrItem(ctx, qr, 700, { pad: 40, card: '#fff', radius: 20 }),
+        gap(70),
+        txt(ctx, s, 58, '#fff', { weight: 'normal' })
+      ]);
+    }
+  },
+  {
+    name: '淺沼組',
+    draw(ctx, qr, t, s) {
+      const TEAL = '#00B0C1', BLUE = '#004797';
+      bg(ctx, '#fff');
+      ctx.fillStyle = TEAL;
+      ctx.fillRect(0, 0, W, 24);
+      const footY = H - 190;
+      ctx.fillStyle = TEAL;
+      ctx.fillRect(120, footY, W - 240, 4);
+      if (LOGO.complete && LOGO.naturalWidth) {
+        const fw = 300, fh = fw * LOGO.naturalHeight / LOGO.naturalWidth;
+        ctx.drawImage(LOGO, (W - fw) / 2, footY + 40, fw, fh);
+      }
+      stack(120, footY - 60, [
+        txt(ctx, t, 104, BLUE),
+        gap(t ? 40 : 0),
+        txt(ctx, s, 58, '#333', { weight: 'normal' }),
+        gap(60),
+        qrItem(ctx, qr, 740)
+      ]);
+    }
+  }
+];
+
+// ===== 画面処理 =====
+const urlEl = document.getElementById('url');
+const titleEl = document.getElementById('title');
+const textEl = document.getElementById('text');
+const urlMsg = document.getElementById('urlMsg');
+const thumbsEl = document.getElementById('thumbs');
+const previewImg = document.getElementById('previewImg');
+const previewNote = document.getElementById('previewNote');
+const btnPrint = document.getElementById('btnPrint');
+const btnSave = document.getElementById('btnSave');
+
+const big = document.createElement('canvas');
+big.width = W; big.height = H;
+const bctx = big.getContext('2d');
+
+let selected = 0;
+let urlOk = false;
+let timer = null;
+const thumbCanvases = [];
+
+function makeQR(text) {
+  const div = document.createElement('div');
+  new QRCode(div, {
+    text, width: 1000, height: 1000,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+  return div.querySelector('canvas');
+}
+
+function checkUrl(u) {
+  if (!u) return { ok: false, msg: '', err: false };
+  if (!/^https?:\/\//i.test(u)) return { ok: false, msg: 'URLは http(s):// から入れてね', err: true };
+  if (!/dropbox\.com|db\.tt/i.test(u)) return { ok: true, msg: '※DropboxのURLじゃないけどQRは作るよ', err: false };
+  return { ok: true, msg: 'OK', err: false };
+}
+
+function renderTemplate(i, qr) {
+  bctx.save();
+  bctx.clearRect(0, 0, W, H);
+  TEMPLATES[i].draw(bctx, qr, titleEl.value.trim(), textEl.value.trim());
+  bctx.restore();
+}
+
+function buildThumbs() {
+  TEMPLATES.forEach((tpl, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'thumb' + (i === selected ? ' sel' : '');
+    const c = document.createElement('canvas');
+    c.width = 248; c.height = 351;
+    const sp = document.createElement('span');
+    sp.textContent = tpl.name;
+    b.appendChild(c);
+    b.appendChild(sp);
+    b.addEventListener('click', () => {
+      selected = i;
+      document.querySelectorAll('.thumb').forEach((el, j) => el.classList.toggle('sel', j === i));
+      renderPreview(currentQR());
+    });
+    thumbsEl.appendChild(b);
+    thumbCanvases.push(c);
+  });
+}
+
+function currentQR() {
+  const u = urlEl.value.trim();
+  return makeQR(urlOk ? u : SAMPLE_URL);
+}
+
+function renderPreview(qr) {
+  renderTemplate(selected, qr);
+  previewImg.src = big.toDataURL('image/png');
+  previewNote.textContent = urlOk ? '' : '※見本のQRです。URLを入れると本物になります';
+  btnPrint.disabled = btnSave.disabled = !urlOk;
+}
+
+function renderAll() {
+  const c = checkUrl(urlEl.value.trim());
+  urlOk = c.ok;
+  urlMsg.textContent = c.msg;
+  urlMsg.className = 'msg ' + (c.err ? 'err' : (c.ok ? 'ok' : ''));
+
+  const qr = currentQR();
+  TEMPLATES.forEach((tpl, i) => {
+    renderTemplate(i, qr);
+    const tc = thumbCanvases[i].getContext('2d');
+    tc.clearRect(0, 0, 248, 351);
+    tc.drawImage(big, 0, 0, 248, 351);
+  });
+  renderPreview(qr);
+}
+
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(renderAll, 300);
+}
+
+urlEl.addEventListener('input', schedule);
+titleEl.addEventListener('input', schedule);
+textEl.addEventListener('input', schedule);
+
+btnPrint.addEventListener('click', () => window.print());
+btnSave.addEventListener('click', () => {
+  if (!urlOk) return;
+  const a = document.createElement('a');
+  a.href = previewImg.src;
+  a.download = 'qr_' + (titleEl.value.trim() || 'poster') + '.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
+buildThumbs();
+renderAll();
+LOGO.onload = renderAll;
+</script>
+</body>
+</html>
