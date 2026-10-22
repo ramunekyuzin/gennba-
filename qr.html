@@ -3,45 +3,59 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>PDF QR作成</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
+  :root {
+    --bg: #f3f5f8; --card: #fff; --text: #222; --sub: #777; --line: #ccd;
+    --field: #fff; --thumb: #f6f7f9; --thumb-text: #333; --sel: #1565c0; --sel-bg: #e3f0fd;
+    --err: #c62828; --ok: #2e7d32; --shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417; --card: #1e2227; --text: #eaeaea; --sub: #aaa; --line: #3a3f46;
+      --field: #15181c; --thumb: #2a2f36; --thumb-text: #ddd; --sel: #4a8be0; --sel-bg: #1d3350;
+      --err: #ef7a6e; --ok: #5fc97c; --shadow: none;
+    }
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 16px;
     font-family: -apple-system, "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
-    background: #f3f5f8; color: #222;
+    background: var(--bg); color: var(--text);
   }
   .wrap { max-width: 900px; margin: 0 auto; }
   h1 { font-size: 20px; margin: 4px 0 16px; }
   h2 { font-size: 16px; margin: 0 0 12px; }
   .card {
-    background: #fff; border-radius: 12px; padding: 16px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 16px;
+    background: var(--card); border-radius: 12px; padding: 16px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
   }
   label { display: block; font-weight: bold; font-size: 14px; margin: 12px 0 6px; }
   label:first-child { margin-top: 0; }
   input, textarea {
     width: 100%; font-size: 16px; padding: 10px;
-    border: 1px solid #ccd; border-radius: 8px; font-family: inherit;
+    border: 1px solid var(--line); border-radius: 8px; font-family: inherit;
+    background: var(--field); color: var(--text);
   }
   textarea { min-height: 70px; resize: vertical; }
   .msg { font-size: 13px; margin-top: 6px; min-height: 18px; }
-  .msg.err { color: #c62828; }
-  .msg.ok { color: #2e7d32; }
-  .hint { font-size: 12px; color: #777; margin-top: 4px; }
+  .msg.err { color: var(--err); }
+  .msg.ok { color: var(--ok); }
+  .hint { font-size: 12px; color: var(--sub); margin-top: 4px; }
 
   .thumbs {
     display: grid; gap: 10px;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   }
   .thumb {
-    background: #f6f7f9; border: 3px solid transparent; border-radius: 10px;
+    background: var(--thumb); border: 3px solid transparent; border-radius: 10px;
     padding: 6px; cursor: pointer; text-align: center; font-family: inherit;
   }
   .thumb canvas { width: 100%; height: auto; display: block; border: 1px solid #ddd; background: #fff; }
-  .thumb span { display: block; font-size: 13px; font-weight: bold; margin-top: 6px; color: #333; }
-  .thumb.sel { border-color: #1565c0; background: #e3f0fd; }
+  .thumb span { display: block; font-size: 13px; font-weight: bold; margin-top: 6px; color: var(--thumb-text); }
+  .thumb.sel { border-color: var(--sel); background: var(--sel-bg); }
 
   .btns { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
   button.act {
@@ -51,16 +65,16 @@
   }
   button.act.sub { background: #455a64; }
   button.act:disabled { opacity: .4; cursor: default; }
-  #previewNote { font-size: 13px; color: #c62828; margin-bottom: 8px; min-height: 18px; }
+  #previewNote { font-size: 13px; color: var(--err); margin-bottom: 8px; min-height: 18px; }
   .print-area { text-align: center; }
   .print-area img { width: 100%; max-width: 480px; border: 1px solid #ddd; }
 
   @page { size: A4; margin: 0; }
   @media print {
-    body { background: #fff; padding: 0; margin: 0; }
+    body { background: #fff; color: #222; padding: 0; margin: 0; }
     .no-print { display: none !important; }
     .wrap { max-width: none; }
-    .card { box-shadow: none; padding: 0; margin: 0; border-radius: 0; }
+    .card { background: #fff; box-shadow: none; padding: 0; margin: 0; border-radius: 0; }
     .print-area img { width: 210mm; height: 297mm; max-width: none; border: none; display: block; }
   }
 </style>
