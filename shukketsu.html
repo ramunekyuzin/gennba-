@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>出欠・提出物チェック</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2328;--sub:#667085;--line:#e3e6ea;--accent:#2563eb;--accent-text:#fff;--ok:#15803d;--ok-bg:#dcfce7;--ng:#b91c1c;--ng-bg:#fee2e2;--warn:#a16207;--warn-bg:#fef3c7}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#121417;--card:#1e2227;--text:#eaeaea;--sub:#aab0b8;--line:#3a3f46;--accent:#4a8be0;--accent-text:#fff;--ok:#5fc97c;--ok-bg:#16301f;--ng:#ef7a6e;--ng-bg:#3a1d1b;--warn:#e8b949;--warn-bg:#352a10}
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;background:var(--bg);color:var(--text);font-size:16px}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;font-weight:700;font-size:18px}
+.tabs{display:flex;gap:8px;padding:12px 16px 0}
+.tab{flex:1;min-height:48px;padding:10px;border:1px solid var(--line);background:var(--card);border-radius:8px 8px 0 0;font-size:16px;cursor:pointer;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+main{padding:0 16px 24px}
+.panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:0 0 8px 8px;padding:16px}
+.panel.on{display:block}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input,select,button{font-size:16px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;font-family:inherit}
+input,select{background:var(--bg);color:var(--text)}
+select{flex:1;min-width:0}
+button{background:var(--accent);color:var(--accent-text);border-color:var(--accent);cursor:pointer}
+button.sub{background:var(--card);color:var(--text);border-color:var(--line)}
+button.del{background:var(--card);color:var(--ng);border-color:var(--ng)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:16px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--sub);font-weight:600;white-space:nowrap}
+td.mail{color:var(--sub);word-break:break-all}
+td.ops{white-space:nowrap}
+.grid{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px}
+.grid label{font-size:16px;color:var(--sub);display:flex;flex-direction:column;gap:4px}
+.grid input{width:100%}
+.msg{font-size:16px;color:var(--sub);min-height:1.2em;margin:8px 0}
+h3{font-size:17px;margin:16px 0 8px}
+details{border:1px solid var(--line);border-radius:8px;padding:0 12px;margin-bottom:12px}
+summary{min-height:48px;display:flex;align-items:center;font-weight:700;cursor:pointer}
+details[open]{padding-bottom:12px}
+.kai-info{color:var(--sub);margin-bottom:8px}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.stat{border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center}
+.stat b{display:block;font-size:22px}
+.stat span{font-size:16px;color:var(--sub)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{flex:1 1 auto}
+.item{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px}
+.item-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+.name{font-weight:700;font-size:17px;word-break:break-all}
+.item .mail{font-size:16px;color:var(--sub);word-break:break-all}
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.st{min-height:52px;font-weight:700;background:var(--card);color:var(--text);border-color:var(--line);white-space:normal;padding:6px}
+.st.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.st.ng{background:var(--ng-bg);color:var(--ng);border-color:var(--ng)}
+.st.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+.pick{display:flex;align-items:center;gap:10px;min-height:48px;border-bottom:1px solid var(--line);cursor:pointer}
+.pick input{width:24px;height:24px;min-height:0;flex-shrink:0}
+.empty{color:var(--sub);padding:12px 0}
+</style>
+</head>
+<body>
+<header>出欠・提出物チェック</header>
+
+<div class="tabs">
+  <button class="tab on" data-tab="check">出欠・提出</button>
+  <button class="tab sub" data-tab="vendor">業者名簿</button>
+</div>
+
+<main>
+  <!-- 出欠・提出 -->
+  <section class="panel on" id="panel-check">
+    <div class="row">
+      <select id="kaiSelect" aria-label="回を選ぶ"></select>
+      <button class="sub" id="btnReload">最新にする</button>
+    </div>
+
+    <details id="kaiBox">
+      <summary id="kaiBoxTitle">新しい回を作る</summary>
+      <div class="grid">
+        <label>日付(必須)<input type="date" id="kDate"></label>
+        <label>会の名前(必須)<input id="kTitle" placeholder="例:安全大会"></label>
+        <label>提出物<input id="kItem" placeholder="例:新規入場者アンケート"></label>
+      </div>
+      <div class="row">
+        <button id="btnKaiSave">作る</button>
+        <button class="sub" id="btnKaiCancel" style="display:none">編集をやめる</button>
+      </div>
+    </details>
+
+    <div class="msg" id="checkMsg"></div>
+
+    <div id="kaiArea" style="display:none">
+      <div class="row" style="justify-content:space-between">
+        <div class="kai-info" id="kaiInfo"></div>
+        <button class="sub" id="btnKaiEdit">この回を編集</button>
+      </div>
+
+      <div class="summary">
+        <div class="stat"><b id="sAttend">0/0</b><span>出席</span></div>
+        <div class="stat"><b id="sSubmit">0/0</b><span>提出</span></div>
+        <div class="stat"><b id="sContact">0</b><span>未連絡</span></div>
+      </div>
+
+      <div class="filters" id="filters"></div>
+      <div id="list"></div>
+
+      <details id="addBox">
+        <summary>業者を追加</summary>
+        <h3>名簿から選ぶ</h3>
+        <div id="pickList"></div>
+        <div class="row" style="margin-top:12px">
+          <button id="btnAddPicked">選んだ業者を追加</button>
+        </div>
+        <h3>飛び入りの業者</h3>
+        <div class="grid">
+          <label>業者名(必須)<input id="wName" placeholder="例:〇〇建設"></label>
+          <label>メールアドレス(なくてもOK)<input type="email" id="wEmail" inputmode="email" autocomplete="off"></label>
+        </div>
+        <div class="row">
+          <button id="btnAddWalkIn">追加</button>
+        </div>
+        <div class="msg" id="addMsg"></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- 業者名簿 -->
+  <section class="panel" id="panel-vendor">
+    <div class="grid">
+      <label>業者名(必須)<input id="fName" placeholder="例:〇〇建設"></label>
+      <label>メールアドレス(なくてもOK)<input type="email" id="fEmail" inputmode="email" autocomplete="off"></label>
+    </div>
+    <div class="row">
+      <button id="btnVendorSave">登録</button>
+      <button class="sub" id="btnVendorCancel" style="display:none">編集をやめる</button>
+    </div>
+    <div class="msg" id="vendorMsg"></div>
+
+    <h3>登録済みの業者</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>業者名</th><th>メール</th><th></th></tr></thead>
+        <tbody id="vendorBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzFAVvuSUa2Hwc8oBACtwHyZSDv_G1POWJJJSzbGpHvSbMztJEYiI5HY_YPtReLXHZ7/exec';
+const KAI_KEY = 'shukketsu_kai';
+const MAIL_RE = /^[^\s@]+@[^\s@]+$/;
+
+let vendors = [];   // 名簿(名簿から消した業者も含む。過去の記録の名前表示に使う)
+let kais = [];
+let records = [];   // 今の回の記録
+let curKaiId = '';
+let filter = 'all';
+let editingVendorId = '';
+let editingKai = false;
+
+function $(id){ return document.getElementById(id); }
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function checkUrl(){
+  if (!/^https:\/\//.test(GAS_URL)) throw new Error('GAS_URL が未設定です');
+}
+
+async function apiGet(params){
+  checkUrl();
+  const r = await fetch(GAS_URL + '?' + new URLSearchParams(params));
+  const res = await r.json();
+  if (!res.ok) throw new Error(res.error);
+  return res;
+}
+
+async function apiPost(obj){
+  checkUrl();
+  const r = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(obj)
+  });
+  const res = await r.json();
+  if (!res.ok) throw new Error(res.error);
+  return res;
+}
+
+function today(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function md(ymd){
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(ymd || '');
+  return m ? Number(m[1]) + '/' + Number(m[2]) : ymd;
+}
+
+function vendorById(id){
+  return vendors.find(v => v.id === id) || { id, name: '(不明な業者)', email: '' };
+}
+
+// ---------- タブ ----------
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => { b.classList.remove('on'); b.classList.add('sub'); });
+    btn.classList.add('on'); btn.classList.remove('sub');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+    $('panel-' + btn.dataset.tab).classList.add('on');
+    load(curKaiId);
+  });
+});
+
+// ---------- 読み込み ----------
+async function load(kaiId){
+  const msg = $('checkMsg');
+  msg.textContent = '読み込み中…';
+  try {
+    const res = await apiGet({ action: 'load', kaiId: kaiId || '' });
+    vendors = res.vendors;
+    kais = res.kais;
+    records = res.records;
+    curKaiId = res.kaiId;
+    try { localStorage.setItem(KAI_KEY, curKaiId); } catch (e) { /* なくてもOK */ }
+    msg.textContent = kais.length ? '' : 'まだ回がありません。「新しい回を作る」から作ってください';
+    renderAll();
+  } catch (e) {
+    msg.textContent = '読み込みに失敗しました: ' + e.message;
+    $('vendorMsg').textContent = msg.textContent;
+  }
+}
+
+function renderAll(){
+  renderKaiSelect();
+  renderCheck();
+  renderVendors();
+}
+
+// ---------- 回 ----------
+function renderKaiSelect(){
+  $('kaiSelect').innerHTML = kais.length
+    ? kais.map(k => `<option value="${esc(k.id)}"${k.id === curKaiId ? ' selected' : ''}>${esc(k.date + ' ' + k.title)}</option>`).join('')
+    : '<option value="">(回がありません)</option>';
+}
+
+$('kaiSelect').addEventListener('change', () => {
+  filter = 'all';
+  load($('kaiSelect').value);
+});
+
+$('btnReload').addEventListener('click', () => load(curKaiId));
+
+function clearKaiForm(){
+  editingKai = false;
+  $('kDate').value = today();
+  $('kTitle').value = '';
+  $('kItem').value = '';
+  $('kaiBoxTitle').textContent = '新しい回を作る';
+  $('btnKaiSave').textContent = '作る';
+  $('btnKaiCancel').style.display = 'none';
+}
+
+$('btnKaiEdit').addEventListener('click', () => {
+  const k = kais.find(x => x.id === curKaiId);
+  if (!k) return;
+  editingKai = true;
+  $('kDate').value = k.date;
+  $('kTitle').value = k.title;
+  $('kItem').value = k.item;
+  $('kaiBoxTitle').textContent = 'この回を編集';
+  $('btnKaiSave').textContent = '更新';
+  $('btnKaiCancel').style.display = '';
+  $('kaiBox').open = true;
+  $('kaiBox').scrollIntoView({ behavior: 'smooth' });
+});
+
+$('btnKaiCancel').addEventListener('click', () => { clearKaiForm(); $('kaiBox').open = false; });
+
+$('btnKaiSave').addEventListener('click', async () => {
+  const msg = $('checkMsg');
+  const k = {
+    id: editingKai ? curKaiId : '',
+    date: $('kDate').value,
+    title: $('kTitle').value.trim(),
+    item: $('kItem').value.trim()
+  };
+  if (!k.date || !k.title) { msg.textContent = '日付と会の名前は必須です'; return; }
+  msg.textContent = '保存中…';
+  try {
+    const res = await apiPost({ action: 'saveKai', kai: k });
+    clearKaiForm();
+    $('kaiBox').open = false;
+    filter = 'all';
+    await load(res.kai.id);
+  } catch (e) {
+    msg.textContent = '保存に失敗しました: ' + e.message;
+  }
+});
+
+// ---------- 出欠・提出 ----------
+function counts(){
+  const c = { all: records.length, none: 0, attend: 0, absent: 0, submitted: 0, unsubmitted: 0, uncontacted: 0 };
+  records.forEach(r => {
+    if (r.attend === '出席') {
+      c.attend++;
+      if (r.submitted) c.submitted++;
+      else {
+        c.unsubmitted++;
+        if (!r.contacted) c.uncontacted++;
+      }
+    } else if (r.attend === '欠席') c.absent++;
+    else c.none++;
+  });
+  return c;
+}
+
+function matchFilter(r){
+  if (filter === 'none') return !r.attend;
+  if (filter === 'absent') return r.attend === '欠席';
+  if (filter === 'unsubmitted') return r.attend === '出席' && !r.submitted;
+  if (filter === 'uncontacted') return r.attend === '出席' && !r.submitted && !r.contacted;
+  return true;
+}
+
+function renderCheck(){
+  const k = kais.find(x => x.id === curKaiId);
+  $('kaiArea').style.display = k ? '' : 'none';
+  if (!k) return;
+  $('kaiInfo').textContent = k.date + ' ' + k.title + '/提出物:' + k.item;
+
+  const c = counts();
+  $('sAttend').textContent = c.attend + '/' + c.all;
+  $('sSubmit').textContent = c.submitted + '/' + c.attend;
+  $('sContact').textContent = c.uncontacted;
+
+  const fs = [
+    ['all', 'すべて', c.all],
+    ['none', '未確認', c.none],
+    ['absent', '欠席', c.absent],
+    ['unsubmitted', '未提出', c.unsubmitted],
+    ['uncontacted', '未提出・未連絡', c.uncontacted]
+  ];
+  $('filters').innerHTML = fs.map(([key, label, n]) =>
+    `<button class="${filter === key ? '' : 'sub'}" data-filter="${key}">${label} ${n}</button>`).join('');
+
+  const shown = records.filter(matchFilter);
+  $('list').innerHTML = shown.length ? shown.map(r => {
+    const v = vendorById(r.vendorId);
+    const attendCls = r.attend === '出席' ? 'ok' : r.attend === '欠席' ? 'ng' : '';
+    let btns = `<button class="st ${attendCls}" data-act="attend" data-v="${esc(r.vendorId)}">${esc(r.attend || '未確認')}</button>`;
+    if (r.attend === '出席') {
+      btns += `<button class="st ${r.submitted ? 'ok' : 'ng'}" data-act="submit" data-v="${esc(r.vendorId)}">${r.submitted ? '提出済み' : '未提出'}</button>`;
+      if (!r.submitted) {
+        btns += `<button class="st ${r.contacted ? 'ok' : 'warn'}" data-act="contact" data-v="${esc(r.vendorId)}">${r.contacted ? esc(md(r.contacted)) + ' 連絡済み' : '未連絡'}</button>`;
+      }
+    }
+    return `
+      <div class="item">
+        <div class="item-head">
+          <div>
+            <div class="name">${esc(v.name)}</div>
+            ${v.email ? `<div class="mail">${esc(v.email)}</div>` : ''}
+          </div>
+          <button class="sub" data-act="remove" data-v="${esc(r.vendorId)}">外す</button>
+        </div>
+        <div class="btns">${btns}</div>
+      </div>`;
+  }).join('') : `<div class="empty">${records.length ? '当てはまる業者はいません' : 'まだ業者がいません。下の「業者を追加」から足してください'}</div>`;
+
+  renderPickList();
+}
+
+$('filters').addEventListener('click', ev => {
+  const key = ev.target.dataset.filter;
+  if (!key) return;
+  filter = key;
+  renderCheck();
+});
+
+async function updateRecord(vendorId, patch){
+  const r = records.find(x => x.vendorId === vendorId);
+  if (!r) return;
+  const before = Object.assign({}, r);
+  Object.assign(r, patch);
+  renderCheck();
+  try {
+    await apiPost({ action: 'setRecord', kaiId: curKaiId, vendorId, attend: r.attend, submitted: r.submitted, contacted: r.contacted });
+    $('checkMsg').textContent = '';
+  } catch (e) {
+    Object.assign(r, before);
+    renderCheck();
+    $('checkMsg').textContent = '保存に失敗しました: ' + e.message;
+  }
+}
+
+$('list').addEventListener('click', async ev => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  const id = btn.dataset.v;
+  const r = records.find(x => x.vendorId === id);
+  if (!r) return;
+  const act = btn.dataset.act;
+  if (act === 'attend') {
+    const next = { '': '出席', '出席': '欠席', '欠席': '' };
+    updateRecord(id, { attend: next[r.attend] });
+  }
+  if (act === 'submit') updateRecord(id, { submitted: !r.submitted });
+  if (act === 'contact') updateRecord(id, { contacted: r.contacted ? '' : today() });
+  if (act === 'remove') {
+    if (!confirm(vendorById(id).name + ' をこの回から外しますか?(名簿には残ります)')) return;
+    $('checkMsg').textContent = '外しています…';
+    try {
+      await apiPost({ action: 'removeVendor', kaiId: curKaiId, vendorId: id });
+      records = records.filter(x => x.vendorId !== id);
+      $('checkMsg').textContent = '';
+      renderCheck();
+    } catch (e) {
+      $('checkMsg').textContent = '外せませんでした: ' + e.message;
+    }
+  }
+});
+
+// ---------- 業者を追加 ----------
+function renderPickList(){
+  const inKai = new Set(records.map(r => r.vendorId));
+  const cands = vendors.filter(v => !v.deleted && !inKai.has(v.id));
+  $('pickList').innerHTML = cands.length
+    ? cands.map(v => `<label class="pick"><input type="checkbox" value="${esc(v.id)}"><span>${esc(v.name)}</span></label>`).join('')
+    : '<div class="empty">名簿の業者はすべて追加済みです</div>';
+}
+
+async function addToKai(ids){
+  await apiPost({ action: 'addVendors', kaiId: curKaiId, vendorIds: ids });
+  await load(curKaiId);
+}
+
+$('btnAddPicked').addEventListener('click', async () => {
+  const msg = $('addMsg');
+  const ids = Array.from($('pickList').querySelectorAll('input:checked')).map(i => i.value);
+  if (!ids.length) { msg.textContent = '追加する業者にチェックを入れてください'; return; }
+  msg.textContent = '追加中…';
+  try {
+    await addToKai(ids);
+    msg.textContent = ids.length + '件追加しました';
+  } catch (e) {
+    msg.textContent = '追加に失敗しました: ' + e.message;
+  }
+});
+
+$('btnAddWalkIn').addEventListener('click', async () => {
+  const msg = $('addMsg');
+  const name = $('wName').value.trim();
+  const email = $('wEmail').value.trim();
+  if (!name) { msg.textContent = '業者名は必須です'; return; }
+  if (email && !MAIL_RE.test(email)) { msg.textContent = 'メールアドレスの形が正しくありません'; return; }
+  msg.textContent = '追加中…';
+  try {
+    const res = await apiPost({ action: 'saveVendor', vendor: { id: '', name, email } });
+    await addToKai([res.vendor.id]);
+    $('wName').value = '';
+    $('wEmail').value = '';
+    msg.textContent = name + ' を追加しました(名簿にも入りました)';
+  } catch (e) {
+    msg.textContent = '追加に失敗しました: ' + e.message;
+  }
+});
+
+// ---------- 業者名簿 ----------
+function clearVendorForm(){
+  $('fName').value = '';
+  $('fEmail').value = '';
+  editingVendorId = '';
+  $('btnVendorSave').textContent = '登録';
+  $('btnVendorCancel').style.display = 'none';
+}
+
+function renderVendors(){
+  const list = vendors.filter(v => !v.deleted);
+  $('vendorBody').innerHTML = list.map(v => `
+    <tr>
+      <td>${esc(v.name)}</td>
+      <td class="mail">${esc(v.email)}</td>
+      <td class="ops">
+        <button class="sub" data-edit="${esc(v.id)}">編集</button>
+        <button class="del" data-del="${esc(v.id)}">削除</button>
+      </td>
+    </tr>`).join('');
+  $('vendorMsg').textContent = list.length ? list.length + '社登録済み' : 'まだ登録がありません';
+}
+
+$('vendorBody').addEventListener('click', async ev => {
+  const editId = ev.target.dataset.edit;
+  const delId = ev.target.dataset.del;
+  if (editId) {
+    const v = vendors.find(x => x.id === editId);
+    if (!v) return;
+    $('fName').value = v.name;
+    $('fEmail').value = v.email;
+    editingVendorId = v.id;
+    $('btnVendorSave').textContent = '更新';
+    $('btnVendorCancel').style.display = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (delId) {
+    if (!confirm(vendorById(delId).name + ' を名簿から消しますか?(過去の回の記録は残ります)')) return;
+    const msg = $('vendorMsg');
+    msg.textContent = '削除中…';
+    try {
+      await apiPost({ action: 'deleteVendor', id: delId });
+      if (editingVendorId === delId) clearVendorForm();
+      await load(curKaiId);
+    } catch (e) {
+      msg.textContent = '削除に失敗しました: ' + e.message;
+    }
+  }
+});
+
+$('btnVendorSave').addEventListener('click', async () => {
+  const msg = $('vendorMsg');
+  const v = { id: editingVendorId, name: $('fName').value.trim(), email: $('fEmail').value.trim() };
+  if (!v.name) { msg.textContent = '業者名は必須です'; return; }
+  if (v.email && !MAIL_RE.test(v.email)) { msg.textContent = 'メールアドレスの形が正しくありません'; return; }
+  msg.textContent = '保存中…';
+  try {
+    await apiPost({ action: 'saveVendor', vendor: v });
+    clearVendorForm();
+    await load(curKaiId);
+  } catch (e) {
+    msg.textContent = '保存に失敗しました: ' + e.message;
+  }
+});
+
+$('btnVendorCancel').addEventListener('click', clearVendorForm);
+
+// ---------- 初期表示 ----------
+clearKaiForm();
+try { curKaiId = localStorage.getItem(KAI_KEY) || ''; } catch (e) { /* なくてもOK */ }
+load(curKaiId);
+</script>
+</body>
+</html>
