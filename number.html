@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>入場ナンバー記録</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2328;--sub:#667085;--line:#e3e6ea;--accent:#2563eb;--accent-text:#fff;--ok:#15803d;--ng:#b91c1c}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#121417;--card:#1e2227;--text:#eaeaea;--sub:#aab0b8;--line:#3a3f46;--accent:#4a8be0;--accent-text:#fff;--ok:#5fc97c;--ng:#ef7a6e}
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;background:var(--bg);color:var(--text);font-size:16px}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;font-weight:700;font-size:18px}
+.tabs{display:flex;gap:8px;padding:12px 16px 0}
+.tab{flex:1;min-height:48px;padding:10px;border:1px solid var(--line);background:var(--card);border-radius:8px 8px 0 0;font-size:16px;cursor:pointer;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+main{padding:0 16px 24px}
+.panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:0 0 8px 8px;padding:16px}
+.panel.on{display:block}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input,button{font-size:16px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;font-family:inherit}
+input{background:var(--bg);color:var(--text)}
+button{background:var(--accent);color:var(--accent-text);border-color:var(--accent);cursor:pointer}
+button.sub{background:var(--card);color:var(--text);border-color:var(--line)}
+button.del{background:var(--card);color:var(--ng);border-color:var(--ng)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:16px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--sub);font-weight:600}
+.ok{color:var(--ok);font-weight:700}
+.ng{color:var(--ng);font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.grid label{font-size:16px;color:var(--sub);display:flex;flex-direction:column;gap:4px}
+.grid input{width:100%}
+.msg{font-size:16px;color:var(--sub);min-height:1.2em;margin:8px 0}
+h3{font-size:17px;margin:16px 0 8px}
+</style>
+</head>
+<body>
+<header>入場ナンバー記録</header>
+
+<div class="tabs">
+  <button class="tab on" data-tab="log">入場記録</button>
+  <button class="tab sub" data-tab="car">業者登録</button>
+</div>
+
+<main>
+  <!-- 入場記録 -->
+  <section class="panel on" id="panel-log">
+    <div class="row">
+      <input type="date" id="date">
+      <button id="btnLoad">表示</button>
+    </div>
+    <div class="msg" id="logMsg"></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>時刻</th><th>ナンバー</th><th>業者名</th><th>判定</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 業者登録 -->
+  <section class="panel" id="panel-car">
+    <div class="grid">
+      <label>地名<input id="fRegion" placeholder="例:千葉"></label>
+      <label>分類番号<input id="fCls" placeholder="例:300"></label>
+      <label>ひらがな<input id="fKana" placeholder="例:さ"></label>
+      <label>番号(必須)<input id="fNumber" placeholder="例:12-34"></label>
+      <label style="grid-column:1/-1">業者名(必須)<input id="fVendor" placeholder="例:〇〇建設"></label>
+    </div>
+    <div class="row">
+      <button id="btnSave">登録</button>
+      <button class="sub" id="btnCancel" style="display:none">編集をやめる</button>
+    </div>
+    <div class="msg" id="carMsg"></div>
+
+    <h3>登録済みの車</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>ナンバー</th><th>業者名</th><th></th></tr></thead>
+        <tbody id="carBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const GAS_URL = 'ここにGASのウェブアプリURL';
+
+let vehicles = [];
+let editingId = '';
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function apiGet(params){
+  const r = await fetch(GAS_URL + '?' + new URLSearchParams(params));
+  return r.json();
+}
+
+async function apiPost(obj){
+  const r = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(obj)
+  });
+  return r.json();
+}
+
+// ---------- タブ ----------
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => { b.classList.remove('on'); b.classList.add('sub'); });
+    btn.classList.add('on'); btn.classList.remove('sub');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('on');
+    if (btn.dataset.tab === 'log') loadRecords();
+    if (btn.dataset.tab === 'car') loadVehicles();
+  });
+});
+
+// ---------- 入場記録 ----------
+function today(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+async function loadRecords(){
+  const msg = document.getElementById('logMsg');
+  const body = document.getElementById('logBody');
+  msg.textContent = '読み込み中…';
+  try {
+    const res = await apiGet({ action: 'records', date: document.getElementById('date').value });
+    if (!res.ok) throw new Error(res.error);
+    body.innerHTML = res.records.map(r => `
+      <tr>
+        <td>${esc(r.time)}</td>
+        <td>${esc(r.plate)}</td>
+        <td>${esc(r.vendor)}</td>
+        <td class="${r.status === '登録済' ? 'ok' : 'ng'}">${esc(r.status)}</td>
+      </tr>`).join('');
+    msg.textContent = res.records.length ? res.records.length + '件' : 'この日の記録はありません';
+  } catch (e) {
+    msg.textContent = '読み込みに失敗しました: ' + e.message;
+  }
+}
+
+document.getElementById('btnLoad').addEventListener('click', loadRecords);
+
+// ---------- 業者登録 ----------
+function fields(){
+  return {
+    region: document.getElementById('fRegion'),
+    cls: document.getElementById('fCls'),
+    kana: document.getElementById('fKana'),
+    number: document.getElementById('fNumber'),
+    vendor: document.getElementById('fVendor')
+  };
+}
+
+function clearForm(){
+  const f = fields();
+  Object.values(f).forEach(i => i.value = '');
+  editingId = '';
+  document.getElementById('btnSave').textContent = '登録';
+  document.getElementById('btnCancel').style.display = 'none';
+}
+
+async function loadVehicles(){
+  const msg = document.getElementById('carMsg');
+  const body = document.getElementById('carBody');
+  msg.textContent = '読み込み中…';
+  try {
+    const res = await apiGet({ action: 'vehicles' });
+    if (!res.ok) throw new Error(res.error);
+    vehicles = res.vehicles;
+    body.innerHTML = vehicles.map(v => `
+      <tr>
+        <td>${esc([v.region, v.cls, v.kana, v.number].filter(x => x !== '').join(' '))}</td>
+        <td>${esc(v.vendor)}</td>
+        <td>
+          <button class="sub" data-edit="${esc(v.id)}">編集</button>
+          <button class="del" data-del="${esc(v.id)}">削除</button>
+        </td>
+      </tr>`).join('');
+    msg.textContent = vehicles.length ? vehicles.length + '台登録済み' : 'まだ登録がありません';
+  } catch (e) {
+    msg.textContent = '読み込みに失敗しました: ' + e.message;
+  }
+}
+
+document.getElementById('carBody').addEventListener('click', async (ev) => {
+  const editId = ev.target.dataset.edit;
+  const delId = ev.target.dataset.del;
+  if (editId) {
+    const v = vehicles.find(x => x.id === editId);
+    if (!v) return;
+    const f = fields();
+    f.region.value = v.region; f.cls.value = v.cls; f.kana.value = v.kana;
+    f.number.value = v.number; f.vendor.value = v.vendor;
+    editingId = v.id;
+    document.getElementById('btnSave').textContent = '更新';
+    document.getElementById('btnCancel').style.display = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (delId) {
+    if (!confirm('この車を削除しますか?')) return;
+    const msg = document.getElementById('carMsg');
+    msg.textContent = '削除中…';
+    try {
+      const res = await apiPost({ action: 'deleteVehicle', id: delId });
+      if (!res.ok) throw new Error(res.error);
+      if (editingId === delId) clearForm();
+      await loadVehicles();
+    } catch (e) {
+      msg.textContent = '削除に失敗しました: ' + e.message;
+    }
+  }
+});
+
+document.getElementById('btnSave').addEventListener('click', async () => {
+  const f = fields();
+  const msg = document.getElementById('carMsg');
+  const v = {
+    id: editingId,
+    region: f.region.value.trim(),
+    cls: f.cls.value.trim(),
+    kana: f.kana.value.trim(),
+    number: f.number.value.trim(),
+    vendor: f.vendor.value.trim()
+  };
+  if (!v.number || !v.vendor) { msg.textContent = '番号と業者名は必須です'; return; }
+  msg.textContent = '保存中…';
+  try {
+    const res = await apiPost({ action: 'saveVehicle', vehicle: v });
+    if (!res.ok) throw new Error(res.error);
+    clearForm();
+    await loadVehicles();
+  } catch (e) {
+    msg.textContent = '保存に失敗しました: ' + e.message;
+  }
+});
+
+document.getElementById('btnCancel').addEventListener('click', clearForm);
+
+// ---------- 初期表示 ----------
+document.getElementById('date').value = today();
+loadRecords();
+</script>
+</body>
+</html>
