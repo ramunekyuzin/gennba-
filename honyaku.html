@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <title>翻訳(声・エクセル)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
     --bg: #f3f5f8; --card: #fff; --text: #222; --sub: #777; --line: #ccd;
@@ -130,6 +131,8 @@
     <div class="hint">元の言語は自動で判定します。数字だけのセルは訳しません。</div>
 
     <button id="btnGo" class="act" disabled>訳す</button>
+    <button id="btnAll" class="sub" type="button" disabled>📥 画像・図そのままで全シート訳す</button>
+    <div class="hint">.xlsx だけ。全シートとテキストボックスの文字を訳して保存します。画像の中の文字は訳せません。訳が長いと枠からはみ出すことがあります。</div>
     <div id="msg" class="msg"></div>
   </div>
 
@@ -163,6 +166,7 @@ $('file').addEventListener('change', async () => {
   $('sheet').innerHTML = '';
   $('sheet').disabled = true;
   $('btnGo').disabled = true;
+  $('btnAll').disabled = true;
   $('result').hidden = true;
   if (!f) return;
   try {
@@ -178,6 +182,7 @@ $('file').addEventListener('change', async () => {
   });
   $('sheet').disabled = false;
   $('btnGo').disabled = false;
+  $('btnAll').disabled = !/\.xlsx$/i.test(f.name);
   setMsg('');
 });
 
@@ -282,6 +287,98 @@ $('btnSave').addEventListener('click', () => {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, translated.sheet);
   XLSX.writeFile(wb, `${translated.file}_${translated.lang}.xlsx`);
+});
+
+// ===== 画像・図そのままで全シート訳す =====
+// .xlsx の中の文字の部分(XML)だけを訳した文に差し替え、画像・図形・書式には触らない
+const NS_MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const NS_DRAW = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+const NS_XML = 'http://www.w3.org/XML/1998/namespace';
+// どのファイルの、どのまとまり(セル1つ・図形の段落1つ)を訳すか
+const XML_PARTS = [
+  { re: /^xl\/sharedStrings\.xml$/, ns: NS_MAIN, unit: 'si' },        // セルの文字
+  { re: /^xl\/worksheets\/sheet\d+\.xml$/, ns: NS_MAIN, unit: 'is' }, // セルに直接書かれた文字
+  { re: /^xl\/drawings\/drawing\d+\.xml$/, ns: NS_DRAW, unit: 'p' },  // テキストボックス・図形
+  { re: /^xl\/charts\/chart\d+\.xml$/, ns: NS_DRAW, unit: 'p' }       // グラフの文字
+];
+
+// まとまりごとに文字のノードを集める(ふりがなは除く)
+function collectUnits(doc, ns, unit) {
+  const units = [];
+  for (const u of doc.getElementsByTagNameNS(ns, unit)) {
+    const nodes = [...u.getElementsByTagNameNS(ns, 't')].filter(t => t.parentNode.localName !== 'rPh');
+    const text = nodes.map(t => t.textContent).join('');
+    if (!text.trim() || !/\p{L}/u.test(text)) continue;
+    units.push({ el: u, nodes, text });
+  }
+  return units;
+}
+
+$('btnAll').addEventListener('click', async () => {
+  const f = $('file').files[0];
+  if (!f) return;
+  const target = $('lang').value;
+  $('btnAll').disabled = true;
+  $('btnGo').disabled = true;
+  try {
+    setMsg('ファイルを開いています…');
+    const zip = await JSZip.loadAsync(await f.arrayBuffer());
+    const docs = [];
+    for (const name of Object.keys(zip.files)) {
+      const part = XML_PARTS.find(p => p.re.test(name));
+      if (!part) continue;
+      const doc = new DOMParser().parseFromString(await zip.file(name).async('string'), 'application/xml');
+      if (doc.getElementsByTagName('parsererror').length) continue;
+      docs.push({ name, doc, units: collectUnits(doc, part.ns, part.unit) });
+    }
+    const all = docs.flatMap(d => d.units);
+    if (!all.length) { setMsg('このファイルには訳す文字がありません。', 'err'); return; }
+    const uniq = [...new Set(all.map(u => u.text))];
+    if (uniq.length > MAX_CELLS) {
+      setMsg(`文字が多すぎます(${uniq.length}種類)。${MAX_CELLS}種類までにしてください。`, 'err');
+      return;
+    }
+
+    const done = new Map();
+    for (let i = 0; i < uniq.length; i += BATCH) {
+      setMsg(`訳しています… ${Math.min(i + BATCH, uniq.length)} / ${uniq.length}`);
+      const part = uniq.slice(i, i + BATCH);
+      const out = await translateBatch(part, target);
+      part.forEach((t, k) => done.set(t, out[k]));
+    }
+
+    // 最初の文字ノードに訳を入れ、残りは空にする(書式は最初の部分のものになる)
+    all.forEach(u => {
+      const first = u.nodes[0];
+      first.textContent = done.get(u.text);
+      if (first.namespaceURI === NS_MAIN) first.setAttributeNS(NS_XML, 'xml:space', 'preserve');
+      u.nodes.slice(1).forEach(t => { t.textContent = ''; });
+      // 日本語のふりがなは消す
+      [...u.el.children].filter(c => c.localName === 'rPh').forEach(c => c.remove());
+    });
+    docs.filter(d => d.units.length).forEach(d => {
+      let xml = new XMLSerializer().serializeToString(d.doc);
+      if (!xml.startsWith('<?xml')) xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + xml;
+      zip.file(d.name, xml, { createFolders: false });
+    });
+
+    setMsg('保存するファイルを作っています…');
+    const blob = await zip.generateAsync({
+      type: 'blob', compression: 'DEFLATE',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${f.name.replace(/\.[^.]+$/, '')}_${$('lang').selectedOptions[0].textContent}.xlsx`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    setMsg(`${all.length}か所の文字を訳して保存しました。`, 'ok');
+  } catch (e) {
+    setMsg('翻訳できませんでした:' + e.message, 'err');
+  } finally {
+    $('btnAll').disabled = false;
+    $('btnGo').disabled = false;
+  }
 });
 
 // ===== 声で翻訳(声→文字→翻訳→読み上げ) =====
