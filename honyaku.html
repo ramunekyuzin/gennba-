@@ -315,23 +315,33 @@ function collectUnits(doc, ns, unit) {
 }
 
 // ----- 枠やセルに収める -----
-// 文字の幅は見積もり:漢字・かなは文字の大きさと同じ、英字などは 0.55 倍。折り返しの無駄を 1.1 倍みておく
-const EMU_PT = 12700;   // 図形の大きさの単位(EMU)→ pt
-const LINE_H = 1.25;    // 行の高さ = 文字の大きさ × 1.25
-const MIN_RATE = 0.5;   // 元の大きさの半分より小さくしない
+// 文字の幅は見積もり:漢字・かなは文字の大きさと同じ、英字などは 0.6 倍。
+// 印刷では画面より広がりやすいので、折り返しの無駄と余裕を多めにみておく
+const EMU_PT = 12700;     // 図形の大きさの単位(EMU)→ pt
+const LINE_H = 1.35;      // 行の高さ = 文字の大きさ × 1.35
+const WRAP_WASTE = 1.15;  // 折り返すと行の終わりに空きができる分
+const PRINT_MARGIN = 1.1; // 印刷用の余裕
+const MIN_RATE = 0.5;     // テキストボックス:元の大きさの半分より小さくしない
+const CELL_MIN_RATE = 0.8; // セル:行を広げられるので、折り返すときに小さくするのは 8割まで
+const LINE_MIN_RATE = 0.7; // セル:1行のまま小さくして収めるのは 7割まで(それより長ければ折り返す)
+const MAX_ROW_H = 409;    // エクセルの行の高さの上限(pt)
+// 英字の言語は、アクセント記号まで入っている Arial にする(MS Pゴシックにない字で書体が混ざらないように)
+const LATIN_LANGS = ['en', 'vi', 'tl', 'id', 'pt'];
+const LATIN_FONT = 'Arial';
 
 function isWide(ch) { return /[⺀-｠￠-￯]/.test(ch); }
 function measure(s, size) {
   let w = 0;
-  for (const ch of s) w += isWide(ch) ? size : size * 0.55;
+  for (const ch of s) w += isWide(ch) ? size : size * 0.6;
   return w;
 }
+// 行の終わりの空白(全角の空白も)は数えない
 function lineCount(text, size, width) {
-  return text.split('\n').reduce((n, p) => n + Math.max(1, Math.ceil(measure(p, size) * 1.1 / width)), 0);
+  return text.split('\n').reduce((n, p) => n + Math.max(1, Math.ceil(measure(p.trimEnd(), size) * WRAP_WASTE / width)), 0);
 }
 // 1.0 から 0.05 ずつ下げて、収まる最初の倍率を返す(収まらなければ 0)
-function bestRate(fits) {
-  for (let r = 1; r >= MIN_RATE - 1e-9; r -= 0.05) {
+function bestRate(fits, min) {
+  for (let r = 1; r >= min - 1e-9; r -= 0.05) {
     const rate = Math.round(r * 100) / 100;
     if (fits(rate)) return rate;
   }
@@ -340,17 +350,42 @@ function bestRate(fits) {
 
 // 訳が長くなった分だけ小さくする倍率(大きさが分からない図形用)。折り返す所は面積で見るので平方根
 function shrinkRate(from, to, wrap) {
-  const wf = measure(from, 1), wt = measure(to, 1);
+  const wf = measure(from, 1), wt = measure(to, 1) * PRINT_MARGIN;
   if (wt <= wf) return 1;
   return Math.round(Math.max(MIN_RATE, wrap ? Math.sqrt(wf / wt) : wf / wt) * 20) / 20;
 }
 
 const childOf = (el, name) => el && [...el.children].find(e => e.localName === name);
 
+// 図形の文字の書体を Arial にする(a:rPr の中の a:latin。決まった並び順の位置に入れる)
+function setDrawFont(rPr) {
+  let latin = childOf(rPr, 'latin');
+  if (!latin) {
+    latin = rPr.ownerDocument.createElementNS(NS_DRAW, 'a:latin');
+    const next = [...rPr.children].find(e => ['ea', 'cs', 'sym', 'hlinkClick', 'hlinkMouseOver', 'rtl', 'extLst'].includes(e.localName));
+    rPr.insertBefore(latin, next || null);
+  }
+  latin.setAttribute('typeface', LATIN_FONT);
+}
+
 // テキストボックス・図形:箱の幅で折り返すようにして、箱の高さに収まる大きさにする(sz は 1/100 pt)
-function fitBoxes(units) {
+function fitBoxes(units, latin) {
   const boxes = new Set(units.map(u => u.el.parentNode));
   boxes.forEach(box => {
+    const doc = box.ownerDocument;
+    if (latin) {
+      // 訳した段落の文字の部分すべてを Arial に
+      units.filter(u => u.el.parentNode === box).forEach(u => {
+        for (const r of [...u.el.children].filter(e => ['r', 'fld'].includes(e.localName))) {
+          let rPr = childOf(r, 'rPr');
+          if (!rPr) { rPr = doc.createElementNS(NS_DRAW, 'a:rPr'); r.insertBefore(rPr, r.firstChild); }
+          setDrawFont(rPr);
+        }
+        const end = childOf(u.el, 'endParaRPr');
+        if (end) setDrawFont(end);
+      });
+    }
+
     const bodyPr = childOf(box, 'bodyPr');
     const props = [...box.getElementsByTagNameNS(NS_DRAW, '*')]
       .filter(e => ['rPr', 'endParaRPr', 'defRPr'].includes(e.localName));
@@ -385,12 +420,12 @@ function fitBoxes(units) {
       const H = (ext.getAttribute('cy') * sy - ins('tIns', 45720) - ins('bIns', 45720)) / EMU_PT;
       if (W <= 0) return;
       // 元の大きさのまま1行ずつ入るなら何もしない
-      if (paras.every(p => measure(p.text, p.size) <= W)) return;
+      if (paras.every(p => measure(p.text.trimEnd(), p.size) * PRINT_MARGIN <= W)) return;
       if (bodyPr) bodyPr.setAttribute('wrap', 'square');   // 箱の幅で折り返す
       // 元の日本語がもともと箱からはみ出していた所は、同じだけはみ出してよい(図形の外に文字を出す作りのため)
       const need = (key, r) => paras.reduce((h, p) => h + lineCount(p[key], p.size * r, W) * p.size * r * LINE_H, 0);
       const limit = Math.max(H, need('orig', 1));
-      rate = bestRate(r => need('text', r) <= limit) || MIN_RATE;
+      rate = bestRate(r => need('text', r) * PRINT_MARGIN <= limit, MIN_RATE) || MIN_RATE;
     } else {
       const us = units.filter(u => u.el.parentNode === box);
       rate = shrinkRate(us.map(u => u.text).join(''), us.map(u => u.out).join(''), true);
@@ -402,15 +437,45 @@ function fitBoxes(units) {
     // 大きさの指定がない(標準の11pt)ときは、文字の部分に大きさを書き足す
     for (const r of box.getElementsByTagNameNS(NS_DRAW, 'r')) {
       let rPr = childOf(r, 'rPr');
-      if (!rPr) { rPr = box.ownerDocument.createElementNS(NS_DRAW, 'a:rPr'); r.insertBefore(rPr, r.firstChild); }
+      if (!rPr) { rPr = doc.createElementNS(NS_DRAW, 'a:rPr'); r.insertBefore(rPr, r.firstChild); }
       rPr.setAttribute('sz', Math.round(1100 * rate));
     }
   });
 }
 
-// セル:列の幅・行の高さから使える広さを出し、折り返しか縮小で収める。
-// セルの書式(styles.xml)を複製して、文字の大きさ・折り返しだけ変えたものを使う
-function fitCells(docs, styles) {
+// セルの書体を Arial にする(font の中の name。テーマの書体指定 scheme と文字コード charset は外す)
+function setCellFont(font, doc) {
+  let name = childOf(font, 'name') || childOf(font, 'rFont');
+  if (!name) {
+    name = doc.createElementNS(NS_MAIN, font.localName === 'rPr' ? 'rFont' : 'name');
+    const next = [...font.children].find(e => ['family', 'charset', 'scheme'].includes(e.localName));
+    font.insertBefore(name, next || null);
+  }
+  name.setAttribute('val', LATIN_FONT);
+  ['charset', 'scheme'].forEach(k => { const e = childOf(font, k); if (e) e.remove(); });
+}
+
+// セルを結合する(mergeCells が無ければ、決まった並び順の位置に作る)
+function addMerge(doc, rg) {
+  let mc = doc.getElementsByTagNameNS(NS_MAIN, 'mergeCells')[0];
+  if (!mc) {
+    mc = doc.createElementNS(NS_MAIN, 'mergeCells');
+    const ws = doc.documentElement;
+    const after = ['phoneticPr', 'conditionalFormatting', 'dataValidations', 'hyperlinks', 'printOptions',
+      'pageMargins', 'pageSetup', 'headerFooter', 'rowBreaks', 'colBreaks', 'customProperties', 'cellWatches',
+      'ignoredErrors', 'smartTags', 'drawing', 'legacyDrawing', 'legacyDrawingHF', 'picture', 'oleObjects',
+      'controls', 'webPublishItems', 'tableParts', 'extLst'];
+    ws.insertBefore(mc, [...ws.children].find(e => after.includes(e.localName)) || null);
+  }
+  const m = doc.createElementNS(NS_MAIN, 'mergeCell');
+  m.setAttribute('ref', XLSX.utils.encode_range(rg));
+  mc.appendChild(m);
+  mc.setAttribute('count', mc.children.length);
+}
+
+// セル:列の幅・行の高さから使える広さを出し、入らなければ折り返して、足りない分は行を広げる。
+// セルの書式(styles.xml)を複製して、文字の大きさ・書体・折り返しだけ変えたものを使う
+function fitCells(docs, styles, latin) {
   const ss = docs.find(d => d.name === 'xl/sharedStrings.xml');
   const ssUnits = new Map((ss ? ss.units : []).map(u => [u.idx, u]));
   const fonts = styles.getElementsByTagNameNS(NS_MAIN, 'fonts')[0];
@@ -427,22 +492,24 @@ function fitCells(docs, styles) {
   const isWrap = i => ['1', 'true'].includes(align(i) && align(i).getAttribute('wrapText'));
   const hAlign = i => (align(i) && align(i).getAttribute('horizontal')) || 'general';
 
-  const styleFor = (i, rate, wrap) => {
-    const key = i + '|' + rate + '|' + wrap;
+  // rate: 文字の大きさの倍率 / wrap: 折り返す / font: 書体を変えるか
+  const styleFor = (i, rate, wrap, font) => {
+    const key = [i, rate, wrap, font].join('|');
     if (made.has(key)) return made.get(key);
     const nx = xfOf(i).cloneNode(true);
-    if (rate < 1) {
-      const font = fontEls[+nx.getAttribute('fontId') || 0].cloneNode(true);
-      let sz = childOf(font, 'sz');
+    if (rate < 1 || font) {
+      const f = fontEls[+nx.getAttribute('fontId') || 0].cloneNode(true);
+      let sz = childOf(f, 'sz');
       const base = sz ? parseFloat(sz.getAttribute('val')) : 11;
       if (!sz) {
         // エクセルは中の並び順が決まっているので、color・name などより前に入れる
         sz = styles.createElementNS(NS_MAIN, 'sz');
-        const next = [...font.children].find(e => ['color', 'name', 'family', 'charset', 'scheme'].includes(e.localName));
-        font.insertBefore(sz, next || null);
+        const next = [...f.children].find(e => ['color', 'name', 'family', 'charset', 'scheme'].includes(e.localName));
+        f.insertBefore(sz, next || null);
       }
       sz.setAttribute('val', Math.max(1, Math.round(base * rate * 2) / 2));
-      fonts.appendChild(font); fontEls.push(font);
+      if (font) setCellFont(f, styles);
+      fonts.appendChild(f); fontEls.push(f);
       fonts.setAttribute('count', fontEls.length);
       nx.setAttribute('fontId', fontEls.length - 1);
       nx.setAttribute('applyFont', '1');
@@ -474,10 +541,11 @@ function fitCells(docs, styles) {
       }
     }
     const colPt = x => (colW.has(x) ? colW.get(x) : defColW) * 5.25 * defSize / 11;
+    const rowEls = new Map();
     const rowH = new Map();
-    const filled = new Set();
     for (const row of doc.getElementsByTagNameNS(NS_MAIN, 'row')) {
       const y = +row.getAttribute('r') - 1;
+      rowEls.set(y, row);
       if (row.getAttribute('hidden') === '1') rowH.set(y, 0);
       else if (row.hasAttribute('ht')) rowH.set(y, +row.getAttribute('ht'));
     }
@@ -490,12 +558,14 @@ function fitCells(docs, styles) {
       for (let y = rg.s.r; y <= rg.e.r; y++) for (let x = rg.s.c; x <= rg.e.c; x++) inMerge.add(y + ',' + x);
     }
     const cells = [...doc.getElementsByTagNameNS(NS_MAIN, 'c')];
+    const filled = new Set();
     cells.forEach(c => {
       if (childOf(c, 'v') || childOf(c, 'is')) {
         const p = XLSX.utils.decode_cell(c.getAttribute('r'));
         filled.add(p.r + ',' + p.c);
       }
     });
+    const grow = new Map();   // 広げる行 → 新しい高さ
 
     const inline = new Map(sh.units.map(u => [u.el.parentNode, u]));
     cells.forEach(c => {
@@ -518,45 +588,71 @@ function fitCells(docs, styles) {
 
       // 文字の一部に大きさの指定があるとき(リッチテキスト)は、そちらの大きさを使う
       const run = u.nodes[0].parentNode;
-      const runSz = run.localName === 'r' && run.getElementsByTagNameNS(NS_MAIN, 'sz')[0];
+      const runPr = run.localName === 'r' && childOf(run, 'rPr');
+      const runSz = runPr && childOf(runPr, 'sz');
       if (runSz && !u.runSz) u.runSz = parseFloat(runSz.getAttribute('val'));
       const size = runSz ? u.runSz : fontSize(fontEls[+xfOf(xfIdx).getAttribute('fontId') || 0]);
       const text = u.out;
       const wrapNeed = (s, r) => lineCount(s, size * r, W) * size * r * LINE_H;
-      const wrapFits = r => wrapNeed(text, r) <= H;
 
-      let rate, wrap = false;
-      if (isWrap(xfIdx)) {
-        // 元の日本語がもともとはみ出していたなら、同じだけはみ出してよい
-        const limit = Math.max(H, wrapNeed(u.text, 1));
-        rate = bestRate(r => wrapNeed(text, r) <= limit) || MIN_RATE;
-      } else {
-        // 1行のまま:左寄せなら右の空いたセルまで使える(エクセルの表示と同じ)
-        let W1 = W;
-        if (!merges.has(c.getAttribute('r')) && ['general', 'left'].includes(hAlign(xfIdx)) && !text.includes('\n')) {
-          for (let x = p.c + 1; x < p.c + 30; x++) {
-            if (filled.has(p.r + ',' + x) || inMerge.has(p.r + ',' + x)) break;
-            W1 += colPt(x);
-          }
+      let rate = 1, wrap = false, needH = 0;
+      // 1行のまま:左寄せなら右の空いたセルまで使える(エクセルの表示と同じ)
+      let W1 = W, endX = p.c;
+      if (!merges.has(c.getAttribute('r')) && rg.s.r === rg.e.r && ['general', 'left'].includes(hAlign(xfIdx))) {
+        for (let x = p.c + 1; x < p.c + 30; x++) {
+          if (filled.has(p.r + ',' + x) || inMerge.has(p.r + ',' + x)) break;
+          W1 += colPt(x);
+          endX = x;
         }
-        if (!u.text.includes('\n')) W1 = Math.max(W1, measure(u.text, size));   // 元がはみ出していた分はよい
-        if (!text.includes('\n') && measure(text, size) <= W1) return;   // そのまま入る
-        const lineRate = text.includes('\n') ? 0 : Math.floor(Math.min(1, W1 / measure(text, size)) * 20) / 20;
-        const wrapRate = bestRate(wrapFits);
-        if (wrapRate && wrapRate >= lineRate) { rate = wrapRate; wrap = true; }
-        else rate = Math.max(MIN_RATE, lineRate);
       }
-      if (rate >= 1 && !wrap) return;
+      const oneLine = !isWrap(xfIdx) && !text.includes('\n');
+      const lineW = measure(text.trimEnd(), size) * PRINT_MARGIN;
+      if (oneLine && lineW <= W1) {
+        // そのまま入る(書体だけ変える)
+      } else if (oneLine && W1 / lineW >= LINE_MIN_RATE) {
+        rate = Math.floor(W1 / lineW * 20) / 20;   // 少し小さくすれば1行に入る
+      } else {
+        // 折り返す。右の空いたセルまではみ出していた文は、そこまで結合して、その幅で折り返す
+        if (endX > p.c) {
+          addMerge(doc, { s: p, e: { r: p.r, c: endX } });
+          for (let x = p.c + 1; x <= endX; x++) inMerge.add(p.r + ',' + x);
+          W = W1;
+        }
+        // 8割までの大きさで入らなければ、9割の大きさにして行を広げる
+        wrap = true;
+        const limit = Math.max(H, wrapNeed(u.text, 1));   // 元の日本語がもともとはみ出していた分はよい
+        rate = bestRate(r => wrapNeed(text, r) * PRINT_MARGIN <= limit, CELL_MIN_RATE);
+        if (!rate) {
+          rate = 0.9;
+          needH = wrapNeed(text, rate) * PRINT_MARGIN + 2;
+        }
+      }
+      if (rate >= 1 && !wrap && !latin) return;
+
+      if (needH > H) {
+        // 結合セルは、いちばん下の行を広げる
+        const others = H + 1 - rowPt(rg.e.r);
+        const want = Math.min(MAX_ROW_H, Math.ceil((needH - others) * 4) / 4);
+        if (want > (grow.get(rg.e.r) || rowPt(rg.e.r))) grow.set(rg.e.r, want);
+      }
 
       if (runSz) {
         runSz.setAttribute('val', Math.max(1, Math.round(u.runSz * rate * 2) / 2));
-        if (wrap) { c.setAttribute('s', styleFor(xfIdx, 1, true)); sh.changed = true; }
+        if (latin) setCellFont(runPr, runPr.ownerDocument);
+        if (wrap || latin) { c.setAttribute('s', styleFor(xfIdx, 1, wrap, latin)); sh.changed = true; }
       } else {
-        c.setAttribute('s', styleFor(xfIdx, rate, wrap));
+        c.setAttribute('s', styleFor(xfIdx, rate, wrap, latin));
         sh.changed = true;
       }
     });
-  });
+
+    grow.forEach((ht, y) => {
+      const row = rowEls.get(y);
+      if (!row) return;
+      row.setAttribute('ht', ht);
+      row.setAttribute('customHeight', '1');
+      sh.changed = true;
+    });  });
   return styleChanged;
 }
 
@@ -604,11 +700,12 @@ $('btnAll').addEventListener('click', async () => {
       [...u.el.children].filter(c => c.localName === 'rPh').forEach(c => c.remove());
     });
     // 訳が長くなった所は文字を小さくして枠に収める
-    docs.filter(d => d.box).forEach(d => fitBoxes(d.units));
+    const latin = LATIN_LANGS.includes(target);
+    docs.filter(d => d.box).forEach(d => fitBoxes(d.units, latin));
     const stylesFile = zip.file('xl/styles.xml');
     if (stylesFile) {
       const styles = new DOMParser().parseFromString(await stylesFile.async('string'), 'application/xml');
-      if (!styles.getElementsByTagName('parsererror').length && fitCells(docs, styles)) {
+      if (!styles.getElementsByTagName('parsererror').length && fitCells(docs, styles, latin)) {
         docs.push({ name: 'xl/styles.xml', doc: styles, units: [], changed: true });
       }
     }
