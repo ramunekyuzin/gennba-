@@ -134,7 +134,9 @@
   </div>
 
   <div id="result" class="card" hidden>
-    <div id="rows" class="rows"></div>
+    <button id="btnSave" class="sub" type="button">📥 訳したエクセルを保存</button>
+    <div class="hint">セルの色や罫線は引き継がれません(文字と並びはそのままです)。</div>
+    <div id="rows" class="rows" style="margin-top: 12px;"></div>
   </div>
 </div>
 
@@ -147,6 +149,7 @@ const MAX_CELLS = 2000;  // 1シートで訳すセルの上限
 
 const $ = id => document.getElementById(id);
 let book = null;
+let translated = null;  // 最後に訳したシート(保存用)
 
 function setMsg(text, kind) {
   $('msg').textContent = text;
@@ -156,13 +159,14 @@ function setMsg(text, kind) {
 $('file').addEventListener('change', async () => {
   const f = $('file').files[0];
   book = null;
+  translated = null;
   $('sheet').innerHTML = '';
   $('sheet').disabled = true;
   $('btnGo').disabled = true;
   $('result').hidden = true;
   if (!f) return;
   try {
-    book = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+    book = XLSX.read(await f.arrayBuffer(), { type: 'array', cellStyles: true });  // 列の幅も読む(保存用)
   } catch (e) {
     setMsg('このファイルは読めませんでした。', 'err');
     return;
@@ -254,12 +258,30 @@ $('btnGo').addEventListener('click', async () => {
     }
     cells.forEach(c => { c.out = done.get(c.text); });
     showRows(cells);
+    translated = {
+      cells,
+      sheet: $('sheet').value,
+      file: $('file').files[0].name.replace(/\.[^.]+$/, ''),
+      lang: $('lang').selectedOptions[0].textContent
+    };
     setMsg(`${cells.length}個のセルを訳しました。`, 'ok');
   } catch (e) {
     setMsg('翻訳できませんでした:' + e.message, 'err');
   } finally {
     $('btnGo').disabled = false;
   }
+});
+
+// 元のシートをコピーして、訳したセルだけ置き換えたエクセルを作る
+$('btnSave').addEventListener('click', () => {
+  if (!book || !translated) return;
+  const src = book.Sheets[translated.sheet];
+  const ws = {};
+  Object.keys(src).forEach(k => { ws[k] = k[0] === '!' ? src[k] : { ...src[k] }; });
+  translated.cells.forEach(c => { ws[c.addr] = { t: 's', v: c.out }; });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, translated.sheet);
+  XLSX.writeFile(wb, `${translated.file}_${translated.lang}.xlsx`);
 });
 
 // ===== 声で翻訳(声→文字→翻訳→読み上げ) =====
