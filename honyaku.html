@@ -314,46 +314,102 @@ function collectUnits(doc, ns, unit) {
   return units;
 }
 
-// 文字の幅(全角は2、半角は1)
-function textWidth(s) {
+// ----- 枠やセルに収める -----
+// 文字の幅は見積もり:漢字・かなは文字の大きさと同じ、英字などは 0.55 倍。折り返しの無駄を 1.1 倍みておく
+const EMU_PT = 12700;   // 図形の大きさの単位(EMU)→ pt
+const LINE_H = 1.25;    // 行の高さ = 文字の大きさ × 1.25
+const MIN_RATE = 0.5;   // 元の大きさの半分より小さくしない
+
+function isWide(ch) { return /[⺀-｠￠-￯]/.test(ch); }
+function measure(s, size) {
   let w = 0;
-  for (const ch of s) w += /[⺀-｠￠-￯]/.test(ch) ? 2 : 1;
+  for (const ch of s) w += isWide(ch) ? size : size * 0.55;
   return w;
 }
-
-// 訳が長くなった分だけ文字を小さくする倍率。折り返す所は面積で見るので平方根。半分より小さくしない
-function shrinkRate(from, to, wrap) {
-  const r = textWidth(from) / Math.max(1, textWidth(to));
-  if (r >= 1) return 1;
-  return Math.round(Math.max(0.5, wrap ? Math.sqrt(r) : r) * 20) / 20;
+function lineCount(text, size, width) {
+  return text.split('\n').reduce((n, p) => n + Math.max(1, Math.ceil(measure(p, size) * 1.1 / width)), 0);
+}
+// 1.0 から 0.05 ずつ下げて、収まる最初の倍率を返す(収まらなければ 0)
+function bestRate(fits) {
+  for (let r = 1; r >= MIN_RATE - 1e-9; r -= 0.05) {
+    const rate = Math.round(r * 100) / 100;
+    if (fits(rate)) return rate;
+  }
+  return 0;
 }
 
-// テキストボックス・図形ごとに文字の大きさ(sz は 1/100 pt)を小さくする
+// 訳が長くなった分だけ小さくする倍率(大きさが分からない図形用)。折り返す所は面積で見るので平方根
+function shrinkRate(from, to, wrap) {
+  const wf = measure(from, 1), wt = measure(to, 1);
+  if (wt <= wf) return 1;
+  return Math.round(Math.max(MIN_RATE, wrap ? Math.sqrt(wf / wt) : wf / wt) * 20) / 20;
+}
+
+const childOf = (el, name) => el && [...el.children].find(e => e.localName === name);
+
+// テキストボックス・図形:箱の幅で折り返すようにして、箱の高さに収まる大きさにする(sz は 1/100 pt)
 function fitBoxes(units) {
-  const boxes = new Map();
-  units.forEach(u => {
-    const b = boxes.get(u.el.parentNode) || { from: '', to: '' };
-    b.from += u.text; b.to += u.out;
-    boxes.set(u.el.parentNode, b);
-  });
-  boxes.forEach((b, box) => {
-    const rate = shrinkRate(b.from, b.to, true);
-    if (rate >= 1) return;
+  const boxes = new Set(units.map(u => u.el.parentNode));
+  boxes.forEach(box => {
+    const bodyPr = childOf(box, 'bodyPr');
     const props = [...box.getElementsByTagNameNS(NS_DRAW, '*')]
       .filter(e => ['rPr', 'endParaRPr', 'defRPr'].includes(e.localName));
     const sized = props.filter(e => e.hasAttribute('sz'));
+    const defSz = sized.length ? +sized[0].getAttribute('sz') : 1100;
+
+    // 段落ごとの文字(訳と元)と大きさ
+    const paras = [...box.children].filter(e => e.localName === 'p').map(p => {
+      const s = [...p.getElementsByTagNameNS(NS_DRAW, '*')].find(e => ['rPr', 'endParaRPr', 'defRPr'].includes(e.localName) && e.hasAttribute('sz'));
+      const text = [...p.getElementsByTagNameNS(NS_DRAW, 't')].map(t => t.textContent).join('');
+      const u = units.find(x => x.el === p);
+      return { text, orig: u ? u.text : text, size: (s ? +s.getAttribute('sz') : defSz) / 100 };
+    });
+
+    // 箱の大きさ(グループの中なら、グループの拡大・縮小もかける)
+    const sp = box.parentNode;
+    const ext = childOf(childOf(childOf(sp, 'spPr'), 'xfrm'), 'ext');
+    const vertical = bodyPr && bodyPr.getAttribute('vert') && bodyPr.getAttribute('vert') !== 'horz';
+    let rate;
+    if (ext && !vertical) {
+      let sx = 1, sy = 1;
+      for (let g = sp.parentNode; g && g.localName === 'grpSp'; g = g.parentNode) {
+        const x = childOf(childOf(g, 'grpSpPr'), 'xfrm');
+        const e = childOf(x, 'ext'), ce = childOf(x, 'chExt');
+        if (e && ce && +ce.getAttribute('cx') && +ce.getAttribute('cy')) {
+          sx *= e.getAttribute('cx') / ce.getAttribute('cx');
+          sy *= e.getAttribute('cy') / ce.getAttribute('cy');
+        }
+      }
+      const ins = (k, d) => (bodyPr && bodyPr.hasAttribute(k) ? +bodyPr.getAttribute(k) : d);
+      const W = (ext.getAttribute('cx') * sx - ins('lIns', 91440) - ins('rIns', 91440)) / EMU_PT;
+      const H = (ext.getAttribute('cy') * sy - ins('tIns', 45720) - ins('bIns', 45720)) / EMU_PT;
+      if (W <= 0) return;
+      // 元の大きさのまま1行ずつ入るなら何もしない
+      if (paras.every(p => measure(p.text, p.size) <= W)) return;
+      if (bodyPr) bodyPr.setAttribute('wrap', 'square');   // 箱の幅で折り返す
+      // 元の日本語がもともと箱からはみ出していた所は、同じだけはみ出してよい(図形の外に文字を出す作りのため)
+      const need = (key, r) => paras.reduce((h, p) => h + lineCount(p[key], p.size * r, W) * p.size * r * LINE_H, 0);
+      const limit = Math.max(H, need('orig', 1));
+      rate = bestRate(r => need('text', r) <= limit) || MIN_RATE;
+    } else {
+      const us = units.filter(u => u.el.parentNode === box);
+      rate = shrinkRate(us.map(u => u.text).join(''), us.map(u => u.out).join(''), true);
+    }
+    if (rate >= 1) return;
+
     sized.forEach(e => e.setAttribute('sz', Math.max(100, Math.round(e.getAttribute('sz') * rate))));
     if (sized.length) return;
     // 大きさの指定がない(標準の11pt)ときは、文字の部分に大きさを書き足す
     for (const r of box.getElementsByTagNameNS(NS_DRAW, 'r')) {
-      let rPr = [...r.children].find(e => e.localName === 'rPr');
+      let rPr = childOf(r, 'rPr');
       if (!rPr) { rPr = box.ownerDocument.createElementNS(NS_DRAW, 'a:rPr'); r.insertBefore(rPr, r.firstChild); }
       rPr.setAttribute('sz', Math.round(1100 * rate));
     }
   });
 }
 
-// セルの文字を小さくする。セルの書式(styles.xml)を複製して、文字の大きさだけ変えたものを使う
+// セル:列の幅・行の高さから使える広さを出し、折り返しか縮小で収める。
+// セルの書式(styles.xml)を複製して、文字の大きさ・折り返しだけ変えたものを使う
 function fitCells(docs, styles) {
   const ss = docs.find(d => d.name === 'xl/sharedStrings.xml');
   const ssUnits = new Map((ss ? ss.units : []).map(u => [u.idx, u]));
@@ -364,29 +420,40 @@ function fitCells(docs, styles) {
   const made = new Map();
   let styleChanged = false;
 
-  const isWrap = i => {
-    const a = xfEls[i] && [...xfEls[i].children].find(e => e.localName === 'alignment');
-    return !!a && ['1', 'true'].includes(a.getAttribute('wrapText'));
-  };
-  const styleFor = (i, rate) => {
-    const key = i + '|' + rate;
+  const fontSize = f => { const sz = childOf(f, 'sz'); return sz ? parseFloat(sz.getAttribute('val')) : 11; };
+  const defSize = fontSize(fontEls[0]);
+  const xfOf = i => xfEls[i] || xfEls[0];
+  const align = i => childOf(xfOf(i), 'alignment');
+  const isWrap = i => ['1', 'true'].includes(align(i) && align(i).getAttribute('wrapText'));
+  const hAlign = i => (align(i) && align(i).getAttribute('horizontal')) || 'general';
+
+  const styleFor = (i, rate, wrap) => {
+    const key = i + '|' + rate + '|' + wrap;
     if (made.has(key)) return made.get(key);
-    const xf = xfEls[i] || xfEls[0];
-    const font = fontEls[+xf.getAttribute('fontId') || 0].cloneNode(true);
-    let sz = [...font.children].find(e => e.localName === 'sz');
-    const base = sz ? parseFloat(sz.getAttribute('val')) : 11;
-    if (!sz) {
-      // エクセルは中の並び順が決まっているので、color・name などより前に入れる
-      sz = styles.createElementNS(NS_MAIN, 'sz');
-      const next = [...font.children].find(e => ['color', 'name', 'family', 'charset', 'scheme'].includes(e.localName));
-      font.insertBefore(sz, next || null);
+    const nx = xfOf(i).cloneNode(true);
+    if (rate < 1) {
+      const font = fontEls[+nx.getAttribute('fontId') || 0].cloneNode(true);
+      let sz = childOf(font, 'sz');
+      const base = sz ? parseFloat(sz.getAttribute('val')) : 11;
+      if (!sz) {
+        // エクセルは中の並び順が決まっているので、color・name などより前に入れる
+        sz = styles.createElementNS(NS_MAIN, 'sz');
+        const next = [...font.children].find(e => ['color', 'name', 'family', 'charset', 'scheme'].includes(e.localName));
+        font.insertBefore(sz, next || null);
+      }
+      sz.setAttribute('val', Math.max(1, Math.round(base * rate * 2) / 2));
+      fonts.appendChild(font); fontEls.push(font);
+      fonts.setAttribute('count', fontEls.length);
+      nx.setAttribute('fontId', fontEls.length - 1);
+      nx.setAttribute('applyFont', '1');
     }
-    sz.setAttribute('val', Math.max(1, Math.round(base * rate * 2) / 2));
-    fonts.appendChild(font); fontEls.push(font);
-    fonts.setAttribute('count', fontEls.length);
-    const nx = xf.cloneNode(true);
-    nx.setAttribute('fontId', fontEls.length - 1);
-    nx.setAttribute('applyFont', '1');
+    if (wrap) {
+      let a = childOf(nx, 'alignment');
+      if (!a) { a = styles.createElementNS(NS_MAIN, 'alignment'); nx.insertBefore(a, nx.firstChild); }
+      a.setAttribute('wrapText', '1');
+      a.removeAttribute('shrinkToFit');
+      nx.setAttribute('applyAlignment', '1');
+    }
     xfs.appendChild(nx); xfEls.push(nx);
     xfs.setAttribute('count', xfEls.length);
     made.set(key, xfEls.length - 1);
@@ -395,30 +462,100 @@ function fitCells(docs, styles) {
   };
 
   docs.filter(d => /^xl\/worksheets\//.test(d.name)).forEach(sh => {
+    const doc = sh.doc;
+    const fmt = doc.getElementsByTagNameNS(NS_MAIN, 'sheetFormatPr')[0];
+    const defColW = fmt && fmt.hasAttribute('defaultColWidth') ? +fmt.getAttribute('defaultColWidth') : 9;
+    const defRowH = fmt && fmt.hasAttribute('defaultRowHeight') ? +fmt.getAttribute('defaultRowHeight') : 13.5;
+    // 列の幅(文字数)→ pt。標準の文字の大きさで「0」1文字が約 5.25pt
+    const colW = new Map();
+    for (const c of doc.getElementsByTagNameNS(NS_MAIN, 'col')) {
+      for (let x = +c.getAttribute('min'); x <= +c.getAttribute('max'); x++) {
+        colW.set(x - 1, c.getAttribute('hidden') === '1' ? 0 : +c.getAttribute('width'));
+      }
+    }
+    const colPt = x => (colW.has(x) ? colW.get(x) : defColW) * 5.25 * defSize / 11;
+    const rowH = new Map();
+    const filled = new Set();
+    for (const row of doc.getElementsByTagNameNS(NS_MAIN, 'row')) {
+      const y = +row.getAttribute('r') - 1;
+      if (row.getAttribute('hidden') === '1') rowH.set(y, 0);
+      else if (row.hasAttribute('ht')) rowH.set(y, +row.getAttribute('ht'));
+    }
+    const rowPt = y => (rowH.has(y) ? rowH.get(y) : defRowH);
+    const merges = new Map();
+    const inMerge = new Set();
+    for (const m of doc.getElementsByTagNameNS(NS_MAIN, 'mergeCell')) {
+      const rg = XLSX.utils.decode_range(m.getAttribute('ref'));
+      merges.set(XLSX.utils.encode_cell(rg.s), rg);
+      for (let y = rg.s.r; y <= rg.e.r; y++) for (let x = rg.s.c; x <= rg.e.c; x++) inMerge.add(y + ',' + x);
+    }
+    const cells = [...doc.getElementsByTagNameNS(NS_MAIN, 'c')];
+    cells.forEach(c => {
+      if (childOf(c, 'v') || childOf(c, 'is')) {
+        const p = XLSX.utils.decode_cell(c.getAttribute('r'));
+        filled.add(p.r + ',' + p.c);
+      }
+    });
+
     const inline = new Map(sh.units.map(u => [u.el.parentNode, u]));
-    for (const c of sh.doc.getElementsByTagNameNS(NS_MAIN, 'c')) {
+    cells.forEach(c => {
       let u = null;
       if (c.getAttribute('t') === 's') {
-        const v = [...c.children].find(e => e.localName === 'v');
+        const v = childOf(c, 'v');
         u = v && ssUnits.get(+v.textContent);
       } else if (c.getAttribute('t') === 'inlineStr') {
         u = inline.get(c);
       }
-      if (!u) continue;
+      if (!u) return;
+
       const xfIdx = +(c.getAttribute('s') || 0);
-      const rate = shrinkRate(u.text, u.out, isWrap(xfIdx));
-      if (rate >= 1) continue;
-      // 文字の一部に大きさの指定があるとき(リッチテキスト)は、そちらを小さくする
+      const p = XLSX.utils.decode_cell(c.getAttribute('r'));
+      const rg = merges.get(c.getAttribute('r')) || { s: p, e: p };
+      let W = -3, H = -1;   // セルの中の余白
+      for (let x = rg.s.c; x <= rg.e.c; x++) W += colPt(x);
+      for (let y = rg.s.r; y <= rg.e.r; y++) H += rowPt(y);
+      if (W <= 0 || H <= 0) return;
+
+      // 文字の一部に大きさの指定があるとき(リッチテキスト)は、そちらの大きさを使う
       const run = u.nodes[0].parentNode;
       const runSz = run.localName === 'r' && run.getElementsByTagNameNS(NS_MAIN, 'sz')[0];
-      if (runSz) {
-        if (!u.runSz) u.runSz = parseFloat(runSz.getAttribute('val'));
-        runSz.setAttribute('val', Math.max(1, Math.round(u.runSz * rate * 2) / 2));
+      if (runSz && !u.runSz) u.runSz = parseFloat(runSz.getAttribute('val'));
+      const size = runSz ? u.runSz : fontSize(fontEls[+xfOf(xfIdx).getAttribute('fontId') || 0]);
+      const text = u.out;
+      const wrapNeed = (s, r) => lineCount(s, size * r, W) * size * r * LINE_H;
+      const wrapFits = r => wrapNeed(text, r) <= H;
+
+      let rate, wrap = false;
+      if (isWrap(xfIdx)) {
+        // 元の日本語がもともとはみ出していたなら、同じだけはみ出してよい
+        const limit = Math.max(H, wrapNeed(u.text, 1));
+        rate = bestRate(r => wrapNeed(text, r) <= limit) || MIN_RATE;
       } else {
-        c.setAttribute('s', styleFor(xfIdx, rate));
+        // 1行のまま:左寄せなら右の空いたセルまで使える(エクセルの表示と同じ)
+        let W1 = W;
+        if (!merges.has(c.getAttribute('r')) && ['general', 'left'].includes(hAlign(xfIdx)) && !text.includes('\n')) {
+          for (let x = p.c + 1; x < p.c + 30; x++) {
+            if (filled.has(p.r + ',' + x) || inMerge.has(p.r + ',' + x)) break;
+            W1 += colPt(x);
+          }
+        }
+        if (!u.text.includes('\n')) W1 = Math.max(W1, measure(u.text, size));   // 元がはみ出していた分はよい
+        if (!text.includes('\n') && measure(text, size) <= W1) return;   // そのまま入る
+        const lineRate = text.includes('\n') ? 0 : Math.floor(Math.min(1, W1 / measure(text, size)) * 20) / 20;
+        const wrapRate = bestRate(wrapFits);
+        if (wrapRate && wrapRate >= lineRate) { rate = wrapRate; wrap = true; }
+        else rate = Math.max(MIN_RATE, lineRate);
+      }
+      if (rate >= 1 && !wrap) return;
+
+      if (runSz) {
+        runSz.setAttribute('val', Math.max(1, Math.round(u.runSz * rate * 2) / 2));
+        if (wrap) { c.setAttribute('s', styleFor(xfIdx, 1, true)); sh.changed = true; }
+      } else {
+        c.setAttribute('s', styleFor(xfIdx, rate, wrap));
         sh.changed = true;
       }
-    }
+    });
   });
   return styleChanged;
 }
