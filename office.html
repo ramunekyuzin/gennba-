@@ -505,6 +505,17 @@ html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] footer{
 @media(max-width:800px){html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .wrap{padding:10px 10px 95px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .hero{padding:8px 0 0}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] header{display:flex;align-items:center;padding:0 2px 13px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] header h1{font-size:12px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] header h1 small{font-size:32px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .clock{margin-top:0;font-size:11px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .summary{margin:0;flex-wrap:wrap}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .summary-item{padding:7px 10px;font-size:11px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .city-category-nav{margin-bottom:16px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .city-category-nav a{padding:11px 13px;font-size:12px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .grid{grid-template-columns:1fr;gap:8px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .card{min-height:77px;padding:12px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] section h2{padding:9px 10px}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .search{top:6px;background:#fff}html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] .design-current{max-width:49%}}
 
+.tap-hint{margin:-16px 4px 20px;color:var(--ink-2);font-size:16px}
+.design-drawer{margin-top:30px}
+.form-help{margin:4px 0 0;color:var(--ink-2);font-size:16px;line-height:1.5}
+.icon-drawer{margin:16px 0 6px;border:1px solid var(--line);border-radius:12px}
+.icon-drawer>summary{list-style:none;display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 14px;cursor:pointer;color:var(--ink);font-size:16px;font-weight:700}
+.icon-drawer>summary::-webkit-details-marker{display:none}
+.icon-drawer>summary small{display:block;color:var(--ink-2);font-size:16px;font-weight:400}
+.icon-drawer>summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.icon-drawer-body{padding:0 12px 12px}
+.icon-drawer .icon-editor{margin:12px 0 0}
+html[data-look="eva"] .icon-drawer{border-radius:0}
 </style>
 </head>
 <body>
@@ -517,14 +528,24 @@ html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] footer{
     </header>
     <div class="unit-mark" aria-hidden="true"><small>UNIT</small><strong id="unitNumber">01</strong></div>
     <div class="summary" aria-live="polite">
-      <div class="summary-item"><span>利用できるツール</span><strong id="toolCount">—</strong></div>
-      <div class="summary-item"><span>カテゴリ</span><strong id="catCount">—</strong></div>
       <div class="summary-item" id="meBox" hidden><span id="meName"></span><strong id="meRole"></strong></div>
       <button class="summary-item" id="inviteBtn" type="button" hidden>👤 招待</button>
       <button class="summary-item" id="logoutBtn" type="button" hidden>ログアウト</button>
       <span class="edit-status">編集モード中</span>
     </div>
   </div>
+
+  <div class="search" id="searchBox">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="ツールを検索" autocomplete="off" enterkeyhint="search">
+    <button id="clear" type="button" aria-label="クリア">×</button>
+  </div>
+  <p class="tap-hint">ツールをタップすると開きます</p>
+
+  <div class="loading" id="loading">読み込み中…</div>
+  <nav class="city-category-nav" id="cityCategoryNav" aria-label="カテゴリから探す"></nav>
+  <div id="sections"></div>
+  <div class="empty" id="empty">見つからなかった</div>
 
   <details class="design-drawer" id="designDrawer">
     <summary><span>🎨 デザイン設定</span><span class="design-current" id="designCurrent">選択中のデザイン</span><span class="drawer-chevron" aria-hidden="true"></span></summary>
@@ -543,18 +564,6 @@ html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] footer{
 
 <div class="theme-panel light-panel" id="lightPanel" role="group" aria-label="ライト用デザイン" hidden><span class="theme-label">ライト用デザイン</span><button class="theme-btn light-btn" type="button" data-light-choice="cityheaven">シティヘブン風</button><button class="theme-btn light-btn" type="button" data-light-choice="standard">通常4配色</button><button class="theme-btn light-btn" type="button" data-light-choice="gojo">呪術・五条イメージ</button><button class="theme-btn light-btn" type="button" data-light-choice="yuji">虎杖イメージ</button><button class="theme-btn light-btn" type="button" data-light-choice="megumi">伏黒イメージ</button><button class="theme-btn light-btn" type="button" data-light-choice="nobara">釘崎イメージ</button><button class="theme-btn light-btn" type="button" data-light-choice="nanami">七海イメージ</button><button class="theme-btn light-btn" type="button" data-light-choice="denji">デンジ風</button><button class="theme-btn light-btn" type="button" data-light-choice="power">パワー風</button><button class="theme-btn light-btn" type="button" data-light-choice="aki">早川アキ風</button><button class="theme-btn light-btn" type="button" data-light-choice="makima">マキマ風</button><button class="theme-btn light-btn" type="button" data-light-choice="reze">レゼ風</button></div><div class="theme-panel unit-panel" id="unitPanel" role="group" aria-label="ダーク用デザイン" hidden><span class="theme-label">ダーク用デザイン</span><button type="button" class="theme-btn unit-btn" data-unit-choice="standard">通常4配色</button><button type="button" class="theme-btn unit-btn" data-unit-choice="unit01">初号機</button><button type="button" class="theme-btn unit-btn" data-unit-choice="unit00">零号機</button><button type="button" class="theme-btn unit-btn" data-unit-choice="unit02">弐号機</button><button type="button" class="theme-btn unit-btn" data-unit-choice="amber">アンバー</button><button type="button" class="theme-btn unit-btn" data-unit-choice="ghoul">金木研</button><button type="button" class="theme-btn unit-btn" data-unit-choice="sasaki">佐々木琲世</button><button type="button" class="theme-btn unit-btn" data-unit-choice="eto">エト</button><button type="button" class="theme-btn unit-btn" data-unit-choice="arima">有馬貴将</button><button type="button" class="theme-btn unit-btn" data-unit-choice="touka">霧嶋董香</button><button type="button" class="theme-btn unit-btn" data-unit-choice="juuzou">鈴屋什造</button></div>
   </details>
-  <div class="search" id="searchBox">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-    <input id="q" type="search" placeholder="ツールを検索" autocomplete="off" enterkeyhint="search">
-    <button id="clear" type="button" aria-label="クリア">×</button>
-  </div>
-
-  <div class="loading" id="loading">読み込み中…</div>
-  <nav class="city-category-nav" id="cityCategoryNav" aria-label="カテゴリから探す"></nav>
-  <div id="sections"></div>
-  <div class="empty" id="empty">見つからなかった</div>
-
-  <footer>タップで各ツールが開きます</footer>
 </div>
 
 <div class="fab">
@@ -637,31 +646,32 @@ html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] footer{
     <h3 id="formTitle">ツールを追加</h3>
     <div class="tool-id" id="toolIdBox" hidden><span>ツールID</span><code id="toolIdText"></code><button type="button" id="copyToolId">コピー</button></div>
     <input type="hidden" id="fId">
-    <div class="row">
-      <div>
-        <label>カテゴリ</label>
-        <input id="fCat" list="catList" placeholder="例: 事務">
-        <datalist id="catList"></datalist>
-      </div>
-      <div>
-        <label for="iconText">文字・絵文字（任意）</label>
-        <input id="fIcon" type="hidden"><input id="iconText" maxlength="3" placeholder="例: 区 / 📅">
-      </div>
-    </div>
-    <div class="icon-editor"><div class="icon-editor-head"><span>アイコンを選ぶ</span><span class="icon" id="iconPreview" aria-hidden="true"></span></div><div class="image-actions"><button type="button" id="pickIconImage">＋ 画像を取り込む</button><button type="button" id="resetIconImage">自動に戻す</button></div><input type="file" id="iconImageFile" accept="image/png,image/jpeg,image/webp" hidden><p class="icon-image-status" id="iconImageStatus" role="status" aria-live="polite"></p><div class="icon-picker" id="iconPicker" role="group" aria-label="アイコンの種類"></div><p class="icon-help">PNG・JPEG・WebP画像は中央を正方形に切り抜きます。下の絵柄や文字・絵文字も使えます。「自動」はツール名から選びます。</p></div>
-    <label>名前</label>
+    <label for="fName">名前(必須)</label>
     <input id="fName" placeholder="例: 原価区分振り分け">
-    <label>説明</label>
+    <label for="fDesc">説明</label>
     <input id="fDesc" placeholder="一言で">
-    <label>URL(空なら「準備中」表示)</label>
+    <label for="fUrl">URL</label>
     <input id="fUrl" type="url" placeholder="https://…" inputmode="url">
-    <label>タグ(任意)</label>
-    <input id="fTag" placeholder="例: PC内 / 準備中">
+    <p class="form-help">空のままだと「準備中」で表示されます</p>
+    <label for="fCat">カテゴリ</label>
+    <input id="fCat" list="catList" placeholder="例: 事務">
+    <datalist id="catList"></datalist>
     <div class="vis-box">
       <label>使える人</label>
       <div class="vis-picker" id="visPicker" role="group" aria-label="使える人"></div>
       <p class="icon-help" id="visNote"></p>
     </div>
+    <label for="fTag">タグ(任意)</label>
+    <input id="fTag" placeholder="例: PC内">
+    <p class="form-help">カードに小さく出る目印です</p>
+    <details class="icon-drawer" id="iconDrawer">
+      <summary><span class="icon" id="iconPreview" aria-hidden="true"></span><span>アイコンを変える(任意)<small>変えなければ今のまま(新しいツールは自動)</small></span></summary>
+      <div class="icon-drawer-body">
+    <label for="iconText">文字・絵文字（任意）</label>
+    <input id="fIcon" type="hidden"><input id="iconText" maxlength="3" placeholder="例: 区 / 📅">
+    <div class="icon-editor"><div class="image-actions"><button type="button" id="pickIconImage">＋ 画像を取り込む</button><button type="button" id="resetIconImage">自動に戻す</button></div><input type="file" id="iconImageFile" accept="image/png,image/jpeg,image/webp" hidden><p class="icon-image-status" id="iconImageStatus" role="status" aria-live="polite"></p><div class="icon-picker" id="iconPicker" role="group" aria-label="アイコンの種類"></div><p class="icon-help">PNG・JPEG・WebP画像は中央を正方形に切り抜きます。下の絵柄や文字・絵文字も使えます。「自動」はツール名から選びます。</p></div>
+      </div>
+    </details>
     <div class="msg" id="formMsg"></div>
     <div class="btns">
       <button class="cancel" onclick="closeModal('formModal')">やめる</button>
@@ -943,8 +953,6 @@ function logoutLocal(msg){
   document.getElementById("logoutBtn").hidden = true;
   document.getElementById("inviteBtn").hidden = true;
   INVITE_ROLES = [];
-  document.getElementById("toolCount").textContent = "—";
-  document.getElementById("catCount").textContent = "—";
   emptyEl.classList.remove("show");
   document.querySelectorAll(".modal-bg").forEach(m => m.classList.remove("show"));
   showLogin(msg);
@@ -1072,7 +1080,8 @@ function render(){
         ${items.map(t => {
           const paid = !!t.paidLock;   // 有料プランなら使えるツール(タップで案内を出す)
           const soon = !t["URL"] && !paid;
-          const tag  = (t["タグ"] ? `<span class="tag">${esc(t["タグ"])}</span>` : "")
+          const tag  = (t["タグ"] && !(soon && t["タグ"] === "準備中") ? `<span class="tag">${esc(t["タグ"])}</span>` : "")
+                     + (soon ? `<span class="tag">準備中</span>` : "")
                      + (paid ? `<span class="tag">💰 有料</span>` : "");
           let lock = "";
           if (ME && ME.canSetVisibility && t["使える人"]) {
@@ -1100,8 +1109,6 @@ function render(){
         }).join("")}
       </div>
     </section>`).join("");
-  document.getElementById("toolCount").textContent = TOOLS.filter(t => t["URL"]).length;
-  document.getElementById("catCount").textContent = g.size;
 }
 
 function filter(){
@@ -1152,6 +1159,7 @@ function openForm(id){
   document.getElementById("formMsg").textContent = "";
   document.getElementById("toolIdBox").hidden = !id;
   document.getElementById("toolIdText").textContent = id;
+  document.getElementById("iconDrawer").open = false;
   document.getElementById("copyToolId").textContent = "コピー";
   VIS = new Set(splitList(t["使える人"]));
   renderVisPicker();
