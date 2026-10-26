@@ -516,6 +516,23 @@ html[data-mode="light"][data-look="gojo"][data-light-style="cityheaven"] footer{
 .icon-drawer-body{padding:0 12px 12px}
 .icon-drawer .icon-editor{margin:12px 0 0}
 html[data-look="eva"] .icon-drawer{border-radius:0}
+.fav-btn{flex:none;width:44px;height:44px;margin:-6px -4px -6px 0;border:0;border-radius:50%;background:transparent;color:var(--ink-2);font-size:24px;line-height:1;cursor:pointer}
+.fav-btn[aria-pressed="true"]{color:#e0a100}
+.fav-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+body.edit .fav-btn{display:none}
+.fav-empty{padding:18px 14px;border:1px dashed var(--line);border-radius:var(--radius);color:var(--ink-2);text-align:center;font-size:16px}
+.all-tools{margin-top:8px}
+.all-tools>summary{list-style:none;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:12px 16px;margin-bottom:20px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
+.all-tools>summary::-webkit-details-marker{display:none}
+.all-tools>summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.all-tools[open]>summary .all-open{display:none}
+.all-tools:not([open])>summary .all-close{display:none}
+body.searching .pick,body.searching .all-tools>summary{display:none}
+.share-check{display:flex;align-items:center;gap:12px;margin:14px 0 4px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.modal .share-check{display:flex;margin:14px 0 4px;font-size:16px;font-weight:700;color:var(--ink)}
+.share-check input{flex:none;width:24px;height:24px;margin:0;accent-color:var(--accent)}
+.share-check small{display:block;color:var(--ink-2);font-size:16px;font-weight:400}
+html[data-look="eva"] .fav-empty,html[data-look="eva"] .all-tools>summary,html[data-look="eva"] .share-check{border-radius:0}
 </style>
 </head>
 <body>
@@ -661,6 +678,7 @@ html[data-look="eva"] .icon-drawer{border-radius:0}
       <div class="vis-picker" id="visPicker" role="group" aria-label="使える人"></div>
       <p class="icon-help" id="visNote"></p>
     </div>
+    <label class="share-check" for="fShare"><input type="checkbox" id="fShare"><span>共有に出す<small>トップの「共有」欄に並びます</small></span></label>
     <label for="fTag">タグ(任意)</label>
     <input id="fTag" placeholder="例: PC内">
     <p class="form-help">カードに小さく出る目印です</p>
@@ -826,6 +844,7 @@ function applyMe(){
   b.classList.toggle("can-del", !!ME.canDelete);
   b.classList.toggle("can-vis", !!ME.canSetVisibility);
   b.classList.toggle("owner", !!ME.owner);
+  FAVS = new Set((ME.favorites || []).map(String));
   if (!ME.canEdit) { b.classList.remove("edit"); document.getElementById("editBtn").textContent = "編集"; }
   document.getElementById("meName").textContent = ME.name;
   document.getElementById("meRole").textContent = ME.owner ? "👑 オーナー Lv.MAX" : ME.role + " Lv." + ME.level;
@@ -945,7 +964,7 @@ document.getElementById("inviteBtn").addEventListener("click", openInvite);
 
 function logoutLocal(msg){
   TOKEN = ""; localStorage.removeItem("officeToken"); localStorage.removeItem(TOOLS_CACHE);
-  ME = null; TOOLS = []; USERS = []; GROUPS = []; ROLES = []; OWNER_ONLY = "";
+  ME = null; TOOLS = []; USERS = []; GROUPS = []; ROLES = []; OWNER_ONLY = ""; FAVS = new Set();
   sectionsEl.innerHTML = "";
   document.body.classList.remove("edit", "can-edit", "can-del", "can-vis", "owner");
   document.getElementById("editBtn").textContent = "編集";
@@ -1073,49 +1092,103 @@ function render(){
   const g = grouped();
   document.getElementById("catList").innerHTML = [...g.keys()].map(c => `<option value="${esc(c)}">`).join("");
   document.getElementById('cityCategoryNav').innerHTML = [...g.keys()].map((cat,index)=>`<a href="#tool-category-${index}">${esc(cat)}</a>`).join('');
-  sectionsEl.innerHTML = [...g.entries()].map(([cat, items], index) => `
+  const favs = TOOLS.filter(t => FAVS.has(String(t["ID"])));
+  const shared = TOOLS.filter(t => isShared(t["共有"]));
+  const pick = `
+    <section class="pick">
+      <h2>★ お気に入り</h2>
+      ${favs.length ? `<div class="grid">${favs.map(cardHtml).join("")}</div>`
+                    : `<p class="fav-empty">ツールの ☆ を押すとここに出ます</p>`}
+    </section>` + (shared.length ? `
+    <section class="pick">
+      <h2>共有 <span class="section-count">${shared.length}</span></h2>
+      <div class="grid">${shared.map(cardHtml).join("")}</div>
+    </section>` : "");
+  const all = [...g.entries()].map(([cat, items], index) => `
     <section id="tool-category-${index}">
       <h2>${esc(cat)} <span class="section-count">${items.length}</span></h2>
-      <div class="grid">
-        ${items.map(t => {
-          const paid = !!t.paidLock;   // 有料プランなら使えるツール(タップで案内を出す)
-          const soon = !t["URL"] && !paid;
-          const tag  = (t["タグ"] && !(soon && t["タグ"] === "準備中") ? `<span class="tag">${esc(t["タグ"])}</span>` : "")
-                     + (soon ? `<span class="tag">準備中</span>` : "")
-                     + (paid ? `<span class="tag">💰 有料</span>` : "");
-          let lock = "";
-          if (ME && ME.canSetVisibility && t["使える人"]) {
-            lock = splitList(t["使える人"]).includes(OWNER_ONLY) && OWNER_ONLY
-              ? `<span class="tag">👑 オーナーのみ</span>` : `<span class="tag">🔒 限定</span>`;
-          }
-          const key  = esc((t["名前"] || "") + " " + (t["説明"] || ""));
-          const tools = paid ? "" : `<div class="tools">
-              <button type="button" onclick="openForm('${esc(t["ID"])}');return false;">編集</button>
-              <button type="button" class="del" onclick="delTool('${esc(t["ID"])}','${esc(t["名前"])}');return false;">削除</button>
-            </div>`;
-          const open  = paid ? `<div class="card paid-lock" role="button" tabindex="0" data-key="${key}" onclick="openModal('paidModal')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openModal('paidModal')}">`
-                      : soon ? `<div class="card soon" data-key="${key}">`
-                             : `<a class="card" href="${esc(withToken(t["URL"]))}" target="_blank" rel="noopener" data-key="${key}">`;
-          const close = (soon || paid) ? `</div>` : `</a>`;
-          return `${open}
-            <div class="icon">${toolIcon(t["アイコン"],t["名前"])}</div>
-            <div class="body">
-              <div class="name">${esc(t["名前"])}${tag}${lock}</div>
-              <div class="desc">${esc(t["説明"])}</div>
-            </div>
-            <div class="arrow">${soon ? "" : "›"}</div>
-            ${tools}
-          ${close}`;
-        }).join("")}
-      </div>
+      <div class="grid">${items.map(cardHtml).join("")}</div>
     </section>`).join("");
+  sectionsEl.innerHTML = pick + `
+    <details class="all-tools" id="allTools"${allOpen ? " open" : ""}>
+      <summary><span class="all-open">▾ すべてのツールを見る(${TOOLS.length})</span><span class="all-close">▴ すべてのツールをたたむ</span></summary>
+      <div id="allSections">${all}</div>
+    </details>`;
+  document.getElementById("allTools").addEventListener("toggle", e => { if (!qEl.value.trim()) allOpen = e.target.open; });
 }
+
+// ---------- お気に入り・共有 ----------
+let FAVS = new Set();      // 自分のお気に入り(ツールID)
+let allOpen = false;       // 「すべてのツール」を開いているか
+function isShared(v){ return /^(○|〇|1|true|共有)$/i.test(String(v ?? "").trim()); }
+
+function cardHtml(t){
+  const paid = !!t.paidLock;   // 有料プランなら使えるツール(タップで案内を出す)
+  const soon = !t["URL"] && !paid;
+  const tag  = (t["タグ"] && !(soon && t["タグ"] === "準備中") ? `<span class="tag">${esc(t["タグ"])}</span>` : "")
+             + (soon ? `<span class="tag">準備中</span>` : "")
+             + (paid ? `<span class="tag">💰 有料</span>` : "");
+  let lock = "";
+  if (ME && ME.canSetVisibility && t["使える人"]) {
+    lock = splitList(t["使える人"]).includes(OWNER_ONLY) && OWNER_ONLY
+      ? `<span class="tag">👑 オーナーのみ</span>` : `<span class="tag">🔒 限定</span>`;
+  }
+  const key  = esc((t["名前"] || "") + " " + (t["説明"] || ""));
+  const id   = esc(t["ID"]);
+  const fav  = FAVS.has(String(t["ID"]));
+  const star = `<button type="button" class="fav-btn" aria-pressed="${fav}" aria-label="${fav ? "お気に入りから外す" : "お気に入りに入れる"}" onclick="toggleFav(event,'${id}')">${fav ? "★" : "☆"}</button>`;
+  const tools = paid ? "" : `<div class="tools">
+      <button type="button" onclick="openForm('${id}');return false;">編集</button>
+      <button type="button" class="del" onclick="delTool('${id}','${esc(t["名前"])}');return false;">削除</button>
+    </div>`;
+  const open  = paid ? `<div class="card paid-lock" role="button" tabindex="0" data-key="${key}" onclick="openModal('paidModal')" onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openModal('paidModal')}">`
+              : soon ? `<div class="card soon" data-key="${key}">`
+                     : `<a class="card" href="${esc(withToken(t["URL"]))}" target="_blank" rel="noopener" data-key="${key}">`;
+  const close = (soon || paid) ? `</div>` : `</a>`;
+  return `${open}
+    <div class="icon">${toolIcon(t["アイコン"],t["名前"])}</div>
+    <div class="body">
+      <div class="name">${esc(t["名前"])}${tag}${lock}</div>
+      <div class="desc">${esc(t["説明"])}</div>
+    </div>
+    ${star}
+    <div class="arrow">${soon ? "" : "›"}</div>
+    ${tools}
+  ${close}`;
+}
+
+async function toggleFav(e, id){
+  e.preventDefault(); e.stopPropagation();
+  const on = !FAVS.has(id);
+  const before = new Set(FAVS);
+  if (on) FAVS.add(id); else FAVS.delete(id);
+  render(); filter();
+  try {
+    const r = await api({ action: "favorite", id: id, on: on });
+    FAVS = new Set((r.favorites || []).map(String));
+  } catch (err) {
+    FAVS = before;
+    if (err.auth) { logoutLocal(err.message); return; }
+    alert("お気に入りを保存できませんでした: " + err.message);
+  }
+  if (ME) { ME.favorites = [...FAVS]; writeToolsCache(); }
+  render(); filter();
+}
+
+document.getElementById("cityCategoryNav").addEventListener("click", e => {
+  if (!e.target.closest("a")) return;
+  const d = document.getElementById("allTools");
+  if (d) { d.open = true; allOpen = true; }
+});
 
 function filter(){
   const q = qEl.value.trim().toLowerCase();
   searchBox.classList.toggle("has-text", q.length > 0);
+  document.body.classList.toggle("searching", q.length > 0);
+  const d = document.getElementById("allTools");
+  if (d) d.open = q.length > 0 || allOpen;
   let shown = 0;
-  document.querySelectorAll("section").forEach(sec => {
+  document.querySelectorAll("#allSections section").forEach(sec => {
     let n = 0;
     sec.querySelectorAll(".card").forEach(card => {
       const hit = !q || card.dataset.key.toLowerCase().includes(q);
@@ -1156,6 +1229,7 @@ function openForm(id){
   document.getElementById("fDesc").value = t["説明"] || "";
   document.getElementById("fUrl").value  = t["URL"] || "";
   document.getElementById("fTag").value  = t["タグ"] || "";
+  document.getElementById("fShare").checked = isShared(t["共有"]);
   document.getElementById("formMsg").textContent = "";
   document.getElementById("toolIdBox").hidden = !id;
   document.getElementById("toolIdText").textContent = id;
@@ -1176,6 +1250,7 @@ async function submitForm(){
     "説明":     document.getElementById("fDesc").value.trim(),
     "URL":      document.getElementById("fUrl").value.trim(),
     "タグ":     document.getElementById("fTag").value.trim(),
+    "共有":     document.getElementById("fShare").checked ? "○" : "",
   };
   if (ME && ME.canSetVisibility) data["使える人"] = [...VIS].join(",");
   const msg = document.getElementById("formMsg");
