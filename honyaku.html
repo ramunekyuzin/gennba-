@@ -298,20 +298,129 @@ const NS_XML = 'http://www.w3.org/XML/1998/namespace';
 const XML_PARTS = [
   { re: /^xl\/sharedStrings\.xml$/, ns: NS_MAIN, unit: 'si' },        // セルの文字
   { re: /^xl\/worksheets\/sheet\d+\.xml$/, ns: NS_MAIN, unit: 'is' }, // セルに直接書かれた文字
-  { re: /^xl\/drawings\/drawing\d+\.xml$/, ns: NS_DRAW, unit: 'p' },  // テキストボックス・図形
+  { re: /^xl\/drawings\/drawing\d+\.xml$/, ns: NS_DRAW, unit: 'p', box: true }, // テキストボックス・図形
   { re: /^xl\/charts\/chart\d+\.xml$/, ns: NS_DRAW, unit: 'p' }       // グラフの文字
 ];
 
-// まとまりごとに文字のノードを集める(ふりがなは除く)
+// まとまりごとに文字のノードを集める(ふりがなは除く)。idx は sharedStrings の番号に使う
 function collectUnits(doc, ns, unit) {
   const units = [];
-  for (const u of doc.getElementsByTagNameNS(ns, unit)) {
+  [...doc.getElementsByTagNameNS(ns, unit)].forEach((u, idx) => {
     const nodes = [...u.getElementsByTagNameNS(ns, 't')].filter(t => t.parentNode.localName !== 'rPh');
     const text = nodes.map(t => t.textContent).join('');
-    if (!text.trim() || !/\p{L}/u.test(text)) continue;
-    units.push({ el: u, nodes, text });
-  }
+    if (!text.trim() || !/\p{L}/u.test(text)) return;
+    units.push({ el: u, idx, nodes, text });
+  });
   return units;
+}
+
+// 文字の幅(全角は2、半角は1)
+function textWidth(s) {
+  let w = 0;
+  for (const ch of s) w += /[⺀-｠￠-￯]/.test(ch) ? 2 : 1;
+  return w;
+}
+
+// 訳が長くなった分だけ文字を小さくする倍率。折り返す所は面積で見るので平方根。半分より小さくしない
+function shrinkRate(from, to, wrap) {
+  const r = textWidth(from) / Math.max(1, textWidth(to));
+  if (r >= 1) return 1;
+  return Math.round(Math.max(0.5, wrap ? Math.sqrt(r) : r) * 20) / 20;
+}
+
+// テキストボックス・図形ごとに文字の大きさ(sz は 1/100 pt)を小さくする
+function fitBoxes(units) {
+  const boxes = new Map();
+  units.forEach(u => {
+    const b = boxes.get(u.el.parentNode) || { from: '', to: '' };
+    b.from += u.text; b.to += u.out;
+    boxes.set(u.el.parentNode, b);
+  });
+  boxes.forEach((b, box) => {
+    const rate = shrinkRate(b.from, b.to, true);
+    if (rate >= 1) return;
+    const props = [...box.getElementsByTagNameNS(NS_DRAW, '*')]
+      .filter(e => ['rPr', 'endParaRPr', 'defRPr'].includes(e.localName));
+    const sized = props.filter(e => e.hasAttribute('sz'));
+    sized.forEach(e => e.setAttribute('sz', Math.max(100, Math.round(e.getAttribute('sz') * rate))));
+    if (sized.length) return;
+    // 大きさの指定がない(標準の11pt)ときは、文字の部分に大きさを書き足す
+    for (const r of box.getElementsByTagNameNS(NS_DRAW, 'r')) {
+      let rPr = [...r.children].find(e => e.localName === 'rPr');
+      if (!rPr) { rPr = box.ownerDocument.createElementNS(NS_DRAW, 'a:rPr'); r.insertBefore(rPr, r.firstChild); }
+      rPr.setAttribute('sz', Math.round(1100 * rate));
+    }
+  });
+}
+
+// セルの文字を小さくする。セルの書式(styles.xml)を複製して、文字の大きさだけ変えたものを使う
+function fitCells(docs, styles) {
+  const ss = docs.find(d => d.name === 'xl/sharedStrings.xml');
+  const ssUnits = new Map((ss ? ss.units : []).map(u => [u.idx, u]));
+  const fonts = styles.getElementsByTagNameNS(NS_MAIN, 'fonts')[0];
+  const xfs = styles.getElementsByTagNameNS(NS_MAIN, 'cellXfs')[0];
+  const fontEls = [...fonts.children].filter(e => e.localName === 'font');
+  const xfEls = [...xfs.children].filter(e => e.localName === 'xf');
+  const made = new Map();
+  let styleChanged = false;
+
+  const isWrap = i => {
+    const a = xfEls[i] && [...xfEls[i].children].find(e => e.localName === 'alignment');
+    return !!a && ['1', 'true'].includes(a.getAttribute('wrapText'));
+  };
+  const styleFor = (i, rate) => {
+    const key = i + '|' + rate;
+    if (made.has(key)) return made.get(key);
+    const xf = xfEls[i] || xfEls[0];
+    const font = fontEls[+xf.getAttribute('fontId') || 0].cloneNode(true);
+    let sz = [...font.children].find(e => e.localName === 'sz');
+    const base = sz ? parseFloat(sz.getAttribute('val')) : 11;
+    if (!sz) {
+      // エクセルは中の並び順が決まっているので、color・name などより前に入れる
+      sz = styles.createElementNS(NS_MAIN, 'sz');
+      const next = [...font.children].find(e => ['color', 'name', 'family', 'charset', 'scheme'].includes(e.localName));
+      font.insertBefore(sz, next || null);
+    }
+    sz.setAttribute('val', Math.max(1, Math.round(base * rate * 2) / 2));
+    fonts.appendChild(font); fontEls.push(font);
+    fonts.setAttribute('count', fontEls.length);
+    const nx = xf.cloneNode(true);
+    nx.setAttribute('fontId', fontEls.length - 1);
+    nx.setAttribute('applyFont', '1');
+    xfs.appendChild(nx); xfEls.push(nx);
+    xfs.setAttribute('count', xfEls.length);
+    made.set(key, xfEls.length - 1);
+    styleChanged = true;
+    return xfEls.length - 1;
+  };
+
+  docs.filter(d => /^xl\/worksheets\//.test(d.name)).forEach(sh => {
+    const inline = new Map(sh.units.map(u => [u.el.parentNode, u]));
+    for (const c of sh.doc.getElementsByTagNameNS(NS_MAIN, 'c')) {
+      let u = null;
+      if (c.getAttribute('t') === 's') {
+        const v = [...c.children].find(e => e.localName === 'v');
+        u = v && ssUnits.get(+v.textContent);
+      } else if (c.getAttribute('t') === 'inlineStr') {
+        u = inline.get(c);
+      }
+      if (!u) continue;
+      const xfIdx = +(c.getAttribute('s') || 0);
+      const rate = shrinkRate(u.text, u.out, isWrap(xfIdx));
+      if (rate >= 1) continue;
+      // 文字の一部に大きさの指定があるとき(リッチテキスト)は、そちらを小さくする
+      const run = u.nodes[0].parentNode;
+      const runSz = run.localName === 'r' && run.getElementsByTagNameNS(NS_MAIN, 'sz')[0];
+      if (runSz) {
+        if (!u.runSz) u.runSz = parseFloat(runSz.getAttribute('val'));
+        runSz.setAttribute('val', Math.max(1, Math.round(u.runSz * rate * 2) / 2));
+      } else {
+        c.setAttribute('s', styleFor(xfIdx, rate));
+        sh.changed = true;
+      }
+    }
+  });
+  return styleChanged;
 }
 
 $('btnAll').addEventListener('click', async () => {
@@ -329,7 +438,7 @@ $('btnAll').addEventListener('click', async () => {
       if (!part) continue;
       const doc = new DOMParser().parseFromString(await zip.file(name).async('string'), 'application/xml');
       if (doc.getElementsByTagName('parsererror').length) continue;
-      docs.push({ name, doc, units: collectUnits(doc, part.ns, part.unit) });
+      docs.push({ name, doc, box: part.box, units: collectUnits(doc, part.ns, part.unit) });
     }
     const all = docs.flatMap(d => d.units);
     if (!all.length) { setMsg('このファイルには訳す文字がありません。', 'err'); return; }
@@ -350,13 +459,24 @@ $('btnAll').addEventListener('click', async () => {
     // 最初の文字ノードに訳を入れ、残りは空にする(書式は最初の部分のものになる)
     all.forEach(u => {
       const first = u.nodes[0];
-      first.textContent = done.get(u.text);
+      u.out = done.get(u.text);
+      first.textContent = u.out;
       if (first.namespaceURI === NS_MAIN) first.setAttributeNS(NS_XML, 'xml:space', 'preserve');
       u.nodes.slice(1).forEach(t => { t.textContent = ''; });
       // 日本語のふりがなは消す
       [...u.el.children].filter(c => c.localName === 'rPh').forEach(c => c.remove());
     });
-    docs.filter(d => d.units.length).forEach(d => {
+    // 訳が長くなった所は文字を小さくして枠に収める
+    docs.filter(d => d.box).forEach(d => fitBoxes(d.units));
+    const stylesFile = zip.file('xl/styles.xml');
+    if (stylesFile) {
+      const styles = new DOMParser().parseFromString(await stylesFile.async('string'), 'application/xml');
+      if (!styles.getElementsByTagName('parsererror').length && fitCells(docs, styles)) {
+        docs.push({ name: 'xl/styles.xml', doc: styles, units: [], changed: true });
+      }
+    }
+
+    docs.filter(d => d.units.length || d.changed).forEach(d => {
       let xml = new XMLSerializer().serializeToString(d.doc);
       if (!xml.startsWith('<?xml')) xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + xml;
       zip.file(d.name, xml, { createFolders: false });
