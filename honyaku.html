@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>エクセル翻訳</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #f3f5f8; --card: #fff; --text: #222; --sub: #777; --line: #ccd;
+    --field: #fff; --row: #f6f7f9; --accent: #1565c0;
+    --err: #c62828; --ok: #2e7d32; --shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417; --card: #1e2227; --text: #eaeaea; --sub: #aaa; --line: #3a3f46;
+      --field: #15181c; --row: #2a2f36; --accent: #4a8be0;
+      --err: #ef7a6e; --ok: #5fc97c; --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    font-size: 16px; background: var(--bg); color: var(--text);
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 4px 0 16px; }
+  .card {
+    background: var(--card); border-radius: 12px; padding: 16px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  label { display: block; font-weight: bold; margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  input[type=file], select {
+    width: 100%; font-size: 16px; padding: 10px;
+    border: 1px solid var(--line); border-radius: 8px; font-family: inherit;
+    background: var(--field); color: var(--text);
+  }
+  .hint { font-size: 14px; color: var(--sub); margin-top: 4px; }
+  .msg { font-size: 16px; margin-top: 10px; min-height: 22px; }
+  .msg.err { color: var(--err); }
+  .msg.ok { color: var(--ok); }
+  button.act {
+    width: 100%; font-size: 18px; font-weight: bold; margin-top: 16px;
+    padding: 16px; border: none; border-radius: 10px; cursor: pointer;
+    background: #1565c0; color: #fff; font-family: inherit;
+  }
+  button.act:disabled { opacity: .4; cursor: default; }
+
+  .rows { display: flex; flex-direction: column; gap: 10px; }
+  .row { background: var(--row); border-radius: 10px; padding: 10px 12px; }
+  .addr { font-size: 14px; color: var(--sub); margin-bottom: 4px; }
+  .pair { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .pair div { white-space: pre-wrap; word-break: break-word; }
+  .to { color: var(--accent); font-weight: bold; }
+  @media (min-width: 640px) {
+    .pair { grid-template-columns: 1fr 1fr; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>エクセル翻訳</h1>
+
+  <div class="card">
+    <label for="file">エクセルを選ぶ</label>
+    <input id="file" type="file" accept=".xlsx,.xls,.csv">
+
+    <label for="sheet">シート</label>
+    <select id="sheet" disabled></select>
+
+    <label for="lang">訳す言語</label>
+    <select id="lang">
+      <option value="ja">日本語</option>
+      <option value="en">英語</option>
+      <option value="vi">ベトナム語</option>
+      <option value="zh-CN">中国語(簡体字)</option>
+      <option value="ko">韓国語</option>
+      <option value="id">インドネシア語</option>
+      <option value="tl">タガログ語(フィリピン)</option>
+      <option value="ne">ネパール語</option>
+      <option value="my">ミャンマー語</option>
+      <option value="th">タイ語</option>
+      <option value="pt">ポルトガル語</option>
+    </select>
+    <div class="hint">元の言語は自動で判定します。数字だけのセルは訳しません。</div>
+
+    <button id="btnGo" class="act" disabled>訳す</button>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div id="result" class="card" hidden>
+    <div id="rows" class="rows"></div>
+  </div>
+</div>
+
+<script>
+// 翻訳用GAS(LanguageApp)のWebアプリURL
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzlCSYzBT_YYmZ7rn5_2g_g1R-ieZ561hYSYWXBXchfSdx5_yt9kesw-9bRaUuI2H87/exec';
+
+const BATCH = 50;        // 1回にGASへ送るセル数
+const MAX_CELLS = 2000;  // 1シートで訳すセルの上限
+
+const $ = id => document.getElementById(id);
+let book = null;
+
+function setMsg(text, kind) {
+  $('msg').textContent = text;
+  $('msg').className = 'msg' + (kind ? ' ' + kind : '');
+}
+
+$('file').addEventListener('change', async () => {
+  const f = $('file').files[0];
+  book = null;
+  $('sheet').innerHTML = '';
+  $('sheet').disabled = true;
+  $('btnGo').disabled = true;
+  $('result').hidden = true;
+  if (!f) return;
+  try {
+    book = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+  } catch (e) {
+    setMsg('このファイルは読めませんでした。', 'err');
+    return;
+  }
+  book.SheetNames.forEach(name => {
+    const o = document.createElement('option');
+    o.value = name; o.textContent = name;
+    $('sheet').appendChild(o);
+  });
+  $('sheet').disabled = false;
+  $('btnGo').disabled = false;
+  setMsg('');
+});
+
+// シートから訳すセル(文字のあるセル)を順番に取り出す
+function pickCells(ws) {
+  const cells = [];
+  if (!ws['!ref']) return cells;
+  const r = XLSX.utils.decode_range(ws['!ref']);
+  for (let y = r.s.r; y <= r.e.r; y++) {
+    for (let x = r.s.c; x <= r.e.c; x++) {
+      const addr = XLSX.utils.encode_cell({ r: y, c: x });
+      const c = ws[addr];
+      if (!c || c.t !== 's') continue;
+      const text = String(c.v).trim();
+      // 文字(ひらがな・漢字・アルファベットなど)が1つもないセルは飛ばす
+      if (!text || !/\p{L}/u.test(text)) continue;
+      cells.push({ addr, text });
+    }
+  }
+  return cells;
+}
+
+async function translateBatch(texts, target) {
+  const r = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'translate', texts, target })
+  });
+  const res = await r.json();
+  if (!res.ok) throw new Error(res.error || '翻訳できませんでした');
+  return res.texts;
+}
+
+function showRows(cells) {
+  const box = $('rows');
+  box.innerHTML = '';
+  cells.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const addr = document.createElement('div');
+    addr.className = 'addr';
+    addr.textContent = c.addr;
+    const pair = document.createElement('div');
+    pair.className = 'pair';
+    const from = document.createElement('div');
+    from.textContent = c.text;
+    const to = document.createElement('div');
+    to.className = 'to';
+    to.textContent = c.out;
+    pair.append(from, to);
+    row.append(addr, pair);
+    box.appendChild(row);
+  });
+  $('result').hidden = false;
+}
+
+$('btnGo').addEventListener('click', async () => {
+  if (!GAS_URL) { setMsg('翻訳用GASのURLがまだ設定されていません。', 'err'); return; }
+  if (!book) return;
+  const cells = pickCells(book.Sheets[$('sheet').value]);
+  if (!cells.length) { setMsg('このシートには訳す文字がありません。', 'err'); return; }
+  if (cells.length > MAX_CELLS) {
+    setMsg(`文字のあるセルが多すぎます(${cells.length}個)。${MAX_CELLS}個までにしてください。`, 'err');
+    return;
+  }
+
+  // 同じ文は1回だけ訳す
+  const uniq = [...new Set(cells.map(c => c.text))];
+  const done = new Map();
+  const target = $('lang').value;
+  $('btnGo').disabled = true;
+  try {
+    for (let i = 0; i < uniq.length; i += BATCH) {
+      setMsg(`訳しています… ${Math.min(i + BATCH, uniq.length)} / ${uniq.length}`);
+      const part = uniq.slice(i, i + BATCH);
+      const out = await translateBatch(part, target);
+      part.forEach((t, k) => done.set(t, out[k]));
+    }
+    cells.forEach(c => { c.out = done.get(c.text); });
+    showRows(cells);
+    setMsg(`${cells.length}個のセルを訳しました。`, 'ok');
+  } catch (e) {
+    setMsg('翻訳できませんでした:' + e.message, 'err');
+  } finally {
+    $('btnGo').disabled = false;
+  }
+});
+</script>
+</body>
+</html>
