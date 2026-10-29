@@ -145,7 +145,10 @@
       list.textContent = "";
       groups.forEach(function (g) {
         const a = document.createElement("a");
-        a.href = "mailto:" + g.emails.join(",");
+        // Outlook はブラウザ(outlook.office.com)で使っているので、その新規作成画面を開く
+        a.href = "https://outlook.office.com/mail/deeplink/compose?to=" + encodeURIComponent(g.emails.join(","));
+        a.target = "_blank";
+        a.rel = "noopener";
         a.textContent = g.name;
         list.appendChild(a);
       });
