@@ -138,6 +138,8 @@
       return res.json();
     }
 
+    let savedGroups = [];   // 最後に保存できた宛先(保存に失敗したらこれに戻す)
+
     function showButtons(groups) {
       const list = $("groups");
       list.textContent = "";
@@ -192,17 +194,20 @@
       })).filter(g => g.name || g.emails.length);
       const bad = groups.find(g => !g.name || !g.emails.length);
       if (bad) { $("saveMsg").textContent = "グループ名とアドレスの両方を入れてください。"; $("saveMsg").className = "ng"; return; }
+      // 保存を待たずにボタンへ反映する。失敗したら元に戻す
+      showButtons(groups);
       $("saveBtn").disabled = true;
-      $("saveMsg").textContent = "保存中…";
+      $("saveMsg").textContent = "保存中…(ボタンはもう使えます)";
       $("saveMsg").className = "";
       try {
         const r = await api({ action: "groupMailSave", groups: groups });
         if (!r.ok) throw new Error(r.error);
-        showButtons(r.result.groups);
-        showEditor(r.result.groups);
+        savedGroups = r.result.groups;
+        showButtons(savedGroups);
         $("saveMsg").textContent = "保存しました。";
       } catch (e) {
-        $("saveMsg").textContent = e.message || "保存できませんでした。";
+        showButtons(savedGroups);
+        $("saveMsg").textContent = (e.message || "保存できませんでした。") + " ボタンは保存前に戻しました。";
         $("saveMsg").className = "ng";
       } finally {
         $("saveBtn").disabled = false;
@@ -219,8 +224,9 @@
         else setMsg(r.error, true);
         return;
       }
-      showButtons(r.result.groups);
-      if (r.result.canEdit) showEditor(r.result.groups);
+      savedGroups = r.result.groups;
+      showButtons(savedGroups);
+      if (r.result.canEdit) showEditor(savedGroups);
     }
     start();
   </script>
