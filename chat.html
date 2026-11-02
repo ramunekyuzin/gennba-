@@ -495,8 +495,8 @@
       <label for="qrName">メールがない人を招待(名前)</label>
       <input id="qrName" type="text" maxlength="20" placeholder="佐藤(鳶)">
       <div id="qrInvMsg"></div>
-      <button id="qrInviteBtn">QRコードを作る</button>
-      <p class="note" style="margin-top:10px">本人のスマホでQRコードを読むとログインできます。QRコード・招待コードは1回だけ、7日間使えます。スマホを替えたときなどは、下のメンバー一覧の「QRを出し直す」で作り直してください。</p>
+      <button id="qrInviteBtn">招待URL・コードを作る</button>
+      <p class="note" style="margin-top:10px">その人だけのURLとQRコードができます。ショートメッセージで送るか、本人のスマホでQRコードを読むとログインできます。URL・QRコード・招待コードは1回だけ、7日間使えます。スマホを替えたときなどは、下のメンバー一覧の「QRを出し直す」で作り直してください。</p>
     </div>
     <div class="card hidden" id="qrShow">
       <label id="qrShowName"></label>
@@ -504,6 +504,12 @@
       <p class="note" style="margin:0;text-align:center">QRが読めないときは、ログイン画面の「招待コード」にこれを入れる</p>
       <div id="qrCodeText"></div>
       <p class="note" id="qrExpire" style="text-align:center"></p>
+      <label for="qrSmsText">ショートメッセージで送る文</label>
+      <textarea id="qrSmsText" rows="8" readonly></textarea>
+      <a id="qrSmsBtn" class="btn" href="#">ショートメッセージで送る</a>
+      <div id="qrCopyMsg"></div>
+      <button id="qrCopyBtn" class="sub" style="margin-top:8px">文をコピー</button>
+      <p class="note" style="margin-top:10px">宛先はメッセージアプリで選んでください。先にURLを開いた人がその人としてログインできてしまうので、送るのは本人の番号だけにしてください。</p>
       <button id="qrShowCloseBtn" class="sub">閉じる</button>
     </div>
     <div class="card">
@@ -2113,10 +2119,19 @@
       const res = await gas({ action: 'inviteQr', idToken, ...req });
       $('qrShowName').textContent = (req.name || nameOf(res.id)) + ' さんの招待QRコード';
       $('qrImg').textContent = '';
-      new QRCode($('qrImg'), { text: location.origin + location.pathname + '#qr=' + res.code, width: 220, height: 220 });
-      $('qrCodeText').textContent = res.code.slice(0, 5) + '-' + res.code.slice(5);
-      $('qrExpire').textContent = new Date(res.expiresAt).toLocaleString('ja-JP',
-        { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで・1回だけ使えます';
+      const url = location.origin + location.pathname + '#qr=' + res.code;
+      const shown = res.code.slice(0, 5) + '-' + res.code.slice(5);
+      const until = new Date(res.expiresAt).toLocaleString('ja-JP',
+        { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      new QRCode($('qrImg'), { text: url, width: 220, height: 220 });
+      $('qrCodeText').textContent = shown;
+      $('qrExpire').textContent = until + ' まで・1回だけ使えます';
+      const sms = '現場チャットへの招待です。下のURLを開くとログインできます(1回だけ・' + until + 'まで)。\n' + url +
+        '\n開けないときは、ログイン画面の「招待コード」に ' + shown + ' を入れてください。';
+      $('qrSmsText').value = sms;
+      // 宛先なしでメッセージアプリを開く(iPhone は &body=、Android は ?body= で本文が入る)
+      $('qrSmsBtn').href = 'sms:' + (/iPhone|iPad/.test(navigator.userAgent) ? '&' : '?') + 'body=' + encodeURIComponent(sms);
+      setMsg($('qrCopyMsg'), '');
       $('qrShow').classList.remove('hidden');
       $('qrShow').scrollIntoView({ behavior: 'smooth', block: 'center' });
       if (req.name) $('qrName').value = '';
@@ -2131,10 +2146,22 @@
     if (!name) { setMsg($('qrInvMsg'), '名前を入れてください。'); return; }
     makeQr({ name }, $('qrInviteBtn'), $('qrInvMsg'));
   };
+  $('qrCopyBtn').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText($('qrSmsText').value);
+      setMsg($('qrCopyMsg'), 'コピーしました。', true);
+    } catch (e) {
+      // コピーできないときは文を選んだ状態にして、長押しでコピーしてもらう
+      $('qrSmsText').select();
+      setMsg($('qrCopyMsg'), 'コピーできませんでした。上の文を長押ししてコピーしてください。');
+    }
+  };
   $('qrShowCloseBtn').onclick = () => {
     $('qrShow').classList.add('hidden');
     $('qrImg').textContent = '';
     $('qrCodeText').textContent = '';
+    $('qrSmsText').value = '';
+    $('qrSmsBtn').href = '#';
   };
 
   async function removeMember(email, btn) {
