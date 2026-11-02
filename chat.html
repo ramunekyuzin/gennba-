@@ -18,6 +18,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="現場チャット">
   <meta name="theme-color" content="#1e5aa8">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root {
       --bg: #f5f6f8; --card: #fff; --text: #222; --sub: #666; --line: #ddd;
@@ -92,6 +93,10 @@
     }
     .tabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
     .loginTabs { border-radius: 12px 12px 0 0; margin-bottom: 12px; }
+    .loginTabs button { padding: 12px 4px; }
+    /* QRコードは白地でないと読めないので、ダークモードでも白い台紙にのせる */
+    #qrImg { background: #fff; padding: 12px; border-radius: 8px; width: max-content; margin: 8px auto; }
+    #qrCodeText { font-size: 24px; font-weight: bold; letter-spacing: 2px; text-align: center; margin: 8px 0; }
     .badge {
       display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 10px;
       background: var(--danger); color: #fff; font-size: 13px; margin-left: 4px; vertical-align: middle;
@@ -251,7 +256,15 @@
   <nav class="tabs loginTabs">
     <button id="modeCodeBtn" class="on">メールのコード</button>
     <button id="modePwBtn">パスワード</button>
+    <button id="modeQrBtn">招待コード</button>
   </nav>
+  <div class="card hidden" id="stepQr">
+    <label for="qrCode">招待コード</label>
+    <input id="qrCode" type="text" autocomplete="off" autocapitalize="characters" maxlength="12" placeholder="ABCDE-FGHJK">
+    <div id="qrMsg"></div>
+    <button id="qrLoginBtn">ログイン</button>
+    <p class="note" style="margin-top:10px">メールがない人用です。管理者からもらった10文字のコードを入れてください(QRコードを読んだときは自動でログインします)。コードは1回しか使えません。</p>
+  </div>
   <div class="card hidden" id="stepPw">
     <label for="pwEmail">メールアドレス</label>
     <input id="pwEmail" type="email" autocomplete="username" inputmode="email" placeholder="example@example.com">
@@ -446,7 +459,7 @@
       <button id="phoneSaveBtn">保存</button>
       <p class="note" style="margin-top:10px">登録すると、メンバーがあなたの名前の丸を押したときに番号が表示されます。空にして保存すると消せます。</p>
     </div>
-    <div class="card">
+    <div class="card" id="pwCard">
       <input id="pwUser" type="email" autocomplete="username" class="hidden" tabindex="-1" aria-hidden="true">
       <label for="newPw">パスワード(決めると、次からメールとパスワードでログインできます)</label>
       <input id="newPw" type="password" autocomplete="new-password" maxlength="64" placeholder="8文字以上">
@@ -477,6 +490,21 @@
       <div id="invMsg"></div>
       <button id="inviteBtn">招待メールを送る</button>
       <p class="note" style="margin-top:10px">同じメールアドレスでもう一度送ると、名前を変えられます。</p>
+    </div>
+    <div class="card">
+      <label for="qrName">メールがない人を招待(名前)</label>
+      <input id="qrName" type="text" maxlength="20" placeholder="佐藤(鳶)">
+      <div id="qrInvMsg"></div>
+      <button id="qrInviteBtn">QRコードを作る</button>
+      <p class="note" style="margin-top:10px">本人のスマホでQRコードを読むとログインできます。QRコード・招待コードは1回だけ、7日間使えます。スマホを替えたときなどは、下のメンバー一覧の「QRを出し直す」で作り直してください。</p>
+    </div>
+    <div class="card hidden" id="qrShow">
+      <label id="qrShowName"></label>
+      <div id="qrImg"></div>
+      <p class="note" style="margin:0;text-align:center">QRが読めないときは、ログイン画面の「招待コード」にこれを入れる</p>
+      <div id="qrCodeText"></div>
+      <p class="note" id="qrExpire" style="text-align:center"></p>
+      <button id="qrShowCloseBtn" class="sub">閉じる</button>
     </div>
     <div class="card">
       <label>メンバー</label>
@@ -565,6 +593,7 @@
     auth = getAuth(app);
     db = getFirestore(app);
     onAuthStateChanged(auth, onUser);
+    if (pendingQr) { pendingQr = ''; qrLogin(); }
   }
 
   // ===== ログイン =====
@@ -574,17 +603,54 @@
   $('pwEmail').value = $('loginEmail').value;
 
   // 「メールのコード」と「パスワード」の切り替え(前に使ったほうを覚えておく)
+  // (招待コードは1回きりなので覚えない)
   function setLoginMode(mode) {
-    store('chatLoginMode', mode);
+    if (mode !== 'qr') store('chatLoginMode', mode);
     $('modeCodeBtn').classList.toggle('on', mode === 'code');
     $('modePwBtn').classList.toggle('on', mode === 'pw');
+    $('modeQrBtn').classList.toggle('on', mode === 'qr');
     $('stepPw').classList.toggle('hidden', mode !== 'pw');
     $('stepEmail').classList.toggle('hidden', mode !== 'code');
+    $('stepQr').classList.toggle('hidden', mode !== 'qr');
     $('stepCode').classList.add('hidden');
   }
   $('modeCodeBtn').onclick = () => setLoginMode('code');
   $('modePwBtn').onclick = () => setLoginMode('pw');
+  $('modeQrBtn').onclick = () => setLoginMode('qr');
   setLoginMode(load('chatLoginMode') === 'pw' ? 'pw' : 'code');
+
+  // ===== 招待コード(メールがない人) =====
+  // QRコードは chat.html#qr=コード。# の後ろはサーバーに送られないので記録に残らない。読んだらアドレスバーから消す
+  const normQr = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  let pendingQr = '';
+  const hashQr = location.hash.match(/^#qr=([A-Za-z0-9-]+)$/);
+  if (hashQr) {
+    pendingQr = normQr(hashQr[1]);
+    history.replaceState(null, '', location.pathname + location.search);
+    $('qrCode').value = pendingQr;
+    setLoginMode('qr');
+  }
+
+  async function qrLogin() {
+    const code = normQr($('qrCode').value);
+    if (code.length !== 10) { setMsg($('qrMsg'), '10文字のコードを入れてください。'); return; }
+    $('qrLoginBtn').disabled = true;
+    setMsg($('qrMsg'), 'ログインしています…', true);
+    try {
+      const token = await gas({ action: 'qrLogin', code });
+      $('qrCode').value = '';
+      setMsg($('qrMsg'), '');
+      await signInWithCustomToken(auth, token);
+    } catch (e) {
+      const text = e.message || 'ログインできませんでした。';
+      setMsg($('qrMsg'), text);
+      // ほかの人でログイン中のスマホで読んだときは、ログイン画面が出ていないので知らせる
+      if (auth.currentUser) alert(text);
+    }
+    $('qrLoginBtn').disabled = false;
+  }
+  $('qrLoginBtn').onclick = qrLogin;
+  $('qrCode').addEventListener('keydown', e => { if (e.key === 'Enter') qrLogin(); });
 
   $('pwLoginBtn').onclick = async () => {
     const email = $('pwEmail').value.trim().toLowerCase();
@@ -826,6 +892,7 @@
   }
   const nameOf = uid => (members[uid] && members[uid].name) || '(外れたメンバー)';
   const phoneOf = uid => (members[uid] && members[uid].phone) || '';
+  const isNoMail = uid => /^n-/.test(uid);   // メールがない人(QRで招待)のID
   const telHref = phone => 'tel:' + phone.replace(/[^0-9+]/g, '');
   const canManage = g => g && (g.owner === me.uid || me.admin);
 
@@ -1835,6 +1902,8 @@
     $('myPhone').value = phoneOf(me.uid);
     setMsg($('phoneMsg'), '');
     $('pwUser').value = me.uid;
+    // パスワードログインはメールアドレスが要るので、メールがない人には出さない
+    $('pwCard').classList.toggle('hidden', isNoMail(me.uid));
     $('newPw').value = '';
     $('newPw2').value = '';
     setMsg($('pwMsg'), '');
@@ -1969,13 +2038,20 @@
         }
         const mail = document.createElement('div');
         mail.className = 'mmail';
-        mail.textContent = email;
+        mail.textContent = isNoMail(email) ? 'メールなし(QRで招待)' : email;
         info.appendChild(n);
         info.appendChild(mail);
         row.appendChild(info);
         if (email !== me.uid && !owners.has(email)) {
           const btns = document.createElement('div');
           btns.className = 'mbtns';
+          if (isNoMail(email)) {
+            const qr = document.createElement('button');
+            qr.className = 'small sub';
+            qr.textContent = 'QRを出し直す';
+            qr.onclick = () => makeQr({ id: email }, qr, null);
+            btns.appendChild(qr);
+          }
           const isAdm = admins.has(email);
           const adm = document.createElement('button');
           adm.className = 'small sub';
@@ -2025,6 +2101,40 @@
       setMsg($('invMsg'), e.message || '送れませんでした。');
     }
     $('inviteBtn').disabled = false;
+  };
+
+  // QRコードを作る(新しく招待するときは name、出し直すときは id)。作れるのは管理者だけ(GASでも確かめる)
+  async function makeQr(req, btn, msgEl) {
+    if (req.id && !confirm(nameOf(req.id) + ' さんのQRコードを出し直しますか?(前に出したQRコードは使えなくなります)')) return;
+    btn.disabled = true;
+    if (msgEl) setMsg(msgEl, '');
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const res = await gas({ action: 'inviteQr', idToken, ...req });
+      $('qrShowName').textContent = (req.name || nameOf(res.id)) + ' さんの招待QRコード';
+      $('qrImg').textContent = '';
+      new QRCode($('qrImg'), { text: location.origin + location.pathname + '#qr=' + res.code, width: 220, height: 220 });
+      $('qrCodeText').textContent = res.code.slice(0, 5) + '-' + res.code.slice(5);
+      $('qrExpire').textContent = new Date(res.expiresAt).toLocaleString('ja-JP',
+        { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' まで・1回だけ使えます';
+      $('qrShow').classList.remove('hidden');
+      $('qrShow').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (req.name) $('qrName').value = '';
+    } catch (e) {
+      if (msgEl) setMsg(msgEl, e.message || '作れませんでした。');
+      else alert(e.message || '作れませんでした。');
+    }
+    btn.disabled = false;
+  }
+  $('qrInviteBtn').onclick = () => {
+    const name = $('qrName').value.trim();
+    if (!name) { setMsg($('qrInvMsg'), '名前を入れてください。'); return; }
+    makeQr({ name }, $('qrInviteBtn'), $('qrInvMsg'));
+  };
+  $('qrShowCloseBtn').onclick = () => {
+    $('qrShow').classList.add('hidden');
+    $('qrImg').textContent = '';
+    $('qrCodeText').textContent = '';
   };
 
   async function removeMember(email, btn) {
