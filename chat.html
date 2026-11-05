@@ -96,6 +96,8 @@
     .loginTabs button { padding: 12px 4px; }
     /* QRコードは白地でないと読めないので、ダークモードでも白い台紙にのせる */
     #qrImg { background: #fff; padding: 12px; border-radius: 8px; width: max-content; margin: 8px auto; }
+    .loginBig { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 28px; font-weight: bold; letter-spacing: 3px; margin-bottom: 10px; word-break: break-all; }
+    .shotMsg { color: var(--danger); font-size: 18px; font-weight: bold; margin-bottom: 8px; }
     #qrCodeText { font-size: 24px; font-weight: bold; letter-spacing: 2px; text-align: center; margin: 8px 0; }
     .badge {
       display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 10px;
@@ -266,13 +268,13 @@
     <p class="note" style="margin-top:10px">メールがない人用です。管理者からもらった10文字のコードを入れてください(QRコードを読んだときは自動でログインします)。コードは1回しか使えません。</p>
   </div>
   <div class="card hidden" id="stepPw">
-    <label for="pwEmail">メールアドレス</label>
-    <input id="pwEmail" type="email" autocomplete="username" inputmode="email" placeholder="example@example.com">
+    <label for="pwEmail">メールアドレス または ログインID(6けた)</label>
+    <input id="pwEmail" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="example@example.com / 123456">
     <label for="pwPass">パスワード</label>
     <input id="pwPass" type="password" autocomplete="current-password">
     <div id="pwLoginMsg"></div>
     <button id="pwLoginBtn">ログイン</button>
-    <p class="note" style="margin-top:10px">パスワードは、一度メールのコードでログインしてから「⚙ 設定」で決められます。忘れたときも、メールのコードでログインして決め直してください。</p>
+    <p class="note" style="margin-top:10px">パスワードは、一度メールのコードでログインしてから「⚙ 設定」で決められます。忘れたときも、メールのコードでログインして決め直してください。<br>メールがない人は、招待URLで入ったときに出たログインIDとパスワードを入れてください。忘れたときは、管理者に招待URLを出し直してもらってください。</p>
   </div>
   <div class="card" id="stepEmail">
     <label for="loginEmail">招待されたメールアドレス</label>
@@ -438,6 +440,24 @@
   </div>
 </div>
 
+<!-- ログインID・パスワード(メールがない人。スクリーンショットしてもらう) -->
+<div id="loginInfoView" class="full hidden" style="z-index:36">
+  <div class="page">
+    <h1>ログイン情報</h1>
+    <div class="card">
+      <p class="shotMsg">この画面をスクリーンショットしてください</p>
+      <p class="note">ログアウトしたときや、スマホを替えたときに、ログイン画面の「パスワード」でこのIDとパスワードを入れると入れます。パスワードは、この画面でしか見られません。</p>
+      <label>名前</label>
+      <div id="infoName" class="loginBig" style="font-size:20px"></div>
+      <label>ログインID</label>
+      <div id="infoId" class="loginBig"></div>
+      <label>パスワード</label>
+      <div id="infoPw" class="loginBig"></div>
+      <button id="infoDoneBtn" style="margin-top:8px">スクリーンショットした</button>
+    </div>
+  </div>
+</div>
+
 <!-- 設定 -->
 <div id="settingsView" class="full hidden">
   <div class="page">
@@ -458,6 +478,28 @@
       <div id="phoneMsg"></div>
       <button id="phoneSaveBtn">保存</button>
       <p class="note" style="margin-top:10px">登録すると、メンバーがあなたの名前の丸を押したときに番号が表示されます。空にして保存すると消せます。</p>
+    </div>
+    <div class="card hidden" id="noMailCard">
+      <label>ログインID(ログアウトしたときに使います)</label>
+      <div id="myLoginId" class="loginBig"></div>
+      <p class="note" style="margin-top:6px">ログイン画面の「パスワード」で、このIDとパスワードを入れると入れます。パスワードを忘れたときは、管理者に招待URLを出し直してもらってください。</p>
+      <div id="mailRegDone" class="hidden">
+        <label>登録したメールアドレス</label>
+        <p id="myMail" style="word-break:break-all;margin-bottom:10px"></p>
+        <p class="note">ログイン画面の「メールのコード」でも入れます。</p>
+      </div>
+      <div id="mailRegForm">
+        <label for="regEmail">メールアドレスを登録(持っている人だけ)</label>
+        <input id="regEmail" type="email" inputmode="email" autocomplete="email" placeholder="example@example.com">
+        <button id="regSendBtn" class="sub">確認コードを送る</button>
+        <div id="regCodeBox" class="hidden" style="margin-top:10px">
+          <label for="regCode">メールに届いた6けたのコード</label>
+          <input id="regCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+          <button id="regSaveBtn">登録</button>
+        </div>
+        <div id="regMsg" style="margin-top:8px"></div>
+        <p class="note" style="margin-top:6px">登録すると、ログイン画面の「メールのコード」でも入れるようになります。今までのチャットはそのままです。</p>
+      </div>
     </div>
     <div class="card" id="pwCard">
       <input id="pwUser" type="email" autocomplete="username" class="hidden" tabindex="-1" aria-hidden="true">
@@ -637,16 +679,20 @@
     setLoginMode('qr');
   }
 
+  let pendingLogin = null;   // 招待コードで入ったときにもらった { loginId, password }
+
   async function qrLogin() {
     const code = normQr($('qrCode').value);
     if (code.length !== 10) { setMsg($('qrMsg'), '10文字のコードを入れてください。'); return; }
     $('qrLoginBtn').disabled = true;
     setMsg($('qrMsg'), 'ログインしています…', true);
     try {
-      const token = await gas({ action: 'qrLogin', code });
+      const res = await gas({ action: 'qrLogin', code });
       $('qrCode').value = '';
       setMsg($('qrMsg'), '');
-      await signInWithCustomToken(auth, token);
+      // ログインのあとに、ログインIDとパスワードを出してスクリーンショットしてもらう
+      pendingLogin = { loginId: res.loginId, password: res.password };
+      await signInWithCustomToken(auth, res.token);
     } catch (e) {
       const text = e.message || 'ログインできませんでした。';
       setMsg($('qrMsg'), text);
@@ -658,22 +704,28 @@
   $('qrLoginBtn').onclick = qrLogin;
   $('qrCode').addEventListener('keydown', e => { if (e.key === 'Enter') qrLogin(); });
 
+  // メールがない人のログインID(6けた)は、GASが登録したログイン用のアドレスに直して入る
+  const LOGIN_DOMAIN = '@id.genba-chat.invalid';
   $('pwLoginBtn').onclick = async () => {
-    const email = $('pwEmail').value.trim().toLowerCase();
+    const typed = $('pwEmail').value.trim().toLowerCase().replace(/[\s-]/g, '');
+    const isId = /^\d{6}$/.test(typed);
+    const email = isId ? typed + LOGIN_DOMAIN : $('pwEmail').value.trim().toLowerCase();
     const password = $('pwPass').value;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg($('pwLoginMsg'), 'メールアドレスを正しく入れてください。'); return; }
+    if (!isId && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg($('pwLoginMsg'), 'メールアドレスか、6けたのログインIDを入れてください。'); return; }
     if (!password) { setMsg($('pwLoginMsg'), 'パスワードを入れてください。'); return; }
     $('pwLoginBtn').disabled = true;
     setMsg($('pwLoginMsg'), '');
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      store('chatEmail', email);
+      if (!isId) store('chatEmail', email);
       $('pwPass').value = '';
     } catch (e) {
       console.error(e);
       setMsg($('pwLoginMsg'), e.code === 'auth/too-many-requests'
         ? '何回も間違えたので、しばらく待ってからためしてください。'
-        : 'メールアドレスかパスワードが違います。まだパスワードを決めていない人は、メールのコードでログインしてから「⚙ 設定」で決めてください。');
+        : isId
+          ? 'ログインIDかパスワードが違います。わからないときは、管理者に招待URLを出し直してもらってください。'
+          : 'メールアドレスかパスワードが違います。まだパスワードを決めていない人は、メールのコードでログインしてから「⚙ 設定」で決めてください。');
     }
     $('pwLoginBtn').disabled = false;
   };
@@ -736,7 +788,7 @@
     let admin = false, monitor = false;
     try { admin = (await getDoc(doc(db, 'admins', user.uid))).exists(); } catch (e) { /* 管理者でない */ }
     try { monitor = (await getDoc(doc(db, 'monitors', user.uid))).exists(); } catch (e) { /* 見られない */ }
-    me = { uid: user.uid, name: member.name, admin, monitor };
+    me = { uid: user.uid, name: member.name, admin, monitor, loginId: member.loginId || '' };
     members = {};
     dms = {};
     groups = {};
@@ -752,6 +804,7 @@
     // 最初は個人チャットの一覧から
     showTab('dm');
     setupPush(false);
+    showLoginInfoIfNeeded();
     // 着信の通知から開いたとき
     const callParam = new URLSearchParams(location.search).get('call');
     if (callParam) {
@@ -768,8 +821,37 @@
     stopWatch();
   }
 
+  // メールがない人: 招待コードで入った直後か、まだログインIDがない人(前からQRで入っていた人)に、ログイン情報を出す
+  async function showLoginInfoIfNeeded() {
+    let info = pendingLogin;
+    pendingLogin = null;
+    if (!info && isNoMail(me.uid) && !me.loginId) {
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        info = await gas({ action: 'myLogin', idToken });
+      } catch (e) {
+        console.warn('ログイン情報を作れませんでした', e);
+        return;
+      }
+    }
+    if (!info || !info.loginId) return;
+    me.loginId = info.loginId;
+    $('infoName').textContent = me.name;
+    $('infoId').textContent = info.loginId;
+    $('infoPw').textContent = info.password;
+    $('loginInfoView').classList.remove('hidden');
+  }
+  $('infoDoneBtn').onclick = () => {
+    if (!confirm('スクリーンショットしましたか?(パスワードはもう表示できません)')) return;
+    $('infoPw').textContent = '';
+    $('loginInfoView').classList.add('hidden');
+  };
+
   async function logout() {
-    if (!confirm('ログアウトしますか?(このスマホに通知が来なくなります)')) return;
+    const msg = isNoMail(me.uid)
+      ? 'ログアウトしますか?\n次に入るときは、ログインIDとパスワード(スクリーンショットしたもの)が要ります。わからないときは、管理者に招待URLを出し直してもらってください。'
+      : 'ログアウトしますか?(このスマホに通知が来なくなります)';
+    if (!confirm(msg)) return;
     if (activeCall) await hangup();
     const token = load('chatPushToken');
     if (token) {
@@ -1908,13 +1990,58 @@
     $('myPhone').value = phoneOf(me.uid);
     setMsg($('phoneMsg'), '');
     $('pwUser').value = me.uid;
-    // パスワードログインはメールアドレスが要るので、メールがない人には出さない
+    // メールがない人は、パスワードの代わりにログインIDとメールの登録を出す
     $('pwCard').classList.toggle('hidden', isNoMail(me.uid));
+    $('noMailCard').classList.toggle('hidden', !isNoMail(me.uid));
+    if (isNoMail(me.uid)) {
+      $('myLoginId').textContent = me.loginId || '(まだありません。管理者に招待URLを出し直してもらってください)';
+      const mail = members[me.uid] && members[me.uid].email;
+      $('myMail').textContent = mail || '';
+      $('mailRegDone').classList.toggle('hidden', !mail);
+      $('mailRegForm').classList.toggle('hidden', !!mail);
+      $('regEmail').value = '';
+      $('regCode').value = '';
+      $('regCodeBox').classList.add('hidden');
+      setMsg($('regMsg'), '');
+    }
     $('newPw').value = '';
     $('newPw2').value = '';
     setMsg($('pwMsg'), '');
     $('settingsView').classList.remove('hidden');
   };
+  // メールがない人が、あとからメールアドレスを登録する(確認コードで本人のアドレスか確かめる)
+  $('regSendBtn').onclick = async () => {
+    const email = $('regEmail').value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg($('regMsg'), 'メールアドレスを正しく入れてください。'); return; }
+    $('regSendBtn').disabled = true;
+    setMsg($('regMsg'), '');
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      await gas({ action: 'emailCode', idToken, email });
+      $('regCodeBox').classList.remove('hidden');
+      setMsg($('regMsg'), email + ' に確認コードを送りました(10分間有効)。', true);
+      $('regCode').focus();
+    } catch (e) {
+      setMsg($('regMsg'), e.message || '送れませんでした。もう一度ためしてください。');
+    }
+    $('regSendBtn').disabled = false;
+  };
+  $('regSaveBtn').onclick = async () => {
+    const code = $('regCode').value.replace(/\D/g, '');
+    if (code.length !== 6) { setMsg($('regMsg'), '6けたの数字を入れてください。'); return; }
+    $('regSaveBtn').disabled = true;
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const email = await gas({ action: 'setEmail', idToken, code });
+      $('myMail').textContent = email;
+      $('mailRegDone').classList.remove('hidden');
+      $('mailRegForm').classList.add('hidden');
+    } catch (e) {
+      setMsg($('regMsg'), e.message || '登録できませんでした。');
+    }
+    $('regSaveBtn').disabled = false;
+  };
+
   $('pwSaveBtn').onclick = async () => {
     const password = $('newPw').value;
     if (password.length < 8) { setMsg($('pwMsg'), '8文字以上にしてください。'); return; }
@@ -2044,7 +2171,8 @@
         }
         const mail = document.createElement('div');
         mail.className = 'mmail';
-        mail.textContent = isNoMail(email) ? 'メールなし(QRで招待)' : email;
+        const regMail = members[email] && members[email].email;
+        mail.textContent = !isNoMail(email) ? email : regMail ? regMail + '(メールなしで招待)' : 'メールなし(QRで招待)';
         info.appendChild(n);
         info.appendChild(mail);
         row.appendChild(info);
