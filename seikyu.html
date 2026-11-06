@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>請求明細の前月比較</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2328;--sub:#667085;--line:#e3e6ea;--accent:#2563eb;--accent-text:#fff;--ok:#15803d;--ng:#b91c1c;--mark:#fff4d6}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#121417;--card:#1e2227;--text:#eaeaea;--sub:#aab0b8;--line:#3a3f46;--accent:#4a8be0;--accent-text:#fff;--ok:#5fc97c;--ng:#ef7a6e;--mark:#3a3220}
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;background:var(--bg);color:var(--text);font-size:16px}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;font-weight:700;font-size:18px}
+main{padding:12px 16px 32px;max-width:960px;margin:0 auto}
+section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:12px}
+h2{font-size:17px;margin:0 0 12px}
+h3{font-size:16px;margin:16px 0 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+label.lb{display:flex;flex-direction:column;gap:4px;color:var(--sub);font-size:16px;width:100%}
+input,button{font-size:16px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;font-family:inherit}
+input{background:var(--bg);color:var(--text)}
+button{background:var(--accent);color:var(--accent-text);border-color:var(--accent);cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+button.sub{background:var(--card);color:var(--text);border-color:var(--line)}
+button.del{background:var(--card);color:var(--ng);border-color:var(--ng);min-width:44px;padding:8px}
+.wide{width:100%}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:16px}
+th,td{padding:6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--sub);font-weight:600}
+td.num,th.num{text-align:right}
+td input{min-height:40px;padding:6px 8px;width:100%}
+td input.n{width:7em;text-align:right}
+td input.d{width:10em}
+td input.t{min-width:12em}
+tr.new td{background:var(--mark)}
+.msg{color:var(--sub);min-height:1.2em;margin:8px 0;white-space:pre-wrap}
+.msg.ng{color:var(--ng);font-weight:700}
+.msg.ok{color:var(--ok);font-weight:700}
+.files div{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)}
+.files span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ul{margin:4px 0 0;padding-left:1.4em}
+.tag{color:var(--ng);font-weight:700}
+.note{color:var(--sub);font-size:16px}
+</style>
+</head>
+<body>
+<header>請求明細の前月比較</header>
+
+<main>
+  <section>
+    <label class="lb">合言葉<input id="pass" type="password" autocomplete="off"></label>
+  </section>
+
+  <!-- 1. PDFを読み取る -->
+  <section>
+    <h2>1. PDFを読み取る</h2>
+    <p class="note">請求書・納品書のPDFを選んで「読み取る」を押してください(1回で5枚・合計20MBまで)。</p>
+    <div class="row"><input type="file" id="pdfInput" accept="application/pdf,.pdf" multiple class="wide"></div>
+    <div class="files" id="fileList"></div>
+    <div class="row" style="margin-top:12px"><button id="btnRead" class="wide">読み取る</button></div>
+    <div class="msg" id="readMsg"></div>
+  </section>
+
+  <!-- 2. 確かめてスプシに入れる -->
+  <section id="secRows" hidden>
+    <h2>2. 確かめてスプシに入れる</h2>
+    <p class="note">間違いがあればその場で直してください。いらない行は ✕ で外せます。</p>
+    <div id="warnBox"></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>日付</th><th>品名</th><th class="num">数量</th><th class="num">単価</th><th class="num">金額</th><th>ファイル</th><th></th></tr></thead>
+        <tbody id="rowBody"></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:12px"><button id="btnSave" class="wide">スプシに入れる</button></div>
+    <div class="msg" id="saveMsg"></div>
+  </section>
+
+  <!-- 3. 前月と比べる -->
+  <section>
+    <h2>3. 前月と比べる</h2>
+    <div class="row">
+      <input type="month" id="month">
+      <button id="btnCompare">前月と比べる</button>
+    </div>
+    <div class="msg" id="cmpMsg"></div>
+    <div id="cmpResult" hidden>
+      <h3 id="newTitle">前月に頼んでいない品</h3>
+      <div id="newList"></div>
+      <h3>品名ごとの比較</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr id="cmpHead"></tr></thead>
+          <tbody id="cmpBody"></tbody>
+        </table>
+      </div>
+      <p class="note">同じ内容がスプシの「前月比較」シートにも入っています。</p>
+    </div>
+  </section>
+</main>
+
+<script>
+// GAS(請求明細の前月比較)のウェブアプリURL。合言葉がないと動かない
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbymOImQuRNIEy10FVl_WAV4pWz11F6cVGhNagSbmeA4U_abehEux6c9KNou_LvI-OPL/exec';
+const STORE_KEY = 'seikyu';
+const $ = id => document.getElementById(id);
+
+let pdfs = [];  // { name, size, data(base64) }
+let rows = [];  // { date, item, quantity, unit_price, amount, file }
+
+try { const s = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; $('pass').value = s.pass || ''; } catch {}
+{
+  const d = new Date();
+  $('month').value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function el(tag, props, children) {
+  const e = document.createElement(tag);
+  if (props) Object.assign(e, props);
+  (children || []).forEach(c => e.append(c));
+  return e;
+}
+function setMsg(id, text, kind) {
+  const m = $(id);
+  m.textContent = text || '';
+  m.className = 'msg' + (kind ? ' ' + kind : '');
+}
+const yen = v => (v === null || v === undefined || v === '') ? '' : Number(v).toLocaleString('ja-JP');
+
+async function callGas(action, data) {
+  if (!GAS_URL) throw new Error('GASのURLがまだ設定されていません');
+  const pass = $('pass').value;
+  if (!pass) throw new Error('合言葉を入れてください');
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ pass })); } catch {}
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action, passcode: pass }, data)),
+  });
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || 'うまくいきませんでした');
+  return j.result;
+}
+
+// ===== 1. PDFを読み取る =====
+const readB64 = file => new Promise((ok, ng) => {
+  const r = new FileReader();
+  r.onload = () => ok(String(r.result).split(',')[1]);
+  r.onerror = () => ng(r.error);
+  r.readAsDataURL(file);
+});
+
+function renderFiles() {
+  $('fileList').replaceChildren(...pdfs.map((p, i) => el('div', null, [
+    el('span', { textContent: p.name + '(' + (p.size / 1048576).toFixed(1) + 'MB)', title: p.name }),
+    el('button', { className: 'del', type: 'button', textContent: '✕', ariaLabel: '外す', onclick: () => { pdfs.splice(i, 1); renderFiles(); } }),
+  ])));
+}
+
+$('pdfInput').addEventListener('change', async e => {
+  for (const f of e.target.files) {
+    if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') continue;
+    pdfs.push({ name: f.name, size: f.size, data: await readB64(f) });
+  }
+  e.target.value = '';
+  renderFiles();
+});
+
+$('btnRead').addEventListener('click', async () => {
+  if (!pdfs.length) return setMsg('readMsg', 'PDFを選んでください', 'ng');
+  if (pdfs.length > 5) return setMsg('readMsg', 'PDFは1回で5枚までです。分けて読み取ってください', 'ng');
+  if (pdfs.reduce((a, p) => a + p.size, 0) > 20 * 1048576) return setMsg('readMsg', 'PDFは1回で合計20MBまでです。分けて読み取ってください', 'ng');
+  const btn = $('btnRead');
+  btn.disabled = true;
+  // GASは1回6分までなので、PDFは1枚ずつ送る
+  const todo = pdfs.slice();
+  const warnings = [];
+  let count = 0;
+  try {
+    for (let i = 0; i < todo.length; i++) {
+      const p = todo[i];
+      setMsg('readMsg', 'AIが読み取り中…(' + (i + 1) + '/' + todo.length + '枚目・1枚につき1〜4分かかります)');
+      const r = await callGas('read', { files: [{ name: p.name, data: p.data }] });
+      rows = rows.concat(r.rows || []);
+      warnings.push(...(r.warnings || []));
+      count += (r.rows || []).length;
+      pdfs = pdfs.filter(x => x !== p);
+      renderFiles();
+      renderRows(warnings);
+    }
+    setMsg('readMsg', count + '行 読み取りました。下で確かめてください', 'ok');
+  } catch (err) {
+    renderRows(warnings);
+    setMsg('readMsg', (count ? count + '行は読み取れましたが、' : '') + '読み取れなかったPDFがあります:' + (err.message || err), 'ng');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ===== 2. 確かめてスプシに入れる =====
+function cellInput(r, key, cls, type) {
+  const v = r[key];
+  const inp = el('input', { className: cls, type: type || 'text', value: v === null || v === undefined ? '' : String(v) });
+  if (type === 'number') inp.step = 'any';
+  inp.addEventListener('input', () => {
+    r[key] = type === 'number' ? (inp.value === '' ? null : Number(inp.value)) : inp.value;
+  });
+  return el('td', null, [inp]);
+}
+
+function renderRows(warnings) {
+  $('secRows').hidden = !rows.length;
+  if (warnings) {
+    $('warnBox').replaceChildren(...(warnings.length ? [
+      el('b', { className: 'tag', textContent: '確かめてほしいこと' }),
+      el('ul', null, warnings.map(w => el('li', { textContent: w }))),
+    ] : []));
+  }
+  $('rowBody').replaceChildren(...rows.map((r, i) => el('tr', null, [
+    cellInput(r, 'date', 'd', 'date'),
+    cellInput(r, 'item', 't'),
+    cellInput(r, 'quantity', 'n', 'number'),
+    cellInput(r, 'unit_price', 'n', 'number'),
+    cellInput(r, 'amount', 'n', 'number'),
+    el('td', { textContent: r.file || '' }),
+    el('td', null, [el('button', { className: 'del', type: 'button', textContent: '✕', ariaLabel: 'この行を外す', onclick: () => { rows.splice(i, 1); renderRows(); } })]),
+  ])));
+}
+
+async function save(force) {
+  const btn = $('btnSave');
+  btn.disabled = true;
+  setMsg('saveMsg', 'スプシに入れています…');
+  try {
+    const r = await callGas('save', { rows, force: !!force });
+    if (r.dup && r.dup.length) {
+      setMsg('saveMsg', '');
+      if (confirm('次のファイルはもうスプシに入っています。\n' + r.dup.join('\n') + '\n\nそれでも入れますか?')) return save(true);
+      return setMsg('saveMsg', '入れるのをやめました', 'ng');
+    }
+    setMsg('saveMsg', r.saved + '行 スプシに入れました', 'ok');
+    rows = [];
+    renderRows([]);
+    $('secRows').hidden = false;
+  } catch (err) {
+    setMsg('saveMsg', '入れられませんでした:' + (err.message || err), 'ng');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('btnSave').addEventListener('click', () => {
+  if (!rows.length) return setMsg('saveMsg', '入れる明細がありません', 'ng');
+  const bad = rows.findIndex(r => !/^\d{4}-\d{2}-\d{2}$/.test(r.date || '') || !String(r.item || '').trim());
+  if (bad >= 0) return setMsg('saveMsg', (bad + 1) + '行目の日付か品名が空です', 'ng');
+  save(false);
+});
+
+// ===== 3. 前月と比べる =====
+$('btnCompare').addEventListener('click', async () => {
+  const month = $('month').value;
+  if (!month) return setMsg('cmpMsg', '月を選んでください', 'ng');
+  const btn = $('btnCompare');
+  btn.disabled = true;
+  setMsg('cmpMsg', '比べています…');
+  try {
+    const r = await callGas('compare', { month });
+    $('cmpResult').hidden = false;
+    $('newTitle').textContent = '前月(' + r.prev + ')に頼んでいない品 ' + r.newItems.length + '件';
+    $('newList').replaceChildren(r.newItems.length
+      ? el('ul', null, r.newItems.map(x => el('li', { textContent: x.item + '(数量 ' + yen(x.curQty) + '・金額 ' + yen(x.curAmt) + '円)' })))
+      : el('p', { className: 'note', textContent: 'ありません' }));
+    $('cmpHead').replaceChildren(...['品名', r.month + ' 数量', r.month + ' 金額', r.prev + ' 数量', r.prev + ' 金額', '差額', '']
+      .map((t, i) => el('th', { textContent: t, className: i >= 1 && i <= 5 ? 'num' : '' })));
+    $('cmpBody').replaceChildren(...r.rows.map(x => el('tr', { className: x.newItem ? 'new' : '' }, [
+      el('td', { textContent: x.item }),
+      el('td', { className: 'num', textContent: yen(x.curQty) }),
+      el('td', { className: 'num', textContent: yen(x.curAmt) }),
+      el('td', { className: 'num', textContent: yen(x.prevQty) }),
+      el('td', { className: 'num', textContent: yen(x.prevAmt) }),
+      el('td', { className: 'num', textContent: (x.diff > 0 ? '+' : '') + yen(x.diff) }),
+      el('td', { className: 'tag', textContent: x.newItem ? '★前月なし' : '' }),
+    ])));
+    setMsg('cmpMsg', r.rows.length ? '' : r.month + ' と ' + r.prev + ' の明細がスプシにありません');
+  } catch (err) {
+    setMsg('cmpMsg', '比べられませんでした:' + (err.message || err), 'ng');
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
