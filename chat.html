@@ -1388,9 +1388,9 @@
       if (m.deleted) {
         bubble.classList.add('deleted');
         bubble.textContent = m.deletedBy && m.deletedBy !== m.uid ? '管理者がメッセージを取り消しました' : 'メッセージの送信を取り消しました';
-      } else if (m.stamp && STAMPS[m.stamp]) {
+      } else if (!m.file && stampOf(m.text)) {
         bubble.classList.add('stamp');
-        bubble.appendChild(stampEl(m.stamp));
+        bubble.appendChild(stampEl(stampOf(m.text)));
       } else if (m.file) {
         if (m.file.kind === 'image' && !m.text) bubble.classList.add('photo');
         bubble.appendChild(fileEl(m.file));
@@ -1580,7 +1580,8 @@
   }
 
   // ===== スタンプ =====
-  // text にも「[スタンプ] 了解です」を入れて送るので、一覧の最後のメッセージ・通知・検索はそのまま文字で出る
+  // 送るのは「[スタンプ] 了解です」という文字だけ(Firestore のルールでメッセージの項目が決まっているため)。
+  // 画面では、この文字とぴったり同じならカードで出す。一覧の最後のメッセージ・通知・検索はそのまま文字で出る
   const STAMPS = {
     ryokai:  { e: '👍', t: '了解です', c: '#1e5aa8' },
     otsukare: { e: '🙇', t: 'お疲れさまです', c: '#1a8a3c' },
@@ -1595,6 +1596,10 @@
     kyukei:  { e: '☕', t: '休憩します', c: '#795548' },
     agari:   { e: '🏠', t: '上がります', c: '#37474f' }
   };
+  const STAMP_PREFIX = '[スタンプ] ';
+  const stampByText = {};
+  Object.keys(STAMPS).forEach(key => { stampByText[STAMP_PREFIX + STAMPS[key].t] = key; });
+  const stampOf = text => stampByText[text] || '';
   function stampEl(key, tag) {
     const s = STAMPS[key];
     const el = document.createElement(tag || 'div');
@@ -1621,7 +1626,7 @@
     btn.disabled = true;
     try {
       forceScroll = true;
-      await postMessage(room, '[スタンプ] ' + STAMPS[key].t, null, key);
+      await postMessage(room, STAMP_PREFIX + STAMPS[key].t, null);
       $('stampPanel').classList.add('hidden');
     } catch (e) {
       console.error(e);
@@ -1631,10 +1636,9 @@
   }
 
   // メッセージを書き込んで、通知をGASに頼む(r は送り先のチャット)
-  async function postMessage(r, text, file, stamp) {
+  async function postMessage(r, text, file) {
     const data = { uid: me.uid, name: me.name, text, createdAt: serverTimestamp() };
     if (file) data.file = file;
-    if (stamp) data.stamp = stamp;
     const preview = text || (file.kind === 'image' ? '📷 写真' : '📄 ' + file.name);
     const last = { lastAt: serverTimestamp(), lastFrom: me.uid, lastText: preview.slice(0, 60) };
     const extra = {};
