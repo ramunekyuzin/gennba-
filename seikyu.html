@@ -6,9 +6,9 @@
 <meta name="color-scheme" content="light dark">
 <title>請求明細の前月比較</title>
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--text:#1f2328;--sub:#667085;--line:#e3e6ea;--accent:#2563eb;--accent-text:#fff;--ok:#15803d;--ng:#b91c1c;--mark:#fff4d6}
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2328;--sub:#667085;--line:#e3e6ea;--accent:#2563eb;--accent-text:#fff;--ok:#15803d;--ng:#b91c1c;--mark:#fff4d6;--red-bg:#fbdcdc}
 @media (prefers-color-scheme: dark){
-  :root{--bg:#121417;--card:#1e2227;--text:#eaeaea;--sub:#aab0b8;--line:#3a3f46;--accent:#4a8be0;--accent-text:#fff;--ok:#5fc97c;--ng:#ef7a6e;--mark:#3a3220}
+  :root{--bg:#121417;--card:#1e2227;--text:#eaeaea;--sub:#aab0b8;--line:#3a3f46;--accent:#4a8be0;--accent-text:#fff;--ok:#5fc97c;--ng:#ef7a6e;--mark:#3a3220;--red-bg:#4a2626}
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;background:var(--bg);color:var(--text);font-size:16px}
@@ -36,6 +36,9 @@ td input.n{width:7em;text-align:right}
 td input.d{width:10em}
 td input.t{min-width:12em}
 tr.new td{background:var(--mark)}
+td.pd{background:var(--red-bg);color:var(--ng);font-weight:700}
+td.ad{color:var(--ng);font-weight:700}
+.legend span{display:inline-block;padding:2px 8px;border-radius:4px;margin:0 6px 6px 0}
 .msg{color:var(--sub);min-height:1.2em;margin:8px 0;white-space:pre-wrap}
 .msg.ng{color:var(--ng);font-weight:700}
 .msg.ok{color:var(--ok);font-weight:700}
@@ -91,6 +94,7 @@ ul{margin:4px 0 0;padding-left:1.4em}
       <h3 id="newTitle">前月に頼んでいない品</h3>
       <div id="newList"></div>
       <h3>品名ごとの比較</h3>
+      <p class="legend"><span style="background:var(--mark)">黄色:前月なし</span><span style="background:var(--red-bg);color:var(--ng);font-weight:700">赤い背景:単価が違う</span><span style="color:var(--ng);font-weight:700">赤い文字:合計が違う</span></p>
       <div class="scroll">
         <table>
           <thead><tr id="cmpHead"></tr></thead>
@@ -129,6 +133,8 @@ function setMsg(id, text, kind) {
   m.className = 'msg' + (kind ? ' ' + kind : '');
 }
 const yen = v => (v === null || v === undefined || v === '') ? '' : Number(v).toLocaleString('ja-JP');
+// 単価は「380」か「380〜400」の形で来る
+const price = v => typeof v === 'number' ? yen(v) : String(v ?? '').replace(/\d+(\.\d+)?/g, n => Number(n).toLocaleString('ja-JP'));
 
 async function callGas(action, data) {
   if (!GAS_URL) throw new Error('GASのURLがまだ設定されていません');
@@ -273,16 +279,19 @@ $('btnCompare').addEventListener('click', async () => {
     $('newList').replaceChildren(r.newItems.length
       ? el('ul', null, r.newItems.map(x => el('li', { textContent: x.item + '(数量 ' + yen(x.curQty) + '・金額 ' + yen(x.curAmt) + '円)' })))
       : el('p', { className: 'note', textContent: 'ありません' }));
-    $('cmpHead').replaceChildren(...['品名', r.month + ' 数量', r.month + ' 金額', r.prev + ' 数量', r.prev + ' 金額', '差額', '']
-      .map((t, i) => el('th', { textContent: t, className: i >= 1 && i <= 5 ? 'num' : '' })));
+    $('cmpHead').replaceChildren(...['品名', r.month + ' 数量', r.month + ' 単価', r.month + ' 金額', r.prev + ' 数量', r.prev + ' 単価', r.prev + ' 金額', '差額', '判定']
+      .map((t, i) => el('th', { textContent: t, className: i >= 1 && i <= 7 ? 'num' : '' })));
+    const td = (v, red) => el('td', { className: 'num' + (red ? ' ' + red : ''), textContent: v });
     $('cmpBody').replaceChildren(...r.rows.map(x => el('tr', { className: x.newItem ? 'new' : '' }, [
       el('td', { textContent: x.item }),
-      el('td', { className: 'num', textContent: yen(x.curQty) }),
-      el('td', { className: 'num', textContent: yen(x.curAmt) }),
-      el('td', { className: 'num', textContent: yen(x.prevQty) }),
-      el('td', { className: 'num', textContent: yen(x.prevAmt) }),
-      el('td', { className: 'num', textContent: (x.diff > 0 ? '+' : '') + yen(x.diff) }),
-      el('td', { className: 'tag', textContent: x.newItem ? '★前月なし' : '' }),
+      td(yen(x.curQty)),
+      td(price(x.curPrice), x.priceDiff && 'pd'),
+      td(yen(x.curAmt), x.amtDiff && 'ad'),
+      td(yen(x.prevQty)),
+      td(price(x.prevPrice), x.priceDiff && 'pd'),
+      td(yen(x.prevAmt), x.amtDiff && 'ad'),
+      td((x.diff > 0 ? '+' : '') + yen(x.diff), x.amtDiff && 'ad'),
+      el('td', { className: x.priceDiff ? 'pd' : x.newItem || x.amtDiff ? 'tag' : '', textContent: x.judge || '' }),
     ])));
     setMsg('cmpMsg', r.rows.length ? '' : r.month + ' と ' + r.prev + ' の明細がスプシにありません');
   } catch (err) {
