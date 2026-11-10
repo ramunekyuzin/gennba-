@@ -541,6 +541,44 @@ function readDetail(ws) {
   return rows.length ? rows : [newRow()];
 }
 
+// 3つのシートがないExcel用:どのシートでも「品名」「金額」の見出し行を探して、その下を読む
+function findTable(wb) {
+  for (const ws of wb.worksheets) {
+    const maxRow = Math.min(ws.rowCount, 30);
+    for (let r = 1; r <= maxRow; r++) {
+      const row = ws.getRow(r);
+      const cols = {};
+      for (let c = 1; c <= Math.max(row.cellCount, 1); c++) {
+        const text = cellText(row.getCell(c).value).replace(/\s/g, '');
+        const col = COLS.find(k => k.label === text);
+        if (col && !(col.key in cols)) cols[col.key] = c;
+      }
+      if ('name' in cols && 'amount' in cols) return { ws, headRow: r, cols };
+    }
+  }
+  return null;
+}
+
+function readTable({ ws, headRow, cols }) {
+  const rows = [];
+  for (let r = headRow + 1; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    const item = {};
+    COLS.forEach(c => {
+      const v = c.key in cols ? row.getCell(cols[c.key]).value : null;
+      item[c.key] = c.key === 'date' ? cellDate(v) : cellText(v);
+    });
+    const texts = COLS.map(c => c.key in cols ? cellText(row.getCell(cols[c.key]).value) : '');
+    if (texts.some(t => t.startsWith('合計'))) break;
+    if (isEmpty(item)) {
+      if (rows.length) break;   // 明細のあとの空行で終わり
+      continue;
+    }
+    rows.push(item);
+  }
+  return rows;
+}
+
 fileEl.addEventListener('change', async () => {
   const file = fileEl.files[0];
   fileEl.value = '';
@@ -553,10 +591,30 @@ fileEl.addEventListener('change', async () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await file.arrayBuffer());
     const sheets = LISTS.map(l => wb.getWorksheet(l.label));
-    if (sheets.every(s => !s)) return fail('このツールで保存したExcelではないようです(「契約金」「今回請求」「相殺額」のシートがありません)');
+    const table = sheets.every(s => !s) ? findTable(wb) : null;
+    if (sheets.every(s => !s) && !table) return fail('「品名」と「金額」の見出しが見つからないので読み込めませんでした');
+    const tableRows = table ? readTable(table) : null;
+    if (table && tableRows.length === 0) return fail('見出しの下に明細が見つかりませんでした');
 
     const hasInput = LISTS.some(l => data[l.key].some(r => !isEmpty(r))) || titleEl.value.trim() || siteEl.value.trim();
     if (hasInput && !confirm('今の入力を消して、「' + file.name + '」の内容を読み込みますか?')) return;
+
+    if (table) {
+      // タイトルはA1(見出しより上にあるとき)、なければファイル名。現場名は「現場名:」で始まるA2から
+      const ws = table.ws;
+      const a1 = table.headRow > 1 ? cellText(ws.getCell('A1').value) : '';
+      const a2 = table.headRow > 2 ? cellText(ws.getCell('A2').value) : '';
+      titleEl.value = a1 || file.name.replace(/\.xlsx$/i, '');
+      siteEl.value = /^現場名[::]/.test(a2) ? a2.replace(/^現場名[::]\s*/, '') : '';
+      madeEl.value = today();
+      data = { contract: [newRow()], current: tableRows, offset: [newRow()] };
+      active = 'current';
+      msgEl.textContent = '';
+      loadMsgEl.textContent = '「' + file.name + '」の明細' + tableRows.length + '行を「今回請求」に読み込みました。作成日は今日にしています。';
+      renderTabs();
+      renderRows();
+      return;
+    }
 
     const first = wb.getWorksheet('集計') || sheets.find(s => s);
     titleEl.value = cellText(first.getCell('A1').value).replace(/[((](集計|契約金|今回請求|相殺額)[))]$/, '');
