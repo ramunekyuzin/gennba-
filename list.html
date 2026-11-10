@@ -79,6 +79,7 @@ button:disabled{opacity:.6;cursor:wait}
 
   <div class="card">
     <div class="total"><span>契約金</span><strong id="t_contract">0円</strong></div>
+    <div class="total"><span>差引契約金額(契約金 − 相殺額)</span><strong id="t_contractDiff">0円</strong></div>
     <div class="total"><span>今回請求</span><strong id="t_current">0円</strong></div>
     <div class="total"><span>相殺額</span><strong id="t_offset">0円</strong></div>
     <div class="total big"><span>差引請求額</span><strong id="t_diff">0円</strong></div>
@@ -275,12 +276,13 @@ function calcAll() {
     if (r.bad.length) bad.push(l.label + 'の' + r.bad.join('・') + '行目');
   });
   t.diff = Math.round((t.current - t.offset) * 100) / 100;
+  t.contractDiff = Math.round((t.contract - t.offset) * 100) / 100;
   return { t, bad };
 }
 
 function updateTotals() {
   const { t, bad } = calcAll();
-  ['contract', 'current', 'offset', 'diff'].forEach(k => {
+  ['contract', 'contractDiff', 'current', 'offset', 'diff'].forEach(k => {
     document.getElementById('t_' + k).textContent = yen(t[k]);
   });
   totalNoteEl.textContent = bad.length ? bad.join('、') + 'の金額が数字になっていません(合計に入っていません)' : '';
@@ -339,7 +341,8 @@ function putHeader(ws, lastCol, title, site, made) {
 }
 
 // 明細のシートを作り、合計のセル番地を返す
-function addDetailSheet(wb, label, title, site, made, rows, sum) {
+// offset:契約金シートだけ渡す { ref: 相殺額の合計セル, sum: 相殺額の合計, diff: 差引契約金額 }
+function addDetailSheet(wb, label, title, site, made, rows, sum, offset) {
   const ws = newSheet(wb, label, [13, 34, 10, 9, 16]);
   putHeader(ws, 'E', title + '(' + label + ')', site, made);
 
@@ -393,7 +396,35 @@ function addDetailSheet(wb, label, title, site, made, rows, sum) {
   }
   ws.getRow(tr).height = 24;
 
-  ws.pageSetup.printArea = 'A1:E' + tr;
+  // 契約金シート:合計の下に「相殺額」と「差引契約金額」を足す
+  let last = tr;
+  if (offset) {
+    const extra = [
+      { label: '相殺額', value: { formula: offset.ref, result: offset.sum }, bold: false },
+      { label: '差引契約金額', value: { formula: 'E' + tr + '-E' + (tr + 1), result: offset.diff }, bold: true },
+    ];
+    extra.forEach((x, i) => {
+      const r = tr + 1 + i;
+      ws.mergeCells('A' + r + ':D' + r);
+      const l = ws.getCell('A' + r);
+      l.value = x.label;
+      l.font = { ...FONT, bold: x.bold };
+      l.alignment = { horizontal: 'right', vertical: 'middle' };
+      const v = ws.getCell('E' + r);
+      v.value = x.value;
+      v.numFmt = '"¥"#,##0';
+      v.font = { ...FONT, bold: x.bold, size: x.bold ? 12 : 11 };
+      for (let c = 1; c <= 5; c++) {
+        const cell = ws.getRow(r).getCell(c);
+        cell.border = x.bold ? DOUBLE_TOP : BOX;
+        if (x.bold) cell.fill = TOTAL_FILL;
+      }
+      ws.getRow(r).height = 24;
+    });
+    last = tr + 2;
+  }
+
+  ws.pageSetup.printArea = 'A1:E' + last;
   ws.views = [{ state: 'frozen', ySplit: 4 }];
   return "'" + label + "'!E" + tr;
 }
@@ -413,18 +444,25 @@ function fillSummary(ws, title, site, made, refs, t) {
   });
   head.height = 22;
 
-  LISTS.forEach((l, i) => {
+  // 5:契約金 6:差引契約金額 7:今回請求 8:相殺額 9:差引請求額
+  const lines = [
+    { label: '契約金', value: { formula: refs.contract, result: t.contract } },
+    { label: '差引契約金額(契約金 − 相殺額)', value: { formula: 'B5-B8', result: t.contractDiff }, bold: true },
+    { label: '今回請求', value: { formula: refs.current, result: t.current } },
+    { label: '相殺額', value: { formula: refs.offset, result: t.offset } },
+  ];
+  lines.forEach((x, i) => {
     const r = ws.getRow(5 + i);
-    r.getCell(1).value = l.label;
-    r.getCell(2).value = { formula: refs[l.key], result: t[l.key] };
+    r.getCell(1).value = x.label;
+    r.getCell(2).value = x.value;
     r.getCell(2).numFmt = '"¥"#,##0';
-    [1, 2].forEach(c => { r.getCell(c).font = { ...FONT, size: 12 }; r.getCell(c).border = BOX; });
+    [1, 2].forEach(c => { r.getCell(c).font = { ...FONT, size: 12, bold: !!x.bold }; r.getCell(c).border = BOX; });
     r.height = 26;
   });
 
-  const dr = ws.getRow(8);
+  const dr = ws.getRow(9);
   dr.getCell(1).value = '差引請求額(今回請求 − 相殺額)';
-  dr.getCell(2).value = { formula: 'B6-B7', result: t.diff };
+  dr.getCell(2).value = { formula: 'B7-B8', result: t.diff };
   dr.getCell(2).numFmt = '"¥"#,##0';
   [1, 2].forEach(c => {
     const cell = dr.getCell(c);
@@ -434,7 +472,7 @@ function fillSummary(ws, title, site, made, refs, t) {
     cell.alignment = { vertical: 'middle' };
   });
   dr.height = 30;
-  ws.pageSetup.printArea = 'A1:B8';
+  ws.pageSetup.printArea = 'A1:B9';
 }
 
 async function buildWorkbook(title, site, made, lists, t) {
@@ -442,8 +480,11 @@ async function buildWorkbook(title, site, made, lists, t) {
   // 集計を一番左にしたいので先に作り、中身は明細のあとで入れる
   const summary = newSheet(wb, '集計', [34, 22]);
   const refs = {};
+  // 相殺額シートの合計の行は「5行目 + 明細の数」(契約金シートより後に作るので先に計算)
+  const offsetInfo = { ref: "'相殺額'!E" + (5 + lists.offset.length), sum: t.offset, diff: t.contractDiff };
   LISTS.forEach(l => {
-    refs[l.key] = addDetailSheet(wb, l.label, title, site, made, lists[l.key], t[l.key]);
+    refs[l.key] = addDetailSheet(wb, l.label, title, site, made, lists[l.key], t[l.key],
+      l.key === 'contract' ? offsetInfo : null);
   });
   fillSummary(summary, title, site, made, refs, t);
   return wb;
