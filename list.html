@@ -29,12 +29,17 @@ button:disabled{opacity:.6;cursor:wait}
 .field+.field,.grid+.field,.field+.grid{margin-top:12px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid .field{margin-top:0}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
+.tabs button{padding:8px 4px}
+.tabs button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
 .item{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
 .item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .item-head span{font-weight:700}
-.total{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:6px 0}
+.total+.total{border-top:1px solid var(--line)}
 .total span{font-weight:600;color:var(--muted)}
-.total strong{font-size:28px;overflow-wrap:anywhere;text-align:right}
+.total strong{font-size:20px;overflow-wrap:anywhere;text-align:right}
+.total.big strong{font-size:28px}
 .note{font-size:16px;color:var(--muted);margin-top:8px}
 .err{color:var(--danger)}
 </style>
@@ -42,6 +47,13 @@ button:disabled{opacity:.6;cursor:wait}
 <body>
 <div class="app">
   <h1>リスト作成</h1>
+
+  <div class="card">
+    <button id="load" class="wide" type="button" style="margin-top:0">前回のExcelを読み込む</button>
+    <input id="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+    <button id="reset" class="wide del" type="button">新しく作る(入力を全部消す)</button>
+    <p class="note" id="loadMsg">入力した内容はこの端末に自動で残ります。</p>
+  </div>
 
   <div class="card">
     <div class="field">
@@ -59,13 +71,17 @@ button:disabled{opacity:.6;cursor:wait}
   </div>
 
   <div class="card">
-    <h2>明細</h2>
+    <div class="tabs" id="tabs"></div>
+    <h2 id="listHead">明細</h2>
     <div id="rows"></div>
     <button id="addRow" class="wide" type="button">+ 行を足す</button>
   </div>
 
   <div class="card">
-    <div class="total"><span>合計金額</span><strong id="total">0円</strong></div>
+    <div class="total"><span>契約金</span><strong id="t_contract">0円</strong></div>
+    <div class="total"><span>今回請求</span><strong id="t_current">0円</strong></div>
+    <div class="total"><span>相殺額</span><strong id="t_offset">0円</strong></div>
+    <div class="total big"><span>差引請求額</span><strong id="t_diff">0円</strong></div>
     <p class="note err" id="totalNote"></p>
   </div>
 
@@ -85,8 +101,16 @@ const COLS = [
   { key: 'amount', label: '金額', type: 'text', mode: 'numeric' },
 ];
 
+// 明細の種類(それぞれExcelの別シートになる)
+const LISTS = [
+  { key: 'contract', label: '契約金' },
+  { key: 'current',  label: '今回請求' },
+  { key: 'offset',   label: '相殺額' },
+];
+
 const rowsEl = document.getElementById('rows');
-const totalEl = document.getElementById('total');
+const tabsEl = document.getElementById('tabs');
+const listHeadEl = document.getElementById('listHead');
 const totalNoteEl = document.getElementById('totalNote');
 const msgEl = document.getElementById('msg');
 const titleEl = document.getElementById('title');
@@ -102,8 +126,45 @@ function newRow() {
   return { date: today(), name: '', qty: '', unit: '', amount: '' };
 }
 
-let rows = [newRow()];
+let data = { contract: [newRow()], current: [newRow()], offset: [newRow()] };
+let active = 'current';
 madeEl.value = today();
+
+// ---- この端末に自動で残す ----
+const STORE_KEY = 'list-tool-v1';
+
+function store() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      title: titleEl.value, site: siteEl.value, made: madeEl.value, active, data,
+    }));
+  } catch (e) { /* 保存できない環境(プライベートモード等)では何もしない */ }
+}
+
+function cleanRows(list) {
+  if (!Array.isArray(list)) return [newRow()];
+  const rows = list.map(r => {
+    const row = newRow();
+    COLS.forEach(c => { row[c.key] = r && typeof r[c.key] === 'string' ? r[c.key] : ''; });
+    return row;
+  });
+  return rows.length ? rows : [newRow()];
+}
+
+function restore() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { saved = null; }
+  if (!saved || typeof saved !== 'object') return;
+  titleEl.value = typeof saved.title === 'string' ? saved.title : '';
+  siteEl.value = typeof saved.site === 'string' ? saved.site : '';
+  madeEl.value = typeof saved.made === 'string' && saved.made ? saved.made : today();
+  const d = saved.data || {};
+  data = { contract: cleanRows(d.contract), current: cleanRows(d.current), offset: cleanRows(d.offset) };
+  if (['contract', 'current', 'offset'].includes(saved.active)) active = saved.active;
+}
+
+restore();
+document.addEventListener('input', store);
 
 // 全角数字・カンマ・円記号が入っていても読めるようにする
 function toNumber(text) {
@@ -118,10 +179,20 @@ function isEmpty(row) {
   return COLS.every(c => c.key === 'date' || String(row[c.key]).trim() === '');
 }
 
+function yen(n) {
+  return n.toLocaleString('ja-JP') + '円';
+}
+
 function el(tag, props) {
   const e = document.createElement(tag);
   Object.assign(e, props || {});
   return e;
+}
+
+function checkNumber(input, key) {
+  if (key !== 'amount' && key !== 'qty') return;
+  const bad = input.value.trim() !== '' && toNumber(input.value) === null;
+  input.setAttribute('aria-invalid', bad ? 'true' : 'false');
 }
 
 function makeField(row, r, col) {
@@ -132,22 +203,31 @@ function makeField(row, r, col) {
   if (col.mode) input.inputMode = col.mode;
   input.addEventListener('input', () => {
     row[col.key] = input.value;
-    if (col.key === 'amount' || col.key === 'qty') checkNumber(input);
-    if (col.key === 'amount') updateTotal();
+    checkNumber(input, col.key);
+    if (col.key === 'amount') updateTotals();
   });
-  checkNumber(input, col);
+  checkNumber(input, col.key);
   field.append(input);
   return field;
 }
 
-function checkNumber(input) {
-  const key = input.id.split('_')[0];
-  if (key !== 'amount' && key !== 'qty') return;
-  const bad = input.value.trim() !== '' && toNumber(input.value) === null;
-  input.setAttribute('aria-invalid', bad ? 'true' : 'false');
+function renderTabs() {
+  tabsEl.replaceChildren();
+  LISTS.forEach(l => {
+    const b = el('button', { type: 'button', textContent: l.label });
+    b.setAttribute('aria-pressed', l.key === active ? 'true' : 'false');
+    b.addEventListener('click', () => {
+      active = l.key;
+      renderTabs();
+      renderRows();
+    });
+    tabsEl.append(b);
+  });
+  listHeadEl.textContent = LISTS.find(l => l.key === active).label + 'の明細';
 }
 
 function renderRows() {
+  const rows = data[active];
   rowsEl.replaceChildren();
   rows.forEach((row, r) => {
     const item = el('div', { className: 'item' });
@@ -170,10 +250,12 @@ function renderRows() {
     item.append(grid, makeField(row, r, cAmount));
     rowsEl.append(item);
   });
-  updateTotal();
+  updateTotals();
+  store();
 }
 
-function calcTotal() {
+// 1つの明細の合計と、数字になっていない行の番号
+function calcTotal(rows) {
   let sum = 0;
   const bad = [];
   rows.forEach((row, r) => {
@@ -184,13 +266,28 @@ function calcTotal() {
   return { sum: Math.round(sum * 100) / 100, bad };
 }
 
-function updateTotal() {
-  const { sum, bad } = calcTotal();
-  totalEl.textContent = sum.toLocaleString('ja-JP') + '円';
-  totalNoteEl.textContent = bad.length ? bad.join('・') + '行目の金額が数字になっていません(合計に入っていません)' : '';
+function calcAll() {
+  const t = {};
+  const bad = [];
+  LISTS.forEach(l => {
+    const r = calcTotal(data[l.key]);
+    t[l.key] = r.sum;
+    if (r.bad.length) bad.push(l.label + 'の' + r.bad.join('・') + '行目');
+  });
+  t.diff = Math.round((t.current - t.offset) * 100) / 100;
+  return { t, bad };
+}
+
+function updateTotals() {
+  const { t, bad } = calcAll();
+  ['contract', 'current', 'offset', 'diff'].forEach(k => {
+    document.getElementById('t_' + k).textContent = yen(t[k]);
+  });
+  totalNoteEl.textContent = bad.length ? bad.join('、') + 'の金額が数字になっていません(合計に入っていません)' : '';
 }
 
 document.getElementById('addRow').addEventListener('click', () => {
+  const rows = data[active];
   rows.push(newRow());
   renderRows();
   document.getElementById('name_' + (rows.length - 1)).focus();
@@ -202,61 +299,71 @@ function toDate(s) {
   return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
 }
 
-async function buildWorkbook(title, site, made, list, sum) {
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(title.slice(0, 31).replace(/[\\/?*\[\]:]/g, '_') || 'リスト', {
+const FONT = { name: 'Yu Gothic', size: 11 };
+const THIN = { style: 'thin', color: { argb: 'FF808080' } };
+const BOX = { top: THIN, left: THIN, bottom: THIN, right: THIN };
+const DOUBLE_TOP = { top: { style: 'double', color: { argb: 'FF808080' } }, left: THIN, bottom: THIN, right: THIN };
+const HEAD_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCE6F2' } };
+const TOTAL_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+
+function newSheet(wb, name, widths) {
+  const ws = wb.addWorksheet(name, {
     pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
       margins: { left: 0.6, right: 0.6, top: 0.8, bottom: 0.8, header: 0.3, footer: 0.3 } },
   });
-  ws.columns = [{ width: 13 }, { width: 34 }, { width: 10 }, { width: 9 }, { width: 16 }];
-  const font = { name: 'Yu Gothic', size: 11 };
-  const thin = { style: 'thin', color: { argb: 'FF808080' } };
-  const box = { top: thin, left: thin, bottom: thin, right: thin };
+  ws.columns = widths.map(width => ({ width }));
+  return ws;
+}
 
-  // タイトル
-  ws.mergeCells('A1:E1');
+// 1〜2行目:タイトル・現場名・作成日
+function putHeader(ws, lastCol, title, site, made) {
+  const leftEnd = lastCol === 'E' ? 'C' : 'A';
+  const rightStart = lastCol === 'E' ? 'D' : 'B';
+  ws.mergeCells('A1:' + lastCol + '1');
   const t = ws.getCell('A1');
   t.value = title;
-  t.font = { ...font, size: 18, bold: true };
+  t.font = { ...FONT, size: 18, bold: true };
   t.alignment = { horizontal: 'center', vertical: 'middle' };
   ws.getRow(1).height = 36;
 
-  // 現場名・作成日
-  ws.mergeCells('A2:C2');
+  if (leftEnd !== 'A') ws.mergeCells('A2:' + leftEnd + '2');
   const s = ws.getCell('A2');
   s.value = site ? '現場名:' + site : '';
-  s.font = { ...font, size: 12 };
-  ws.mergeCells('D2:E2');
-  const d = ws.getCell('D2');
+  s.font = { ...FONT, size: 12 };
+  if (rightStart !== lastCol) ws.mergeCells(rightStart + '2:' + lastCol + '2');
+  const d = ws.getCell(rightStart + '2');
   d.value = made ? '作成日 ' + made.replace(/-/g, '/') : '';
-  d.font = { ...font, size: 11 };
+  d.font = FONT;
   d.alignment = { horizontal: 'right' };
   ws.getRow(2).height = 22;
+}
 
-  // 見出し
+// 明細のシートを作り、合計のセル番地を返す
+function addDetailSheet(wb, label, title, site, made, rows, sum) {
+  const ws = newSheet(wb, label, [13, 34, 10, 9, 16]);
+  putHeader(ws, 'E', title + '(' + label + ')', site, made);
+
   const head = ws.getRow(4);
   COLS.forEach((c, i) => {
     const cell = head.getCell(i + 1);
     cell.value = c.label;
-    cell.font = { ...font, bold: true };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCE6F2' } };
+    cell.font = { ...FONT, bold: true };
+    cell.fill = HEAD_FILL;
     cell.alignment = { horizontal: 'center', vertical: 'middle' };
-    cell.border = box;
+    cell.border = BOX;
   });
   head.height = 22;
 
-  // 明細
-  list.forEach((row, i) => {
+  rows.forEach((row, i) => {
     const r = ws.getRow(5 + i);
-    const date = toDate(row.date);
     const qty = toNumber(row.qty);
     const amount = toNumber(row.amount);
-    const vals = [date || '', row.name.trim(), qty ?? row.qty.trim(), row.unit.trim(), amount ?? ''];
+    const vals = [toDate(row.date) || '', row.name.trim(), qty ?? row.qty.trim(), row.unit.trim(), amount ?? ''];
     vals.forEach((v, c) => {
       const cell = r.getCell(c + 1);
       cell.value = v;
-      cell.font = font;
-      cell.border = box;
+      cell.font = FONT;
+      cell.border = BOX;
       cell.alignment = { vertical: 'middle', wrapText: c === 1 };
     });
     r.getCell(1).numFmt = 'yyyy/m/d';
@@ -269,45 +376,97 @@ async function buildWorkbook(title, site, made, list, sum) {
     r.height = 20;
   });
 
-  // 合計
-  const last = 4 + list.length;
-  const tr = 5 + list.length;
+  const tr = 5 + rows.length;
   ws.mergeCells('A' + tr + ':D' + tr);
   const tl = ws.getCell('A' + tr);
   tl.value = '合計金額';
-  tl.font = { ...font, bold: true };
+  tl.font = { ...FONT, bold: true };
   tl.alignment = { horizontal: 'right', vertical: 'middle' };
-  tl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
   const tv = ws.getCell('E' + tr);
-  tv.value = { formula: 'SUM(E5:E' + last + ')', result: sum };
+  tv.value = rows.length ? { formula: 'SUM(E5:E' + (tr - 1) + ')', result: sum } : 0;
   tv.numFmt = '"¥"#,##0';
-  tv.font = { ...font, bold: true, size: 12 };
-  tv.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+  tv.font = { ...FONT, bold: true, size: 12 };
   for (let c = 1; c <= 5; c++) {
-    ws.getRow(tr).getCell(c).border = { top: { style: 'double', color: { argb: 'FF808080' } }, left: thin, bottom: thin, right: thin };
+    const cell = ws.getRow(tr).getCell(c);
+    cell.border = DOUBLE_TOP;
+    cell.fill = TOTAL_FILL;
   }
   ws.getRow(tr).height = 24;
 
   ws.pageSetup.printArea = 'A1:E' + tr;
   ws.views = [{ state: 'frozen', ySplit: 4 }];
+  return "'" + label + "'!E" + tr;
+}
+
+// 集計シート:各シートの合計を式で参照する
+function fillSummary(ws, title, site, made, refs, t) {
+  putHeader(ws, 'B', title + '(集計)', site, made);
+
+  const head = ws.getRow(4);
+  ['項目', '金額'].forEach((v, i) => {
+    const cell = head.getCell(i + 1);
+    cell.value = v;
+    cell.font = { ...FONT, bold: true };
+    cell.fill = HEAD_FILL;
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.border = BOX;
+  });
+  head.height = 22;
+
+  LISTS.forEach((l, i) => {
+    const r = ws.getRow(5 + i);
+    r.getCell(1).value = l.label;
+    r.getCell(2).value = { formula: refs[l.key], result: t[l.key] };
+    r.getCell(2).numFmt = '"¥"#,##0';
+    [1, 2].forEach(c => { r.getCell(c).font = { ...FONT, size: 12 }; r.getCell(c).border = BOX; });
+    r.height = 26;
+  });
+
+  const dr = ws.getRow(8);
+  dr.getCell(1).value = '差引請求額(今回請求 − 相殺額)';
+  dr.getCell(2).value = { formula: 'B6-B7', result: t.diff };
+  dr.getCell(2).numFmt = '"¥"#,##0';
+  [1, 2].forEach(c => {
+    const cell = dr.getCell(c);
+    cell.font = { ...FONT, size: 13, bold: true };
+    cell.border = DOUBLE_TOP;
+    cell.fill = TOTAL_FILL;
+    cell.alignment = { vertical: 'middle' };
+  });
+  dr.height = 30;
+  ws.pageSetup.printArea = 'A1:B8';
+}
+
+async function buildWorkbook(title, site, made, lists, t) {
+  const wb = new ExcelJS.Workbook();
+  // 集計を一番左にしたいので先に作り、中身は明細のあとで入れる
+  const summary = newSheet(wb, '集計', [34, 22]);
+  const refs = {};
+  LISTS.forEach(l => {
+    refs[l.key] = addDetailSheet(wb, l.label, title, site, made, lists[l.key], t[l.key]);
+  });
+  fillSummary(summary, title, site, made, refs, t);
   return wb;
 }
 
 document.getElementById('save').addEventListener('click', async () => {
   msgEl.textContent = '';
   msgEl.classList.remove('err');
-  const list = rows.filter(r => !isEmpty(r));
   const fail = text => { msgEl.textContent = text; msgEl.classList.add('err'); };
-  if (list.length === 0) return fail('明細に何か入力してください');
-  const { sum, bad } = calcTotal();
-  if (bad.length) return fail(bad.join('・') + '行目の金額を数字にしてください');
+
+  const lists = {};
+  LISTS.forEach(l => { lists[l.key] = data[l.key].filter(r => !isEmpty(r)); });
+  const count = LISTS.reduce((n, l) => n + lists[l.key].length, 0);
+  if (count === 0) return fail('明細に何か入力してください');
+  const { t, bad } = calcAll();
+  if (bad.length) return fail(bad.join('、') + 'の金額を数字にしてください');
   if (typeof ExcelJS === 'undefined') return fail('Excelを作る部品が読み込めませんでした。通信を確認して、ページを開き直してください');
 
   const title = titleEl.value.trim() || 'リスト';
   const btn = document.getElementById('save');
   btn.disabled = true;
   try {
-    const wb = await buildWorkbook(title, siteEl.value.trim(), madeEl.value, list, sum);
+    const wb = await buildWorkbook(title, siteEl.value.trim(), madeEl.value, lists, t);
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const name = title.replace(/[\\/:*?"<>|]/g, '_') + '.xlsx';
@@ -316,7 +475,7 @@ document.getElementById('save').addEventListener('click', async () => {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    msgEl.textContent = name + ' を保存しました(' + list.length + '行・合計 ' + sum.toLocaleString('ja-JP') + '円)';
+    msgEl.textContent = name + ' を保存しました(差引請求額 ' + yen(t.diff) + ')';
   } catch (e) {
     fail('保存できませんでした:' + e.message);
   } finally {
@@ -324,6 +483,99 @@ document.getElementById('save').addEventListener('click', async () => {
   }
 });
 
+// ---- 新しく作る ----
+document.getElementById('reset').addEventListener('click', () => {
+  if (!confirm('入力した内容を全部消して、新しく作りますか?')) return;
+  titleEl.value = '';
+  siteEl.value = '';
+  madeEl.value = today();
+  data = { contract: [newRow()], current: [newRow()], offset: [newRow()] };
+  active = 'current';
+  msgEl.textContent = '';
+  document.getElementById('loadMsg').textContent = '新しく作り直しました。';
+  renderTabs();
+  renderRows();
+});
+
+// ---- 前回のExcelを読み込む ----
+const fileEl = document.getElementById('file');
+const loadMsgEl = document.getElementById('loadMsg');
+
+document.getElementById('load').addEventListener('click', () => fileEl.click());
+
+// セルの中身を文字にする(式・リッチテキスト・日付にも対応)
+function cellText(v) {
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === 'object') {
+    if ('result' in v) return cellText(v.result);
+    if (Array.isArray(v.richText)) return v.richText.map(t => t.text).join('');
+    if ('text' in v) return String(v.text);
+    return '';
+  }
+  return String(v).trim();
+}
+
+// 日付セル → "2026-11-10"(文字の「2026/11/10」も読む)
+function cellDate(v) {
+  if (v && typeof v === 'object' && !(v instanceof Date) && 'result' in v) v = v.result;
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  const m = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/.exec(cellText(v));
+  return m ? m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') : '';
+}
+
+function readDetail(ws) {
+  const rows = [];
+  for (let r = 5; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    if (cellText(row.getCell(1).value) === '合計金額') break;
+    const item = {
+      date: cellDate(row.getCell(1).value),
+      name: cellText(row.getCell(2).value),
+      qty: cellText(row.getCell(3).value),
+      unit: cellText(row.getCell(4).value),
+      amount: cellText(row.getCell(5).value),
+    };
+    if (!isEmpty(item)) rows.push(item);
+  }
+  return rows.length ? rows : [newRow()];
+}
+
+fileEl.addEventListener('change', async () => {
+  const file = fileEl.files[0];
+  fileEl.value = '';
+  if (!file) return;
+  loadMsgEl.classList.remove('err');
+  const fail = text => { loadMsgEl.textContent = text; loadMsgEl.classList.add('err'); };
+  if (typeof ExcelJS === 'undefined') return fail('Excelを読む部品が読み込めませんでした。通信を確認して、ページを開き直してください');
+
+  try {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const sheets = LISTS.map(l => wb.getWorksheet(l.label));
+    if (sheets.every(s => !s)) return fail('このツールで保存したExcelではないようです(「契約金」「今回請求」「相殺額」のシートがありません)');
+
+    const hasInput = LISTS.some(l => data[l.key].some(r => !isEmpty(r))) || titleEl.value.trim() || siteEl.value.trim();
+    if (hasInput && !confirm('今の入力を消して、「' + file.name + '」の内容を読み込みますか?')) return;
+
+    const first = wb.getWorksheet('集計') || sheets.find(s => s);
+    titleEl.value = cellText(first.getCell('A1').value).replace(/[((](集計|契約金|今回請求|相殺額)[))]$/, '');
+    siteEl.value = cellText(first.getCell('A2').value).replace(/^現場名:/, '');
+    madeEl.value = today();
+    const next = {};
+    LISTS.forEach((l, i) => { next[l.key] = sheets[i] ? readDetail(sheets[i]) : [newRow()]; });
+    data = next;
+    active = 'current';
+    msgEl.textContent = '';
+    loadMsgEl.textContent = '「' + file.name + '」を読み込みました。作成日は今日にしています。';
+    renderTabs();
+    renderRows();
+  } catch (e) {
+    fail('読み込めませんでした:' + e.message);
+  }
+});
+
+renderTabs();
 renderRows();
 </script>
 </body>
