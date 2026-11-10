@@ -37,9 +37,12 @@ button:disabled{opacity:.6;cursor:wait}
 .item-head span{font-weight:700}
 .total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:6px 0}
 .total+.total{border-top:1px solid var(--line)}
-.total span{font-weight:600;color:var(--muted)}
-.total strong{font-size:20px;overflow-wrap:anywhere;text-align:right}
+.total span{font-weight:600;color:var(--muted);min-width:0}
+.total span small{display:block;font-size:16px;font-weight:400}
+.total strong{font-size:20px;white-space:nowrap;text-align:right}
 .total.big strong{font-size:28px}
+.prevbox{border-top:1px solid var(--line);padding:10px 0}
+.prevbox+.total{border-top:1px solid var(--line)}
 .note{font-size:16px;color:var(--muted);margin-top:8px}
 .err{color:var(--danger)}
 </style>
@@ -79,10 +82,15 @@ button:disabled{opacity:.6;cursor:wait}
 
   <div class="card">
     <div class="total"><span>契約金</span><strong id="t_contract">0円</strong></div>
-    <div class="total"><span>差引契約金額(契約金 − 相殺額)</span><strong id="t_contractDiff">0円</strong></div>
+    <div class="total"><span>差引契約金額<small>契約金 − 相殺額</small></span><strong id="t_contractDiff">0円</strong></div>
+    <div class="prevbox">
+      <label for="prev">前回請求(金額を入力)</label>
+      <input id="prev" type="text" inputmode="numeric" autocomplete="off" placeholder="例:300,000">
+    </div>
     <div class="total"><span>今回請求</span><strong id="t_current">0円</strong></div>
     <div class="total"><span>相殺額</span><strong id="t_offset">0円</strong></div>
-    <div class="total big"><span>差引請求額</span><strong id="t_diff">0円</strong></div>
+    <div class="total big"><span>差引請求額<small>今回請求 − 相殺額</small></span><strong id="t_diff">0円</strong></div>
+    <div class="total big"><span>契約残額<small>差引契約金額 − 前回請求 − 今回請求</small></span><strong id="t_remain">0円</strong></div>
     <p class="note err" id="totalNote"></p>
   </div>
 
@@ -117,6 +125,8 @@ const msgEl = document.getElementById('msg');
 const titleEl = document.getElementById('title');
 const siteEl = document.getElementById('site');
 const madeEl = document.getElementById('made');
+const prevEl = document.getElementById('prev');
+prevEl.addEventListener('input', () => updateTotals());
 
 function today() {
   const d = new Date();
@@ -137,7 +147,7 @@ const STORE_KEY = 'list-tool-v1';
 function store() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
-      title: titleEl.value, site: siteEl.value, made: madeEl.value, active, data,
+      title: titleEl.value, site: siteEl.value, made: madeEl.value, prev: prevEl.value, active, data,
     }));
   } catch (e) { /* 保存できない環境(プライベートモード等)では何もしない */ }
 }
@@ -159,6 +169,7 @@ function restore() {
   titleEl.value = typeof saved.title === 'string' ? saved.title : '';
   siteEl.value = typeof saved.site === 'string' ? saved.site : '';
   madeEl.value = typeof saved.made === 'string' && saved.made ? saved.made : today();
+  prevEl.value = typeof saved.prev === 'string' ? saved.prev : '';
   const d = saved.data || {};
   data = { contract: cleanRows(d.contract), current: cleanRows(d.current), offset: cleanRows(d.offset) };
   if (['contract', 'current', 'offset'].includes(saved.active)) active = saved.active;
@@ -275,14 +286,20 @@ function calcAll() {
     t[l.key] = r.sum;
     if (r.bad.length) bad.push(l.label + 'の' + r.bad.join('・') + '行目');
   });
+  const prevText = prevEl.value.trim();
+  const prev = prevText === '' ? 0 : toNumber(prevText);
+  if (prev === null) bad.push('前回請求');
+  t.prev = prev || 0;
   t.diff = Math.round((t.current - t.offset) * 100) / 100;
   t.contractDiff = Math.round((t.contract - t.offset) * 100) / 100;
+  t.remain = Math.round((t.contractDiff - t.prev - t.current) * 100) / 100;
   return { t, bad };
 }
 
 function updateTotals() {
   const { t, bad } = calcAll();
-  ['contract', 'contractDiff', 'current', 'offset', 'diff'].forEach(k => {
+  prevEl.setAttribute('aria-invalid', bad.includes('前回請求') ? 'true' : 'false');
+  ['contract', 'contractDiff', 'current', 'offset', 'diff', 'remain'].forEach(k => {
     document.getElementById('t_' + k).textContent = yen(t[k]);
   });
   totalNoteEl.textContent = bad.length ? bad.join('、') + 'の金額が数字になっていません(合計に入っていません)' : '';
@@ -444,10 +461,11 @@ function fillSummary(ws, title, site, made, refs, t) {
   });
   head.height = 22;
 
-  // 5:契約金 6:差引契約金額 7:今回請求 8:相殺額 9:差引請求額
+  // 5:契約金 6:差引契約金額 7:前回請求 8:今回請求 9:相殺額 10:差引請求額 11:契約残額
   const lines = [
     { label: '契約金', value: { formula: refs.contract, result: t.contract } },
-    { label: '差引契約金額(契約金 − 相殺額)', value: { formula: 'B5-B8', result: t.contractDiff }, bold: true },
+    { label: '差引契約金額(契約金 − 相殺額)', value: { formula: 'B5-B9', result: t.contractDiff }, bold: true },
+    { label: '前回請求', value: t.prev },
     { label: '今回請求', value: { formula: refs.current, result: t.current } },
     { label: '相殺額', value: { formula: refs.offset, result: t.offset } },
   ];
@@ -460,25 +478,31 @@ function fillSummary(ws, title, site, made, refs, t) {
     r.height = 26;
   });
 
-  const dr = ws.getRow(9);
-  dr.getCell(1).value = '差引請求額(今回請求 − 相殺額)';
-  dr.getCell(2).value = { formula: 'B7-B8', result: t.diff };
-  dr.getCell(2).numFmt = '"¥"#,##0';
-  [1, 2].forEach(c => {
-    const cell = dr.getCell(c);
-    cell.font = { ...FONT, size: 13, bold: true };
-    cell.border = DOUBLE_TOP;
-    cell.fill = TOTAL_FILL;
-    cell.alignment = { vertical: 'middle' };
+  const totals = [
+    { row: 10, label: '差引請求額(今回請求 − 相殺額)', value: { formula: 'B8-B9', result: t.diff } },
+    { row: 11, label: '契約残額(差引契約金額 − 前回請求 − 今回請求)', value: { formula: 'B6-B7-B8', result: t.remain } },
+  ];
+  totals.forEach(x => {
+    const dr = ws.getRow(x.row);
+    dr.getCell(1).value = x.label;
+    dr.getCell(2).value = x.value;
+    dr.getCell(2).numFmt = '"¥"#,##0';
+    [1, 2].forEach(c => {
+      const cell = dr.getCell(c);
+      cell.font = { ...FONT, size: 13, bold: true };
+      cell.border = DOUBLE_TOP;
+      cell.fill = TOTAL_FILL;
+      cell.alignment = { vertical: 'middle', wrapText: c === 1 };
+    });
+    dr.height = 30;
   });
-  dr.height = 30;
-  ws.pageSetup.printArea = 'A1:B9';
+  ws.pageSetup.printArea = 'A1:B11';
 }
 
 async function buildWorkbook(title, site, made, lists, t) {
   const wb = new ExcelJS.Workbook();
   // 集計を一番左にしたいので先に作り、中身は明細のあとで入れる
-  const summary = newSheet(wb, '集計', [34, 22]);
+  const summary = newSheet(wb, '集計', [46, 22]);
   const refs = {};
   // 相殺額シートの合計の行は「5行目 + 明細の数」(契約金シートより後に作るので先に計算)
   const offsetInfo = { ref: "'相殺額'!E" + (5 + lists.offset.length), sum: t.offset, diff: t.contractDiff };
@@ -530,6 +554,7 @@ document.getElementById('reset').addEventListener('click', () => {
   titleEl.value = '';
   siteEl.value = '';
   madeEl.value = today();
+  prevEl.value = '';
   data = { contract: [newRow()], current: [newRow()], offset: [newRow()] };
   active = 'current';
   msgEl.textContent = '';
@@ -648,6 +673,7 @@ fileEl.addEventListener('change', async () => {
       titleEl.value = a1 || file.name.replace(/\.xlsx$/i, '');
       siteEl.value = /^現場名[::]/.test(a2) ? a2.replace(/^現場名[::]\s*/, '') : '';
       madeEl.value = today();
+      prevEl.value = '';
       data = { contract: [newRow()], current: tableRows, offset: [newRow()] };
       active = 'current';
       msgEl.textContent = '';
@@ -663,10 +689,28 @@ fileEl.addEventListener('change', async () => {
     madeEl.value = today();
     const next = {};
     LISTS.forEach((l, i) => { next[l.key] = sheets[i] ? readDetail(sheets[i]) : [newRow()]; });
+
+    // 次の回の請求書にする:前回請求 = 読み込んだExcelの「前回請求 + 今回請求」、今回請求は空にする
+    let oldPrev = 0;
+    const summary = wb.getWorksheet('集計');
+    if (summary) {
+      for (let r = 1; r <= summary.rowCount; r++) {
+        if (cellText(summary.getCell('A' + r).value) === '前回請求') {
+          oldPrev = toNumber(cellText(summary.getCell('B' + r).value)) || 0;
+          break;
+        }
+      }
+    }
+    const oldCurrent = calcTotal(next.current).sum;
+    const newPrev = Math.round((oldPrev + oldCurrent) * 100) / 100;
+    prevEl.value = newPrev ? String(newPrev) : '';
+    next.current = [newRow()];
+
     data = next;
     active = 'current';
     msgEl.textContent = '';
-    loadMsgEl.textContent = '「' + file.name + '」を読み込みました。作成日は今日にしています。';
+    loadMsgEl.textContent = '「' + file.name + '」を読み込みました。前回請求に ' + yen(newPrev) +
+      '(前回 ' + yen(oldPrev) + ' + 今回 ' + yen(oldCurrent) + ')を入れ、今回請求は空にしました。作成日は今日にしています。';
     renderTabs();
     renderRows();
   } catch (e) {
