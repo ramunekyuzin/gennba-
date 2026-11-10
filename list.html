@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>リスト作成</title>
+<meta name="color-scheme" content="light dark">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+:root{color-scheme:light;--bg:#f1f3f6;--paper:#fff;--field:#f7f8fa;--ink:#24272e;--muted:#69707d;--line:#dfe3ea;--accent:#2f6fd6;--soft:#e6eefc;--danger:#c0392b}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#14161b;--paper:#1f222a;--field:#191c23;--ink:#eef1f6;--muted:#a7aebb;--line:#363b47;--accent:#8db4ff;--soft:#26324a;--danger:#ff9a8f}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px;color:var(--ink);background:var(--bg);line-height:1.7}
+.app{max-width:560px;margin:auto;padding:20px 16px 40px}
+h1{font-size:20px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+h2{font-size:17px;margin-bottom:4px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px 16px;margin-top:18px}
+label{display:block;font-size:16px;font-weight:600;color:var(--muted);margin-bottom:6px}
+input{width:100%;min-height:48px;padding:10px 12px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);outline:0}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+input[aria-invalid="true"]{border-color:var(--danger)}
+button{font:inherit;font-size:16px;min-height:48px;padding:10px 16px;font-weight:600;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+button:disabled{opacity:.6;cursor:wait}
+.wide{width:100%;margin-top:12px}
+.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.del{color:var(--danger)}
+.field+.field,.grid+.field,.field+.grid{margin-top:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid .field{margin-top:0}
+.item{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+.item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.item-head span{font-weight:700}
+.total{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.total span{font-weight:600;color:var(--muted)}
+.total strong{font-size:28px;overflow-wrap:anywhere;text-align:right}
+.note{font-size:16px;color:var(--muted);margin-top:8px}
+.err{color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>リスト作成</h1>
+
+  <div class="card">
+    <div class="field">
+      <label for="title">リストの名前</label>
+      <input id="title" type="text" autocomplete="off" placeholder="例:資材リスト">
+    </div>
+    <div class="field">
+      <label for="site">現場名</label>
+      <input id="site" type="text" autocomplete="off" placeholder="例:〇〇ビル新築工事">
+    </div>
+    <div class="field">
+      <label for="made">作成日</label>
+      <input id="made" type="date">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>明細</h2>
+    <div id="rows"></div>
+    <button id="addRow" class="wide" type="button">+ 行を足す</button>
+  </div>
+
+  <div class="card">
+    <div class="total"><span>合計金額</span><strong id="total">0円</strong></div>
+    <p class="note err" id="totalNote"></p>
+  </div>
+
+  <div class="card">
+    <button id="save" class="wide primary" type="button">Excelで保存</button>
+    <p class="note" id="msg"></p>
+  </div>
+</div>
+
+<script>
+// 列は固定:日付・品名・数量・単位・金額
+const COLS = [
+  { key: 'date',   label: '日付', type: 'date' },
+  { key: 'name',   label: '品名', type: 'text' },
+  { key: 'qty',    label: '数量', type: 'text', mode: 'decimal' },
+  { key: 'unit',   label: '単位', type: 'text' },
+  { key: 'amount', label: '金額', type: 'text', mode: 'numeric' },
+];
+
+const rowsEl = document.getElementById('rows');
+const totalEl = document.getElementById('total');
+const totalNoteEl = document.getElementById('totalNote');
+const msgEl = document.getElementById('msg');
+const titleEl = document.getElementById('title');
+const siteEl = document.getElementById('site');
+const madeEl = document.getElementById('made');
+
+function today() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function newRow() {
+  return { date: today(), name: '', qty: '', unit: '', amount: '' };
+}
+
+let rows = [newRow()];
+madeEl.value = today();
+
+// 全角数字・カンマ・円記号が入っていても読めるようにする
+function toNumber(text) {
+  const s = String(text)
+    .replace(/[０-９．－]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[,，\s円¥￥]/g, '');
+  if (s === '' || !/^-?\d*\.?\d+$/.test(s)) return null;
+  return Number(s);
+}
+
+function isEmpty(row) {
+  return COLS.every(c => c.key === 'date' || String(row[c.key]).trim() === '');
+}
+
+function el(tag, props) {
+  const e = document.createElement(tag);
+  Object.assign(e, props || {});
+  return e;
+}
+
+function makeField(row, r, col) {
+  const field = el('div', { className: 'field' });
+  const id = col.key + '_' + r;
+  field.append(el('label', { htmlFor: id, textContent: col.label }));
+  const input = el('input', { id, type: col.type, value: row[col.key], autocomplete: 'off' });
+  if (col.mode) input.inputMode = col.mode;
+  input.addEventListener('input', () => {
+    row[col.key] = input.value;
+    if (col.key === 'amount' || col.key === 'qty') checkNumber(input);
+    if (col.key === 'amount') updateTotal();
+  });
+  checkNumber(input, col);
+  field.append(input);
+  return field;
+}
+
+function checkNumber(input) {
+  const key = input.id.split('_')[0];
+  if (key !== 'amount' && key !== 'qty') return;
+  const bad = input.value.trim() !== '' && toNumber(input.value) === null;
+  input.setAttribute('aria-invalid', bad ? 'true' : 'false');
+}
+
+function renderRows() {
+  rowsEl.replaceChildren();
+  rows.forEach((row, r) => {
+    const item = el('div', { className: 'item' });
+    const head = el('div', { className: 'item-head' });
+    head.append(el('span', { textContent: (r + 1) + '行目' }));
+    const del = el('button', { type: 'button', className: 'del', textContent: '行を消す' });
+    del.addEventListener('click', () => {
+      if (!isEmpty(row) && !confirm((r + 1) + '行目を消しますか?')) return;
+      rows.splice(r, 1);
+      if (rows.length === 0) rows.push(newRow());
+      renderRows();
+    });
+    head.append(del);
+    item.append(head);
+
+    const [cDate, cName, cQty, cUnit, cAmount] = COLS;
+    item.append(makeField(row, r, cDate), makeField(row, r, cName));
+    const grid = el('div', { className: 'grid' });
+    grid.append(makeField(row, r, cQty), makeField(row, r, cUnit));
+    item.append(grid, makeField(row, r, cAmount));
+    rowsEl.append(item);
+  });
+  updateTotal();
+}
+
+function calcTotal() {
+  let sum = 0;
+  const bad = [];
+  rows.forEach((row, r) => {
+    if (String(row.amount).trim() === '') return;
+    const n = toNumber(row.amount);
+    if (n === null) bad.push(r + 1); else sum += n;
+  });
+  return { sum: Math.round(sum * 100) / 100, bad };
+}
+
+function updateTotal() {
+  const { sum, bad } = calcTotal();
+  totalEl.textContent = sum.toLocaleString('ja-JP') + '円';
+  totalNoteEl.textContent = bad.length ? bad.join('・') + '行目の金額が数字になっていません(合計に入っていません)' : '';
+}
+
+document.getElementById('addRow').addEventListener('click', () => {
+  rows.push(newRow());
+  renderRows();
+  document.getElementById('name_' + (rows.length - 1)).focus();
+});
+
+// "2026-11-10" → Excelの日付(ずれないようにUTCで作る)
+function toDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+  return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
+}
+
+async function buildWorkbook(title, site, made, list, sum) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(title.slice(0, 31).replace(/[\\/?*\[\]:]/g, '_') || 'リスト', {
+    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      margins: { left: 0.6, right: 0.6, top: 0.8, bottom: 0.8, header: 0.3, footer: 0.3 } },
+  });
+  ws.columns = [{ width: 13 }, { width: 34 }, { width: 10 }, { width: 9 }, { width: 16 }];
+  const font = { name: 'Yu Gothic', size: 11 };
+  const thin = { style: 'thin', color: { argb: 'FF808080' } };
+  const box = { top: thin, left: thin, bottom: thin, right: thin };
+
+  // タイトル
+  ws.mergeCells('A1:E1');
+  const t = ws.getCell('A1');
+  t.value = title;
+  t.font = { ...font, size: 18, bold: true };
+  t.alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getRow(1).height = 36;
+
+  // 現場名・作成日
+  ws.mergeCells('A2:C2');
+  const s = ws.getCell('A2');
+  s.value = site ? '現場名:' + site : '';
+  s.font = { ...font, size: 12 };
+  ws.mergeCells('D2:E2');
+  const d = ws.getCell('D2');
+  d.value = made ? '作成日 ' + made.replace(/-/g, '/') : '';
+  d.font = { ...font, size: 11 };
+  d.alignment = { horizontal: 'right' };
+  ws.getRow(2).height = 22;
+
+  // 見出し
+  const head = ws.getRow(4);
+  COLS.forEach((c, i) => {
+    const cell = head.getCell(i + 1);
+    cell.value = c.label;
+    cell.font = { ...font, bold: true };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCE6F2' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.border = box;
+  });
+  head.height = 22;
+
+  // 明細
+  list.forEach((row, i) => {
+    const r = ws.getRow(5 + i);
+    const date = toDate(row.date);
+    const qty = toNumber(row.qty);
+    const amount = toNumber(row.amount);
+    const vals = [date || '', row.name.trim(), qty ?? row.qty.trim(), row.unit.trim(), amount ?? ''];
+    vals.forEach((v, c) => {
+      const cell = r.getCell(c + 1);
+      cell.value = v;
+      cell.font = font;
+      cell.border = box;
+      cell.alignment = { vertical: 'middle', wrapText: c === 1 };
+    });
+    r.getCell(1).numFmt = 'yyyy/m/d';
+    r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+    // 整数に「#,##0.##」を使うと「10.」と点が残るので分ける
+    r.getCell(3).numFmt = qty !== null && !Number.isInteger(qty) ? '#,##0.##' : '#,##0';
+    r.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
+    r.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+    r.getCell(5).numFmt = '#,##0';
+    r.height = 20;
+  });
+
+  // 合計
+  const last = 4 + list.length;
+  const tr = 5 + list.length;
+  ws.mergeCells('A' + tr + ':D' + tr);
+  const tl = ws.getCell('A' + tr);
+  tl.value = '合計金額';
+  tl.font = { ...font, bold: true };
+  tl.alignment = { horizontal: 'right', vertical: 'middle' };
+  tl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+  const tv = ws.getCell('E' + tr);
+  tv.value = { formula: 'SUM(E5:E' + last + ')', result: sum };
+  tv.numFmt = '"¥"#,##0';
+  tv.font = { ...font, bold: true, size: 12 };
+  tv.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+  for (let c = 1; c <= 5; c++) {
+    ws.getRow(tr).getCell(c).border = { top: { style: 'double', color: { argb: 'FF808080' } }, left: thin, bottom: thin, right: thin };
+  }
+  ws.getRow(tr).height = 24;
+
+  ws.pageSetup.printArea = 'A1:E' + tr;
+  ws.views = [{ state: 'frozen', ySplit: 4 }];
+  return wb;
+}
+
+document.getElementById('save').addEventListener('click', async () => {
+  msgEl.textContent = '';
+  msgEl.classList.remove('err');
+  const list = rows.filter(r => !isEmpty(r));
+  const fail = text => { msgEl.textContent = text; msgEl.classList.add('err'); };
+  if (list.length === 0) return fail('明細に何か入力してください');
+  const { sum, bad } = calcTotal();
+  if (bad.length) return fail(bad.join('・') + '行目の金額を数字にしてください');
+  if (typeof ExcelJS === 'undefined') return fail('Excelを作る部品が読み込めませんでした。通信を確認して、ページを開き直してください');
+
+  const title = titleEl.value.trim() || 'リスト';
+  const btn = document.getElementById('save');
+  btn.disabled = true;
+  try {
+    const wb = await buildWorkbook(title, siteEl.value.trim(), madeEl.value, list, sum);
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const name = title.replace(/[\\/:*?"<>|]/g, '_') + '.xlsx';
+    const a = el('a', { href: URL.createObjectURL(blob), download: name });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    msgEl.textContent = name + ' を保存しました(' + list.length + '行・合計 ' + sum.toLocaleString('ja-JP') + '円)';
+  } catch (e) {
+    fail('保存できませんでした:' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+renderRows();
+</script>
+</body>
+</html>
