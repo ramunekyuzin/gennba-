@@ -97,6 +97,7 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
 // GASのWebアプリURL(APIキーはGAS側のスクリプトプロパティに置く)
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxOd55-hHVkP138rVpNXQBTRE8azZLFtxAYYRRpr7clzk1LCcr54xycodZOxddGAj4J1g/exec';
 const MAX_CHARS = 10000;
+const CHUNK_CHARS = 2500; // 1回に送る文字数(長いとGASが時間切れになるので分けて送る)
 const LS = { text: 'goji_text' };
 
 function $(id) { return document.getElementById(id); }
@@ -130,26 +131,63 @@ async function check() {
 
   const btn = $('checkBtn');
   btn.disabled = true;
-  setStatus('チェック中...', true);
+  const chunks = splitText(text, CHUNK_CHARS);
   try {
-    const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ text: text }) });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error || '失敗しました');
-
-    const out = json.text || '';
-    const clean = out.replace(/```json|```/g, '').trim();
-    let parsed;
-    try { parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}') + 1)); }
-    catch (e) { throw new Error('結果を読み取れなかった。もう一度試してね'); }
-
-    render(text, Array.isArray(parsed.issues) ? parsed.issues : [], parsed.corrected || text);
-    setStatus(json.stop_reason === 'max_tokens' ? '文章が長すぎて途中までしか見られなかったかも。分けてチェックしてね' : 'チェック完了!', json.stop_reason !== 'max_tokens');
+    let issues = [], corrected = '', cut = false;
+    for (let n = 0; n < chunks.length; n++) {
+      setStatus('チェック中...' + (chunks.length > 1 ? '(' + (n + 1) + '/' + chunks.length + ')' : ''), true);
+      const r = await checkChunk(chunks[n]);
+      issues = issues.concat(r.issues);
+      corrected += r.corrected;
+      if (r.cut) cut = true;
+    }
+    render(text, issues, corrected);
+    setStatus(cut ? '文章が長すぎて途中までしか見られなかったかも。分けてチェックしてね' : 'チェック完了!', !cut);
     $('result').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
-    setStatus('エラー: ' + err.message, false);
+    const msg = /failed to fetch|load failed|networkerror/i.test(err.message)
+      ? '通信できなかったよ。電波を確認するか、文章を短くしてもう一度試してね'
+      : 'エラー: ' + err.message;
+    setStatus(msg, false);
   } finally {
     btn.disabled = false;
   }
+}
+
+// 1回分をGASに送って { issues, corrected, cut } を返す
+async function checkChunk(part) {
+  const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ text: part }) });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || '失敗しました');
+  const clean = (json.text || '').replace(/```json|```/g, '').trim();
+  let parsed;
+  try { parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}') + 1)); }
+  catch (e) { throw new Error('結果を読み取れなかった。もう一度試してね'); }
+  let corrected = typeof parsed.corrected === 'string' ? parsed.corrected : part;
+  // 区切り目の改行・空白がAIの返事で消えたら付け直す(つなげたときに行がくっつかないように)
+  const tail = part.match(/\s*$/)[0];
+  corrected = corrected.replace(/\s*$/, '') + tail;
+  return {
+    issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+    corrected: corrected,
+    cut: json.stop_reason === 'max_tokens'
+  };
+}
+
+// 長い文章を size 文字以内に分ける(なるべく改行→「。」の後ろで区切る)
+function splitText(text, size) {
+  const out = [];
+  let rest = text;
+  while (rest.length > size) {
+    const head = rest.slice(0, size);
+    let cut = head.lastIndexOf('\n') + 1;
+    if (cut < size / 2) cut = Math.max(head.lastIndexOf('。'), head.lastIndexOf('. ')) + 1;
+    if (cut < size / 2) cut = size;
+    out.push(rest.slice(0, cut));
+    rest = rest.slice(cut);
+  }
+  if (rest) out.push(rest);
+  return out;
 }
 
 // ---- 結果表示 ----
