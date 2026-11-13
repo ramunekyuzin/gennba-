@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>定額珈琲 注文表</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#fff; --text:#1d2430; --sub:#5d6878; --line:#dde2ea;
+    --head:#3d5a80; --headtxt:#fff; --accent:#2b7de9; --ok:#1f9d55; --ng:#d64545;
+    --btn:#eef2f7;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#12161c; --card:#1c222b; --text:#e8ecf2; --sub:#9aa5b5; --line:#2f3743;
+      --head:#2c4566; --headtxt:#eef3fa; --accent:#5aa2ff; --ok:#3ccf7f; --ng:#ff6b6b;
+      --btn:#28303b;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px;
+    padding-bottom:200px}
+  header{padding:16px;text-align:center}
+  header h1{margin:0;font-size:20px}
+  header p{margin:6px 0 0;color:var(--sub);font-size:14px}
+  .wrap{max-width:720px;margin:0 auto;padding:0 12px}
+  .series{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:12px 0;overflow:hidden}
+  .series h2{margin:0;padding:10px 14px;font-size:16px;background:var(--head);color:var(--headtxt)}
+  .item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line)}
+  .item:first-of-type{border-top:none}
+  .item.on{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .info{flex:1;min-width:0}
+  .name{font-size:16px;line-height:1.3}
+  .meta{font-size:13px;color:var(--sub);margin-top:2px}
+  .qty{display:flex;align-items:center;gap:6px}
+  .qty button{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);
+    background:var(--btn);color:var(--text);font-size:22px;cursor:pointer}
+  .qty span{min-width:28px;text-align:center;font-size:18px;font-weight:bold}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 12px rgba(0,0,0,.12)}
+  .bar .in{max-width:720px;margin:0 auto}
+  .row{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
+  .total{font-size:22px;font-weight:bold}
+  .gauge{height:10px;background:var(--line);border-radius:5px;overflow:hidden;margin:6px 0}
+  .gauge div{height:100%;background:var(--ok);width:0;transition:width .2s}
+  .over .gauge div{background:var(--ng)}
+  .rest{font-weight:bold;color:var(--ok)}
+  .over .rest{color:var(--ng)}
+  .btns{display:flex;gap:8px;margin-top:8px}
+  .btns button{flex:1;height:44px;border-radius:10px;border:none;font-size:15px;cursor:pointer}
+  .b-main{background:var(--accent);color:#fff}
+  .b-sub{background:var(--btn);color:var(--text);border:1px solid var(--line)!important}
+  #summary{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:12px 0;padding:14px;display:none}
+  #summary h2{margin:0 0 8px;font-size:16px}
+  #summary pre{white-space:pre-wrap;margin:0;font-family:inherit;font-size:15px;line-height:1.6}
+  .note{font-size:13px;color:var(--sub);margin:8px 2px;line-height:1.6}
+
+  /* ===== 注文書(頼んだ商品だけ) ===== */
+  #sheetView{display:none;max-width:760px;margin:0 auto;padding:16px 12px 40px}
+  .sheet{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .sheet h1{margin:0 0 4px;font-size:22px;text-align:center;letter-spacing:.3em}
+  .sheet .sub{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:14px;color:var(--sub);margin:10px 0}
+  .sheet table{width:100%;border-collapse:collapse;font-size:15px}
+  .sheet th,.sheet td{border:1px solid var(--line);padding:8px 6px;vertical-align:middle}
+  .sheet th{background:var(--head);color:var(--headtxt);font-weight:normal;font-size:13px}
+  .sheet td.c{text-align:center}
+  .sheet td.r{text-align:right;white-space:nowrap}
+  .sheet td.ser{font-size:12px;color:var(--sub);white-space:nowrap}
+  .chk{width:26px;height:26px;cursor:pointer;accent-color:var(--ok)}
+  .sheet tr.done td{opacity:.55}
+  .sheet tr.done td.nm{text-decoration:line-through}
+  .sheet tfoot td{font-weight:bold}
+  .sign{display:flex;gap:12px;margin-top:16px}
+  .sign div{flex:1;border:1px solid var(--line);border-radius:6px;height:64px;padding:4px 8px;font-size:12px;color:var(--sub)}
+  .sheetBtns{display:flex;gap:8px;margin-top:14px}
+  .sheetBtns button{flex:1;height:46px;border-radius:10px;border:none;font-size:15px;cursor:pointer}
+
+  body.sheetMode #mainView,body.sheetMode .bar{display:none}
+  body.sheetMode #sheetView{display:block}
+  body.sheetMode{padding-bottom:0}
+
+  @media print{
+    :root{--card:#fff;--text:#000;--sub:#333;--line:#000;--head:#fff;--headtxt:#000}
+    body{background:#fff;color:#000}
+    #mainView,.bar,.sheetBtns{display:none!important}
+    #sheetView{display:block!important;padding:0;max-width:none}
+    .sheet{border:none;padding:0}
+    .sheet th{border:1px solid #000;font-weight:bold}
+    .chk{-webkit-appearance:none;appearance:none;width:18px;height:18px;border:1.5px solid #000;border-radius:2px}
+    .chk:checked{background:#000}
+    .sheet tr.done td{opacity:1}
+    .sheet tr.done td.nm{text-decoration:none}
+    @page{size:A4;margin:12mm}
+  }
+</style>
+</head>
+<body>
+
+<div id="mainView">
+  <header>
+    <h1>定額珈琲 注文表</h1>
+    <p id="lead"></p>
+  </header>
+
+  <div class="wrap">
+    <div id="list"></div>
+    <div id="summary">
+      <h2>注文内容</h2>
+      <pre id="sumText"></pre>
+    </div>
+    <p class="note">※上限を超えた分は、表示の設定金額で追加購入になります。<br>※残った金額の翌月繰り越しはできません。</p>
+  </div>
+</div>
+
+<div class="bar" id="bar">
+  <div class="in">
+    <div class="row"><span>合計</span><span class="total" id="total">¥0</span></div>
+    <div class="gauge"><div id="gauge"></div></div>
+    <div class="row"><span id="restLabel">残り</span><span class="rest" id="rest"></span></div>
+    <div class="btns">
+      <button class="b-sub" id="reset">リセット</button>
+      <button class="b-main" id="copy">注文内容をコピー</button>
+    </div>
+    <div class="btns">
+      <button class="b-sub" id="copyUrl">注文書のURLをコピー</button>
+      <button class="b-main" id="openSheet">注文書を見る・印刷</button>
+    </div>
+  </div>
+</div>
+
+<div id="sheetView">
+  <div class="sheet">
+    <h1>注文書</h1>
+    <div class="sub">
+      <span>定額珈琲(キューリグ)<span id="sheetUnits"></span></span>
+      <span>注文日:<span id="sheetDate"></span></span>
+    </div>
+    <table>
+      <thead>
+        <tr><th style="width:44px">✓</th><th>商品名</th><th>内容数量</th><th>単価</th><th>数量</th><th>金額</th></tr>
+      </thead>
+      <tbody id="sheetBody"></tbody>
+      <tfoot id="sheetFoot"></tfoot>
+    </table>
+    <div class="sign">
+      <div>準備担当</div>
+      <div>確認</div>
+    </div>
+    <div class="sheetBtns">
+      <button class="b-sub" id="backBtn">注文を直す</button>
+      <button class="b-sub" id="clearChk">チェックを外す</button>
+      <button class="b-main" id="printBtn">印刷する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 設定 =====
+const UNITS = 2;              // 台数
+const LIMIT_PER_UNIT = 14400; // 1台あたりの月額上限設定金額
+const LIMIT = UNITS * LIMIT_PER_UNIT; // 28,800円
+
+// ===== 商品データ =====
+const DATA = [
+  {series:"レギュラーシリーズ", items:[
+    ["キューリグ オリジナルブレンド","12個",1800],
+    ["キューリグ UCC炭焼珈琲","12個",1800],
+    ["キューリグ UCC有機栽培珈琲","12個",1800],
+    ["キューリグ UCCカフェインレス","12個",1800],
+    ["キューリグ UCCキリマンジァロAA","12個",1800],
+    ["キューリグ UCCモカブレンド","12個",1800],
+    ["キューリグ ヒルス ブレンドゴールド","12個",1800],
+    ["キューリグ カフェグレコ エスプレッソロースト","12個",1800],
+    ["キューリグ アイスコーヒー","12個",2000],
+  ]},
+  {series:"カフェコラボシリーズ", items:[
+    ["キューリグ カフェドクリエ","12個",1600],
+    ["キューリグ トミヤコーヒー","12個",1700],
+    ["キューリグ 英國屋リッチテイスト","12個",1900],
+    ["キューリグ PRONTブレンド","12個",1900],
+    ["キューリグ サンマルクカフェ","12個",1900],
+    ["キューリグ 上島珈琲店","12個",1900],
+    ["キューリグ タニタカフェ","12個",1900],
+    ["キューリグ 小川珈琲マイルド","12個",1900],
+    ["キューリグ ドトールオリジナルブレンド","12個",1900],
+    ["キューリグ ドトール炭火焙煎","12個",1900],
+    ["キューリグ 小川珈琲オーガニック","12個",2000],
+    ["AMAZING COFFEE","12個",2100],
+    ["キューリグ 丸山珈琲","12個",2100],
+    ["キューリグ 雪室珈琲","12個",2100],
+    ["キューリグ 上島珈琲 浅煎りブレンド","12個",2200],
+  ]},
+  {series:"ティーシリーズ", items:[
+    ["キューリグ リプトンイエローラベル","12個",1800],
+    ["キューリグ 抹茶入り緑茶","12個",1700],
+    ["キューリグ ジャスミン茶","12個",1800],
+    ["キューリグ 辻利宇治抹茶入り煎茶","12個",2100],
+    ["キューリグ 辻利宇治ほうじ茶","12個",2100],
+    ["キューリグ アフタヌーンティーブレンド","12個",2100],
+    ["キューリグ アフタヌーンティシャルドネダージリン","12個",2400],
+    ["キューリグ 中村藤吉本店中村茶","12個",2900],
+  ]},
+  {series:"リキッドシリーズ", items:[
+    ["リキッドアイスコーヒー無糖","1L×6本",4300],
+    ["リキッドアイスストレートティー無糖","1L×6本",3400],
+  ]},
+  {series:"付帯品", items:[
+    ["新グラニュー糖1kg","1kg",460],
+    ["3gスティックシュガー(100)","3g×100本",700],
+    ["NEWクリーミングパウダー200g","200g",500],
+    ["メロディアン シロップ","6g×20個",390],
+    ["a la cafe キャラメル","10ml×20個",490],
+    ["コーヒーフレッシュ3ml","50個",500],
+    ["エンボスカップ9オンスオリジナルアソート","50個",900],
+    ["リフトアップリッド260(9オンス用フタ)","50個",730],
+    ["FLEX木製マドラー","100本",270],
+  ]},
+];
+
+// ===== 状態 =====
+const items = [];
+DATA.forEach(s => s.items.forEach(([name,unit,price]) => items.push({series:s.series,name,unit,price,qty:0})));
+
+const yen = n => "¥" + n.toLocaleString("ja-JP");
+const today = () => { const d = new Date(); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; };
+document.getElementById("lead").textContent =
+  `${UNITS}台分 上限 ${yen(LIMIT)}(${yen(LIMIT_PER_UNIT)}×${UNITS}台)`;
+
+// ===== 注文入力画面 =====
+const list = document.getElementById("list");
+DATA.forEach(s => {
+  const box = document.createElement("div");
+  box.className = "series";
+  box.innerHTML = `<h2>${s.series}</h2>`;
+  items.filter(it => it.series === s.series).forEach(it => {
+    const row = document.createElement("div");
+    row.className = "item";
+    row.innerHTML = `
+      <div class="info">
+        <div class="name">${it.name}</div>
+        <div class="meta">${it.unit} / ${yen(it.price)}</div>
+      </div>
+      <div class="qty">
+        <button aria-label="減らす">−</button>
+        <span>0</span>
+        <button aria-label="増やす">＋</button>
+      </div>`;
+    const [minus, plus] = row.querySelectorAll("button");
+    const num = row.querySelector("span");
+    it.el = row; it.num = num;
+    minus.onclick = () => { if (it.qty > 0) { it.qty--; update(); } };
+    plus.onclick  = () => { it.qty++; update(); };
+    box.appendChild(row);
+  });
+  list.appendChild(box);
+});
+
+function calc(){
+  const total = items.reduce((a,it) => a + it.price * it.qty, 0);
+  return {total, rest: LIMIT - total, chosen: items.filter(it => it.qty > 0)};
+}
+
+function update(){
+  items.forEach(it => {
+    it.num.textContent = it.qty;
+    it.el.classList.toggle("on", it.qty > 0);
+  });
+  const {total, rest, chosen} = calc();
+  document.getElementById("bar").classList.toggle("over", rest < 0);
+  document.getElementById("total").textContent = yen(total);
+  document.getElementById("gauge").style.width = Math.min(100, total / LIMIT * 100) + "%";
+  document.getElementById("restLabel").textContent = rest < 0 ? "上限超過(追加購入)" : "残り";
+  document.getElementById("rest").textContent = yen(Math.abs(rest));
+
+  const sum = document.getElementById("summary");
+  if (chosen.length === 0) { sum.style.display = "none"; return; }
+  sum.style.display = "block";
+  document.getElementById("sumText").textContent = buildText(chosen, total, rest);
+}
+
+function buildText(chosen, total, rest){
+  const lines = chosen.map(it => `・${it.name}(${it.unit}) × ${it.qty} … ${yen(it.price * it.qty)}`);
+  lines.push("");
+  lines.push(`合計:${yen(total)}(上限 ${yen(LIMIT)})`);
+  lines.push(rest < 0 ? `上限超過分(追加購入):${yen(-rest)}` : `残り:${yen(rest)}`);
+  return lines.join("\n");
+}
+
+// ===== 注文書(頼んだ商品だけ・チェック欄つき) =====
+function orderCode(){
+  return items.map((it,i) => it.qty > 0 ? `${i}-${it.qty}` : null).filter(Boolean).join(".");
+}
+function sheetUrl(){
+  return location.href.split("#")[0] + "#o=" + orderCode() + "&d=" + encodeURIComponent(today());
+}
+
+function renderSheet(dateStr){
+  const {total, rest, chosen} = calc();
+  document.getElementById("sheetUnits").textContent = `/${UNITS}台分(上限 ${yen(LIMIT)})`;
+  document.getElementById("sheetDate").textContent = dateStr || today();
+  const body = document.getElementById("sheetBody");
+  body.innerHTML = "";
+  chosen.forEach(it => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="c"><input type="checkbox" class="chk"></td>
+      <td class="nm">${it.name}<div class="ser">${it.series}</div></td>
+      <td class="c">${it.unit}</td>
+      <td class="r">${yen(it.price)}</td>
+      <td class="c"><b>${it.qty}</b></td>
+      <td class="r">${yen(it.price * it.qty)}</td>`;
+    const cb = tr.querySelector(".chk");
+    cb.onchange = () => tr.classList.toggle("done", cb.checked);
+    body.appendChild(tr);
+  });
+  const qtySum = chosen.reduce((a,it) => a + it.qty, 0);
+  document.getElementById("sheetFoot").innerHTML = `
+    <tr><td colspan="4" class="r">合計(${chosen.length}品目)</td><td class="c">${qtySum}</td><td class="r">${yen(total)}</td></tr>
+    ${rest < 0 ? `<tr><td colspan="5" class="r">うち上限超過分(追加購入)</td><td class="r">${yen(-rest)}</td></tr>` : ""}`;
+}
+
+function openSheet(dateStr, fromLink){
+  if (!items.some(it => it.qty > 0)) return false;
+  renderSheet(dateStr);
+  document.body.classList.add("sheetMode");
+  document.getElementById("backBtn").style.display = fromLink ? "none" : "";
+  window.scrollTo(0,0);
+  return true;
+}
+
+// URLに注文が入っていたら、注文書だけを表示(ユニマット側で見る用)
+function loadFromHash(){
+  const m = location.hash.match(/o=([\d.\-]+)/);
+  if (!m) return;
+  m[1].split(".").forEach(p => {
+    const [i,q] = p.split("-").map(Number);
+    if (items[i] && q > 0) items[i].qty = q;
+  });
+  const d = location.hash.match(/d=([^&]+)/);
+  update();
+  openSheet(d ? decodeURIComponent(d[1]) : "", true);
+}
+
+// ===== ボタン =====
+function flash(btn, msg, orig){ btn.textContent = msg; setTimeout(()=>btn.textContent=orig,1300); }
+
+document.getElementById("reset").onclick = () => {
+  if (!items.some(it => it.qty > 0)) return;
+  items.forEach(it => it.qty = 0); update();
+};
+document.getElementById("copy").onclick = async () => {
+  const btn = document.getElementById("copy");
+  const txt = document.getElementById("sumText").textContent;
+  if (!items.some(it => it.qty > 0)) return flash(btn,"商品を選んでね","注文内容をコピー");
+  try { await navigator.clipboard.writeText(txt); flash(btn,"コピーしました","注文内容をコピー"); }
+  catch(e){ flash(btn,"コピーできませんでした","注文内容をコピー"); }
+};
+document.getElementById("copyUrl").onclick = async () => {
+  const btn = document.getElementById("copyUrl");
+  if (!items.some(it => it.qty > 0)) return flash(btn,"商品を選んでね","注文書のURLをコピー");
+  try { await navigator.clipboard.writeText(sheetUrl()); flash(btn,"コピーしました","注文書のURLをコピー"); }
+  catch(e){ flash(btn,"コピーできませんでした","注文書のURLをコピー"); }
+};
+document.getElementById("openSheet").onclick = () => {
+  const btn = document.getElementById("openSheet");
+  if (!openSheet()) flash(btn,"商品を選んでね","注文書を見る・印刷");
+};
+document.getElementById("backBtn").onclick = () => {
+  document.body.classList.remove("sheetMode");
+  history.replaceState(null,"",location.href.split("#")[0]);
+};
+document.getElementById("clearChk").onclick = () => {
+  document.querySelectorAll("#sheetBody .chk").forEach(cb => { cb.checked = false; cb.closest("tr").classList.remove("done"); });
+};
+document.getElementById("printBtn").onclick = () => window.print();
+
+update();
+loadFromHash();
+</script>
+</body>
+</html>
