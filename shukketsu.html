@@ -123,11 +123,11 @@ details[open]{padding-bottom:12px}
 
       <div class="filters" id="filters"></div>
       <div class="row">
-        <button id="btnMailBulk" style="flex:1">表示中の業者にまとめてメール(BCC)</button>
+        <button id="btnMailBulk" style="flex:1">表示中の業者にまとめてメール</button>
       </div>
       <div id="bulkBox" style="display:none;margin-bottom:12px">
         <div class="kai-info" id="bulkMsg"></div>
-        <textarea id="bulkAddrs" rows="3" readonly spellcheck="false" aria-label="BCCに貼るアドレス"></textarea>
+        <textarea id="bulkAddrs" rows="3" readonly spellcheck="false" aria-label="宛先のアドレス"></textarea>
         <div class="row" style="margin-top:8px">
           <button class="sub" id="btnBulkCopy">アドレスをもう一度コピー</button>
           <button class="sub" id="btnBulkClose">閉じる</button>
@@ -541,33 +541,32 @@ function copyText(text){
   }
 }
 
-// Web版OutlookはURLでBCCを入れられないことがあるので、アドレスはコピーして貼ってもらう
+// アドレスは宛先(To)に入れる。入らなかったときのためにコピーして一覧も出す
 $('btnMailBulk').addEventListener('click', () => {
   const msg = $('checkMsg');
   const shown = records.filter(matchFilter).map(r => vendorById(r.vendorId));
   const noMail = shown.filter(v => !parseMails(v.email).length);
-  const bcc = Array.from(new Set(shown.flatMap(v => parseMails(v.email))));
-  if (!bcc.length) { msg.textContent = '表示中の業者にメールアドレスがありません'; $('bulkBox').style.display = 'none'; return; }
-  const addrs = bcc.join('; ');
+  const to = Array.from(new Set(shown.flatMap(v => parseMails(v.email))));
+  if (!to.length) { msg.textContent = '表示中の業者にメールアドレスがありません'; $('bulkBox').style.display = 'none'; return; }
+  const addrs = to.join('; ');
   const copied = copyText(addrs);   // 画面が切り替わる前にコピーを始める
   const body = $('mBody').value.replace(/\{業者名\}\s*(御中|様)?/g, '各位');
-  openOutlook({ bcc, body });
+  openOutlook({ to, body });
   msg.textContent = '';
   $('bulkAddrs').value = addrs;
   $('bulkBox').style.display = '';
-  const info = (shown.length - noMail.length) + '社・' + bcc.length + '件のアドレス'
+  const info = (shown.length - noMail.length) + '社・' + to.length + '件のアドレスを宛先に入れました'
     + (noMail.length ? '(アドレスがないので外した業者: ' + noMail.map(v => v.name).join('、') + ')' : '');
   copied.then(ok => {
-    $('bulkMsg').textContent = ok
-      ? info + 'をコピーしました。Outlookの「Bcc」を開いて、貼り付け(Ctrl+V)してください。'
-      : info + '。コピーできなかったので、下のアドレスを選んでコピーし、Outlookの「Bcc」に貼り付けてください。';
+    $('bulkMsg').textContent = info + '。宛先に入っていないときは、'
+      + (ok ? 'コピー済みなので Outlookの「宛先」に貼り付け(Ctrl+V)してください。' : '下のアドレスを選んでコピーし、Outlookの「宛先」に貼り付けてください。');
   });
 });
 
 $('btnBulkCopy').addEventListener('click', async () => {
   const ok = await copyText($('bulkAddrs').value);
   if (!ok) { $('bulkAddrs').select(); }
-  $('bulkMsg').textContent = ok ? 'コピーしました。Outlookの「Bcc」に貼り付けてください。' : 'コピーできませんでした。アドレスを選んだので、Ctrl+C でコピーしてください。';
+  $('bulkMsg').textContent = ok ? 'コピーしました。Outlookの「宛先」に貼り付けてください。' : 'コピーできませんでした。アドレスを選んだので、Ctrl+C でコピーしてください。';
 });
 
 $('btnBulkClose').addEventListener('click', () => { $('bulkBox').style.display = 'none'; });
