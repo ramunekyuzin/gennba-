@@ -107,6 +107,10 @@ details[open]{padding-bottom:12px}
 
       <details id="mailBox">
         <summary>メールの文面</summary>
+        <div class="filters" id="mailTypes">
+          <button data-type="guide">案内</button>
+          <button class="sub" data-type="request">提出のお願い</button>
+        </div>
         <div class="grid">
           <label>件名<input id="mSubject"></label>
           <label>本文<textarea id="mBody" rows="10"></textarea></label>
@@ -120,6 +124,14 @@ details[open]{padding-bottom:12px}
       <div class="filters" id="filters"></div>
       <div class="row">
         <button id="btnMailBulk" style="flex:1">表示中の業者にまとめてメール(BCC)</button>
+      </div>
+      <div id="bulkBox" style="display:none;margin-bottom:12px">
+        <div class="kai-info" id="bulkMsg"></div>
+        <textarea id="bulkAddrs" rows="3" readonly spellcheck="false" aria-label="BCCに貼るアドレス"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="sub" id="btnBulkCopy">アドレスをもう一度コピー</button>
+          <button class="sub" id="btnBulkClose">閉じる</button>
+        </div>
       </div>
       <div id="list"></div>
 
@@ -283,6 +295,7 @@ function renderKaiSelect(){
 
 $('kaiSelect').addEventListener('change', () => {
   filter = 'all';
+  $('bulkBox').style.display = 'none';
   load($('kaiSelect').value);
 });
 
@@ -414,9 +427,33 @@ function renderCheck(){
 }
 
 // ---------- メール ----------
-let mailKaiId = '';   // 文面欄にどの回の文面が入っているか
+let mailKaiId = '';        // 文面欄にどの回の文面が入っているか
+let mailType = 'guide';    // guide=案内 / request=提出のお願い
+let mailShownType = '';    // 文面欄にどの種類の文面が入っているか
 
-function defaultMailText(k){
+function jpDate(ymd){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
+  if (!m) return ymd;
+  const w = '日月火水木金土'[new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getDay()];
+  return Number(m[2]) + '月' + Number(m[3]) + '日(' + w + ')';
+}
+
+function defaultMailText(k, type){
+  if (type === 'guide') {
+    return {
+      subject: `【ご案内】${k.title}(${md(k.date)})`,
+      body: `{業者名} 御中
+
+いつもお世話になっております。
+下記のとおり${k.title}を行いますので、ご出席をお願いいたします。
+
+■日時:${jpDate(k.date)}  時~
+■場所:
+${k.item ? `■提出物:${k.item}(当日ご持参ください)\n` : ''}
+ご不明な点がありましたら、ご連絡ください。
+よろしくお願いいたします。`
+    };
+  }
   const item = k.item || '提出物';
   return {
     subject: `【提出のお願い】${k.title}(${md(k.date)})`,
@@ -431,13 +468,23 @@ ${md(k.date)}の${k.title}の「${item}」のご提出がまだ確認できて�
   };
 }
 
-// 回が変わったときだけ文面欄を入れ替える(入力中の文字を消さないため)
+function mailKey(kaiId, type){
+  return MAIL_TEXT_KEY + type + '_' + kaiId;
+}
+
+// 回か種類が変わったときだけ文面欄を入れ替える(入力中の文字を消さないため)
 function renderMailText(k){
-  if (mailKaiId === k.id) return;
+  document.querySelectorAll('#mailTypes button').forEach(b => b.classList.toggle('sub', b.dataset.type !== mailType));
+  if (mailKaiId === k.id && mailShownType === mailType) return;
   mailKaiId = k.id;
+  mailShownType = mailType;
   let t = null;
-  try { t = JSON.parse(localStorage.getItem(MAIL_TEXT_KEY + k.id) || 'null'); } catch (e) { /* なくてもOK */ }
-  if (!t) t = defaultMailText(k);
+  try {
+    t = JSON.parse(localStorage.getItem(mailKey(k.id, mailType))
+      || (mailType === 'request' ? localStorage.getItem(MAIL_TEXT_KEY + k.id) : null)   // 前の版で残した文面
+      || 'null');
+  } catch (e) { /* なくてもOK */ }
+  if (!t) t = defaultMailText(k, mailType);
   $('mSubject').value = t.subject;
   $('mBody').value = t.body;
 }
@@ -445,17 +492,28 @@ function renderMailText(k){
 function saveMailText(){
   if (!mailKaiId) return;
   try {
-    localStorage.setItem(MAIL_TEXT_KEY + mailKaiId, JSON.stringify({ subject: $('mSubject').value, body: $('mBody').value }));
+    localStorage.setItem(mailKey(mailKaiId, mailShownType), JSON.stringify({ subject: $('mSubject').value, body: $('mBody').value }));
   } catch (e) { /* なくてもOK */ }
 }
 
 $('mSubject').addEventListener('input', saveMailText);
 $('mBody').addEventListener('input', saveMailText);
 
+$('mailTypes').addEventListener('click', ev => {
+  const type = ev.target.dataset.type;
+  if (!type) return;
+  mailType = type;
+  const k = kais.find(x => x.id === curKaiId);
+  if (k) renderMailText(k);
+});
+
 $('btnMailReset').addEventListener('click', () => {
   const k = kais.find(x => x.id === curKaiId);
   if (!k || !confirm('文面を最初の状態に戻しますか?')) return;
-  try { localStorage.removeItem(MAIL_TEXT_KEY + k.id); } catch (e) { /* なくてもOK */ }
+  try {
+    localStorage.removeItem(mailKey(k.id, mailType));
+    if (mailType === 'request') localStorage.removeItem(MAIL_TEXT_KEY + k.id);
+  } catch (e) { /* なくてもOK */ }
   mailKaiId = '';
   renderMailText(k);
 });
@@ -474,22 +532,51 @@ function openOutlook({ to = [], bcc = [], body }){
   window.open(OUTLOOK_URL + '?' + q.join('&'), '_blank', 'noopener');
 }
 
+// クリップボードにコピー(できなければ false)
+function copyText(text){
+  try {
+    return navigator.clipboard.writeText(text).then(() => true, () => false);
+  } catch (e) {
+    return Promise.resolve(false);
+  }
+}
+
+// Web版OutlookはURLでBCCを入れられないことがあるので、アドレスはコピーして貼ってもらう
 $('btnMailBulk').addEventListener('click', () => {
   const msg = $('checkMsg');
   const shown = records.filter(matchFilter).map(r => vendorById(r.vendorId));
   const noMail = shown.filter(v => !parseMails(v.email).length);
   const bcc = Array.from(new Set(shown.flatMap(v => parseMails(v.email))));
-  if (!bcc.length) { msg.textContent = '表示中の業者にメールアドレスがありません'; return; }
+  if (!bcc.length) { msg.textContent = '表示中の業者にメールアドレスがありません'; $('bulkBox').style.display = 'none'; return; }
+  const addrs = bcc.join('; ');
+  const copied = copyText(addrs);   // 画面が切り替わる前にコピーを始める
   const body = $('mBody').value.replace(/\{業者名\}\s*(御中|様)?/g, '各位');
   openOutlook({ bcc, body });
-  msg.textContent = (shown.length - noMail.length) + '社(' + bcc.length + '件のアドレス)をBCCに入れました'
-    + (noMail.length ? '。アドレスがないので外した業者: ' + noMail.map(v => v.name).join('、') : '');
+  msg.textContent = '';
+  $('bulkAddrs').value = addrs;
+  $('bulkBox').style.display = '';
+  const info = (shown.length - noMail.length) + '社・' + bcc.length + '件のアドレス'
+    + (noMail.length ? '(アドレスがないので外した業者: ' + noMail.map(v => v.name).join('、') + ')' : '');
+  copied.then(ok => {
+    $('bulkMsg').textContent = ok
+      ? info + 'をコピーしました。Outlookの「Bcc」を開いて、貼り付け(Ctrl+V)してください。'
+      : info + '。コピーできなかったので、下のアドレスを選んでコピーし、Outlookの「Bcc」に貼り付けてください。';
+  });
 });
+
+$('btnBulkCopy').addEventListener('click', async () => {
+  const ok = await copyText($('bulkAddrs').value);
+  if (!ok) { $('bulkAddrs').select(); }
+  $('bulkMsg').textContent = ok ? 'コピーしました。Outlookの「Bcc」に貼り付けてください。' : 'コピーできませんでした。アドレスを選んだので、Ctrl+C でコピーしてください。';
+});
+
+$('btnBulkClose').addEventListener('click', () => { $('bulkBox').style.display = 'none'; });
 
 $('filters').addEventListener('click', ev => {
   const key = ev.target.dataset.filter;
   if (!key) return;
   filter = key;
+  $('bulkBox').style.display = 'none';
   renderCheck();
 });
 
