@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="lock.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>新規入場者の登録</title>
+  <style>
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body { background: #f4f5f7; color: #172033; font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif; font-size: 16px; }
+    @media (prefers-color-scheme: dark) { body { background: #1b1e24; color: #e6e8eb; } }
+    iframe { display: block; width: 100%; height: 100%; border: none; }
+    #notYet { padding: 24px 16px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <iframe id="app" title="新規入場者の登録"></iframe>
+  <p id="notYet" hidden>まだ準備中です(GASのURLが入っていません)。</p>
+  <script>
+    // ↓ GASのデプロイURL(/exec で終わるやつ)を貼る
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzX38hwdGnuMgVhVl8tz3GymPy3D7HsBXYCc3KbrZ8oOAwvYaIoj6OWUnPOWGJhGUbZ/exec';
+
+    if (GAS_URL) {
+      document.getElementById('app').src = GAS_URL;
+    } else {
+      document.getElementById('app').hidden = true;
+      document.getElementById('notYet').hidden = false;
+    }
+  </script>
+</body>
+</html>
