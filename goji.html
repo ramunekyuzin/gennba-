@@ -154,15 +154,34 @@ async function check() {
   }
 }
 
-// 1回分をGASに送って { issues, corrected, cut } を返す
-async function checkChunk(part) {
+// AIの返事からJSONを取り出す。読めなければ null
+function parseReply(text) {
+  const clean = (text || '').replace(/```json|```/g, '').trim();
+  const body = clean.slice(clean.indexOf('{'), clean.lastIndexOf('}') + 1);
+  try { return JSON.parse(body); } catch (e) {}
+  // 文字列の中にそのまま入った改行・タブなどを \n などに直してから読み直す
+  let fixed = '', inStr = false, escNext = false;
+  for (const c of body) {
+    if (escNext) { fixed += c; escNext = false; continue; }
+    if (c === '\\') { fixed += c; escNext = inStr; continue; }
+    if (c === '"') { inStr = !inStr; fixed += c; continue; }
+    if (inStr && c < ' ') { fixed += c === '\n' ? '\\n' : c === '\r' ? '\\r' : c === '\t' ? '\\t' : ' '; continue; }
+    fixed += c;
+  }
+  try { return JSON.parse(fixed); } catch (e) { return null; }
+}
+
+// 1回分をGASに送って { issues, corrected, cut } を返す(読めなければ1回だけ送り直す)
+async function checkChunk(part, retried) {
   const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ text: part }) });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || '失敗しました');
-  const clean = (json.text || '').replace(/```json|```/g, '').trim();
-  let parsed;
-  try { parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}') + 1)); }
-  catch (e) { throw new Error('結果を読み取れなかった。もう一度試してね'); }
+  const parsed = parseReply(json.text);
+  if (!parsed) {
+    if (json.stop_reason === 'max_tokens') throw new Error('文章が長すぎて最後まで見られなかった。短く分けてチェックしてね');
+    if (!retried) return checkChunk(part, true);
+    throw new Error('結果を読み取れなかった。もう一度試してね');
+  }
   let corrected = typeof parsed.corrected === 'string' ? parsed.corrected : part;
   // 区切り目の改行・空白がAIの返事で消えたら付け直す(つなげたときに行がくっつかないように)
   const tail = part.match(/\s*$/)[0];
