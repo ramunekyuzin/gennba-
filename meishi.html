@@ -299,7 +299,8 @@
       const btns = [];
       splitNums(c['携帯']).forEach(n => btns.push(`<a href="tel:${n}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 3 4 1 1 5-3 2a15 15 0 0 0 6 6l2-3 5 1 1 4c-1 5-9 1-13-3S0 4 5 3Z"/></svg>携帯</a>`));
       splitNums(c['電話']).forEach(n => btns.push(`<a href="tel:${n}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 3 4 1 1 5-3 2a15 15 0 0 0 6 6l2-3 5 1 1 4c-1 5-9 1-13-3S0 4 5 3Z"/></svg>電話</a>`));
-      if (c['メール']) btns.push(`<a href="mailto:${esc(c['メール'].split('/')[0].trim())}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>メール</a>`);
+      const mails = splitMails(c['メール']);
+      mails.forEach((m, i) => btns.push(`<a href="mailto:${esc(m)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>メール${mails.length > 1 ? i + 1 : ''}</a>`));
       if (c['住所']) btns.push(`<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c['住所'])}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></svg>地図</a>`);
       btns.push(`<button onclick="openEdit(${Number(c['_row'])})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></svg>編集</button>`);
       if (c['fileId']) {
@@ -315,6 +316,11 @@
         <div class="info">${info}</div>
         <div class="btns">${btns.join('')}</div>
       </div>`;
+    }
+
+    // 「 / 」「,」「、」や空白で区切られたメールを分ける
+    function splitMails(s) {
+      return String(s || '').split(/[\/,，、;；\s　]+/).map(x => x.trim()).filter(Boolean);
     }
 
     function splitNums(s) {
@@ -408,8 +414,9 @@
     }
 
     // ---------- 編集 ----------
-    const EDIT_FIELDS = ['会社名', '業種', '部署', '役職', '氏名', 'ふりがな', '電話', '携帯', 'FAX', 'メール', '住所', 'URL', 'メモ', '要確認'];
-    const EDIT_TYPE = { '電話': 'tel', '携帯': 'tel', 'FAX': 'tel', 'メール': 'email', 'URL': 'url' };
+    // メール2は画面だけの欄。保存するときは「メール」列に「 / 」区切りでまとめる
+    const EDIT_FIELDS = ['会社名', '業種', '部署', '役職', '氏名', 'ふりがな', '電話', '携帯', 'FAX', 'メール', 'メール2', '住所', 'URL', 'メモ', '要確認'];
+    const EDIT_TYPE = { '電話': 'tel', '携帯': 'tel', 'FAX': 'tel', 'メール': 'email', 'メール2': 'email', 'URL': 'url' };
     let editing = null;
     let editOpener = null;
 
@@ -417,8 +424,10 @@
       editOpener = document.activeElement;
       editing = cards.find(c => Number(c['_row']) === row);
       if (!editing) return;
+      const mails = splitMails(editing['メール']);
+      const val = { ...editing, 'メール': mails[0] || '', 'メール2': mails.slice(1).join(' / ') };
       document.getElementById('editFields').innerHTML = EDIT_FIELDS.map((h, i) => {
-        const v = esc(editing[h] || '');
+        const v = esc(val[h] || '');
         const input = (h === '住所' || h === 'メモ')
           ? `<textarea id="ef${i}" rows="2">${v}</textarea>`
           : `<input id="ef${i}" type="${EDIT_TYPE[h] || 'text'}" value="${v}">`;
@@ -442,6 +451,8 @@
       if (!editing) return;
       const data = {};
       EDIT_FIELDS.forEach((h, i) => data[h] = document.getElementById('ef' + i).value.trim());
+      data['メール'] = splitMails(data['メール'] + ' / ' + data['メール2']).join(' / ');
+      delete data['メール2'];
       const btn = document.getElementById('editSave');
       const msg = document.getElementById('editMsg');
       btn.disabled = true;
