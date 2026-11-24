@@ -94,7 +94,11 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
     <h2 style="margin-top:16px">直した文章</h2>
     <textarea id="corrected" aria-label="直した文章"></textarea>
     <div class="row"><button onclick="copyCorrected(this)">直した文章をコピー</button></div>
-    <div class="row" id="saveDocxRow" style="display:none"><button onclick="saveDocx()">直したWordを保存</button></div>
+    <div id="saveDocxRow" style="display:none;margin-top:14px">
+      <label for="saveName">保存するファイル名</label>
+      <input type="text" id="saveName" placeholder="ファイル名">
+      <div class="row"><button onclick="saveDocx()">直したWordを保存</button></div>
+    </div>
     <p class="note" id="saveDocxNote" style="display:none">「直した文章」の内容をWordに反映します。フォント・色・表などの書式はそのまま残ります(書式の境目をまたいで直した言葉は、先頭の文字の書式になります)。</p>
   </div>
 
@@ -274,6 +278,14 @@ function rewritePara(para, newText) {
   return true;
 }
 
+// 保存名:最初は「元の名前_修正済み」。使えない記号は「_」にし、.docx は自動で付ける
+function defaultSaveName() { return docx.name.replace(/\.docx$/i, '') + '_修正済み'; }
+function saveFileName() {
+  let n = $('saveName').value.trim().replace(/\.docx$/i, '').replace(/[\\/:*?"<>|]/g, '_').trim();
+  if (!n) n = defaultSaveName();
+  return n + '.docx';
+}
+
 async function saveDocx() {
   if (!docx) return;
   const corrected = $('corrected').value;
@@ -292,7 +304,7 @@ async function saveDocx() {
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', compression: 'DEFLATE' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = docx.name.replace(/\.docx$/i, '') + '_修正済み.docx';
+    a.download = saveFileName();
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
     let msg = '直したWordを保存したよ';
@@ -404,7 +416,8 @@ function render(text, issues, corrected) {
   $('preview').innerHTML = highlight(text, issues);
   $('corrected').value = corrected;
   lastIssues = issues;
-  $('saveDocxRow').style.display = docx ? 'flex' : 'none';
+  $('saveDocxRow').style.display = docx ? 'block' : 'none';
+  if (docx) $('saveName').value = defaultSaveName();
   $('saveDocxNote').style.display = docx ? 'block' : 'none';
 }
 
