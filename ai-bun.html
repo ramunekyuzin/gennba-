@@ -61,12 +61,13 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
       <button type="button" data-v="c3" aria-pressed="false">3分前</button>
       <button type="button" data-v="c2" aria-pressed="false">2分前</button>
       <button type="button" data-v="c1" aria-pressed="false">1分前</button>
+      <button type="button" data-v="all" aria-pressed="false">まとめて(5〜1分前)</button>
       <button type="button" data-v="10" aria-pressed="false">10分前</button>
       <button type="button" data-v="soon" aria-pressed="false">まもなく</button>
       <button type="button" data-v="start" aria-pressed="false">始めます</button>
       <button type="button" data-v="end" aria-pressed="false">終わりました</button>
     </div>
-    <p class="note" id="nHint">5〜1分前は、場所と言い方は使いません</p>
+    <p class="note" id="nHint">5〜1分前とまとめては、場所と言い方は使いません</p>
     <label class="f" for="nPlace">場所(空でもOK)</label>
     <input type="text" id="nPlace" placeholder="例: 詰所前">
     <label class="f">言い方</label>
@@ -288,9 +289,16 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
   function makeNotice(){
     var memo = nMemo.value.trim().replace(/[。.!！]+$/, "");
     var place = nPlace.value.trim();
+    nOut.style.height = "";
     if (!memo) { nOut.value = ""; return; }
+    var block = function(k){ return memo + k.slice(1) + "分前\n\n" + COUNTDOWN[k].join("\n"); };
+    if (when === "all") {
+      nOut.value = ["c5", "c4", "c3", "c2", "c1"].map(block).join("\n\n――――――――――\n\n");
+      nOut.style.height = (nOut.scrollHeight + 4) + "px";
+      return;
+    }
     if (COUNTDOWN[when]) {
-      nOut.value = memo + when.slice(1) + "分前\n\n" + COUNTDOWN[when].join("\n");
+      nOut.value = block(when);
       return;
     }
     var p = tone === "polite";
