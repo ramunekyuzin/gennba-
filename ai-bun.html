@@ -35,12 +35,47 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
 .msg{min-height:1.7em;margin-top:8px;color:var(--accent);font-size:16px}
 .msg.ng{color:var(--danger)}
 .note{font-size:16px;color:var(--ink-2);margin:10px 0 0}
+.notice{margin-bottom:16px}
+.notice label.f{display:block;font-size:16px;font-weight:700;color:var(--ink-2);margin:14px 0 6px}
+.notice input[type=text]{width:100%;min-height:48px;background:var(--field);color:var(--ink);border:1px solid var(--hair);border-radius:10px;padding:10px 12px;font-size:16px}
+.notice input[type=text]:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{min-height:48px;padding:8px 16px;border-radius:24px;border:1px solid var(--hair);background:var(--field);color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+#nOut{min-height:110px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>AI用 文章整形</h1>
   <p class="intro">PDF・エクセル・LINEなどからコピーした文章を貼ると、AI(ChatGPT・Claudeなど)が読みやすい形に整えます。文章はこの端末の中だけで処理され、外には送られません。</p>
+
+  <section class="notice">
+    <h2>お知らせ文にする</h2>
+    <label class="f" for="nMemo">メモ</label>
+    <input type="text" id="nMemo" placeholder="例: 朝礼開始">
+    <label class="f">タイミング</label>
+    <div class="chips" id="nWhen" role="group" aria-label="タイミング">
+      <button type="button" data-v="5" aria-pressed="true">5分前</button>
+      <button type="button" data-v="10" aria-pressed="false">10分前</button>
+      <button type="button" data-v="soon" aria-pressed="false">まもなく</button>
+      <button type="button" data-v="start" aria-pressed="false">始めます</button>
+      <button type="button" data-v="end" aria-pressed="false">終わりました</button>
+    </div>
+    <label class="f" for="nPlace">場所(空でもOK)</label>
+    <input type="text" id="nPlace" placeholder="例: 詰所前">
+    <label class="f">言い方</label>
+    <div class="chips" id="nTone" role="group" aria-label="言い方">
+      <button type="button" data-v="polite" aria-pressed="true">ていねい</button>
+      <button type="button" data-v="plain" aria-pressed="false">ふつう</button>
+    </div>
+    <label class="f" for="nOut">できた文(手で直してもOK)</label>
+    <textarea id="nOut" placeholder="メモを入れるとここに文が出ます"></textarea>
+    <div class="btns">
+      <button type="button" class="main" id="nCopy">コピー</button>
+    </div>
+    <div class="msg" id="nMsg" role="status"></div>
+  </section>
 
   <div class="grid">
     <section>
@@ -220,6 +255,64 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
 
   src.addEventListener("input", updateCounts);
   out.addEventListener("input", updateCounts);
+
+  // ===== お知らせ文にする =====
+  var nMemo = $("nMemo"), nPlace = $("nPlace"), nOut = $("nOut"), nMsg = $("nMsg");
+  var when = "5", tone = "polite";
+
+  function setupChips(id, onPick){
+    var box = $(id);
+    box.addEventListener("click", function(e){
+      var b = e.target.closest("button");
+      if (!b) return;
+      Array.prototype.forEach.call(box.querySelectorAll("button"), function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      onPick(b.getAttribute("data-v"));
+      makeNotice();
+    });
+  }
+
+  function makeNotice(){
+    var memo = nMemo.value.trim().replace(/[。.!！]+$/, "");
+    var place = nPlace.value.trim();
+    if (!memo) { nOut.value = ""; return; }
+    var p = tone === "polite";
+    // 「朝礼開始」→ 中身「朝礼」と、うしろの「開始/終了」に分ける
+    var m = memo.match(/^(.+?)\s*(開始|終了|スタート)$/);
+    var base = m ? m[1] : memo, suffix = m ? m[2] : "";
+    var isEnd = suffix === "終了";
+    var lines = [];
+
+    if (when === "5" || when === "10") {
+      var head = suffix ? memo : memo + "の";
+      lines.push(p ? head + when + "分前です。" : head + when + "分前。");
+    } else if (when === "soon") {
+      lines.push(p ? "まもなく" + memo + "です。" : "まもなく" + memo + "。");
+    } else if (when === "start") {
+      if (isEnd) lines.push(p ? "ただいまより" + base + "を終了します。" : base + "、終わります。");
+      else if (suffix === "開始") lines.push(p ? "ただいまより" + base + "を開始します。" : base + "、始めます。");
+      else lines.push(p ? "ただいまより" + base + "を始めます。" : base + "、始めます。");
+    } else if (when === "end") {
+      lines.push(p ? base + "は終了しました。" : base + "、終わりました。");
+    }
+
+    if (place && when !== "end" && !isEnd) {
+      lines.push(p ? place + "に集合してください。" : place + "に集合。");
+    }
+    nOut.value = lines.join("");
+  }
+
+  setupChips("nWhen", function(v){ when = v; });
+  setupChips("nTone", function(v){ tone = v; });
+  nMemo.addEventListener("input", makeNotice);
+  nPlace.addEventListener("input", makeNotice);
+
+  $("nCopy").addEventListener("click", function(){
+    if (!nOut.value) { nMsg.textContent = "メモを入れてください"; nMsg.className = "msg ng"; nMemo.focus(); return; }
+    var done = function(){ nMsg.textContent = "コピーしました"; nMsg.className = "msg"; };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(nOut.value).then(done, function(){ nOut.select(); document.execCommand("copy"); done(); });
+    } else { nOut.select(); document.execCommand("copy"); done(); }
+  });
 })();
 </script>
 </body>
