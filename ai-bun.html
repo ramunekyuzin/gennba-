@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0e1522" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3f6fb" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AI用文章">
+<title>AI用 文章整形</title>
+<style>
+:root{color-scheme:light;--bg:#f3f6fb;--paper:#fff;--field:#f7f9fc;--ink:#172b49;--ink-2:#5d6d85;--hair:#dfe6ef;--accent:#285ddb;--on-accent:#fff;--soft:#eaf0ff;--danger:#bf3546}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#0e1522;--paper:#172131;--field:#111b2a;--ink:#e8eef9;--ink-2:#a4b2c7;--hair:#303e53;--accent:#93b4ff;--on-accent:#0e1522;--soft:#243859;--danger:#ff98a6}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 "Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button,textarea,input{font:inherit}
+.wrap{max-width:1100px;margin:auto;padding:20px 16px 48px}
+h1{font-size:24px;margin:8px 0 4px}
+.intro{color:var(--ink-2);margin:0 0 18px}
+.grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:860px){.grid{grid-template-columns:1fr 1fr}}
+section{background:var(--paper);border:1px solid var(--hair);border-radius:14px;padding:18px 16px}
+h2{font-size:18px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+h2 small{font-size:14px;color:var(--ink-2);font-weight:400}
+textarea{width:100%;min-height:300px;background:var(--field);color:var(--ink);border:1px solid var(--hair);border-radius:10px;padding:12px;font-size:16px;line-height:1.7;resize:vertical}
+textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+.opts{display:flex;flex-direction:column;gap:4px;margin:12px 0 4px}
+.opts label{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px;cursor:pointer}
+.opts input{width:22px;height:22px;accent-color:var(--accent);flex-shrink:0}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.btns button{flex:1 1 140px;min-height:52px;border-radius:10px;border:1px solid var(--hair);background:var(--paper);color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
+.btns .main{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-size:17px}
+.msg{min-height:1.7em;margin-top:8px;color:var(--accent);font-size:16px}
+.msg.ng{color:var(--danger)}
+.note{font-size:16px;color:var(--ink-2);margin:10px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI用 文章整形</h1>
+  <p class="intro">PDF・エクセル・LINEなどからコピーした文章を貼ると、AI(ChatGPT・Claudeなど)が読みやすい形に整えます。文章はこの端末の中だけで処理され、外には送られません。</p>
+
+  <div class="grid">
+    <section>
+      <h2>① 文章を貼る <small id="inCount">0文字</small></h2>
+      <textarea id="src" placeholder="ここに文章を貼り付け"></textarea>
+      <div class="opts">
+        <label><input type="checkbox" id="optJoin" checked>途中で切れた改行をつなぐ</label>
+        <label><input type="checkbox" id="optList" checked>見出し・箇条書き・番号をそろえる</label>
+        <label><input type="checkbox" id="optTable" checked>エクセルの表を表の形にする</label>
+        <label><input type="checkbox" id="optWidth" checked>全角の英数字・スペースを半角にする</label>
+      </div>
+      <div class="btns">
+        <button type="button" class="main" id="runBtn">整える</button>
+        <button type="button" id="clearBtn">クリア</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>② 整えた文章 <small id="outCount">0文字</small></h2>
+      <textarea id="out" placeholder="ここに整えた文章が出ます(手で直してもOK)"></textarea>
+      <div class="btns">
+        <button type="button" class="main" id="copyBtn">コピー</button>
+      </div>
+      <div class="msg" id="msg" role="status"></div>
+      <p class="note">コピーしたら、そのままAIのチャット欄に貼ってください。</p>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var src = $("src"), out = $("out"), msg = $("msg");
+
+  function count(t){ return Array.from(t.replace(/\s/g, "")).length + "文字"; }
+  function updateCounts(){ $("inCount").textContent = count(src.value); $("outCount").textContent = count(out.value); }
+  function say(text, ng){ msg.textContent = text; msg.className = ng ? "msg ng" : "msg"; }
+
+  // 全角英数字・記号の一部とスペースを半角に
+  function toHalf(t){
+    return t.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+            .replace(/　/g, " ");
+  }
+
+  var BULLET = /^\s*[・●○■□◆◇▪▫•◦‣\-\*＊－]\s*/;
+  var NUM = /^\s*(?:\(?(\d{1,3})[\.\)．）、]|（(\d{1,3})）|([①-⑳]))\s*/;
+  var HEAD_BRACKET = /^\s*【([^】]{1,40})】\s*$/;
+  var HEAD_CHAPTER = /^\s*(第[0-9０-９一二三四五六七八九十百]+[章節条項部編])\s*(.*)$/;
+  var END = /[。．.!！?？:：」』）)\]】>＞〉》…]$/;
+
+  function circledToNum(c){ return c.charCodeAt(0) - 0x2460 + 1; }
+
+  function isTableLine(line){ return line.indexOf("\t") !== -1; }
+
+  function makeTable(rows){
+    var cells = rows.map(function(r){
+      return r.split("\t").map(function(c){ return c.trim().replace(/\|/g, "\\|"); });
+    });
+    var n = Math.max.apply(null, cells.map(function(c){ return c.length; }));
+    cells = cells.map(function(c){ while(c.length < n) c.push(""); return c; });
+    var lines = ["| " + cells[0].join(" | ") + " |", "|" + new Array(n + 1).join(" --- |")];
+    for (var i = 1; i < cells.length; i++) lines.push("| " + cells[i].join(" | ") + " |");
+    return lines;
+  }
+
+  // 行の種類:blank / head / list / table / text
+  function convertLine(line, opt){
+    if (!opt.list) return { type: "text", text: line };
+    var m;
+    if ((m = line.match(HEAD_BRACKET))) return { type: "head", text: "## " + m[1].trim() };
+    if ((m = line.match(HEAD_CHAPTER))) return { type: "head", text: "## " + (m[1] + " " + m[2]).trim() };
+    if (/^\s*[■◆□◇]/.test(line) && line.replace(BULLET, "").length <= 30 && !END.test(line.trim())) {
+      return { type: "head", text: "### " + line.replace(BULLET, "").trim() };
+    }
+    if ((m = line.match(NUM))) {
+      var no = m[1] || m[2] || (m[3] ? circledToNum(m[3]) : "");
+      var rest = line.slice(m[0].length).trim();
+      if (rest) return { type: "list", text: no + ". " + rest };
+    }
+    if (BULLET.test(line)) {
+      var r = line.replace(BULLET, "").trim();
+      if (r) return { type: "list", text: "- " + r };
+    }
+    return { type: "text", text: line };
+  }
+
+  function joinText(a, b){
+    var last = a.slice(-1), first = b.charAt(0);
+    var asciiA = /[A-Za-z0-9,]/.test(last), asciiB = /[A-Za-z0-9]/.test(first);
+    return a + (asciiA && asciiB ? " " : "") + b;
+  }
+
+  function tidy(raw, opt){
+    var t = raw.replace(/\r\n?/g, "\n")
+               .replace(/[​-‍﻿­]/g, "")
+               .replace(/ /g, " ");
+    if (opt.width) t = toHalf(t);
+
+    var lines = t.split("\n").map(function(l){
+      // 表の行はタブを残す。それ以外はタブも空白扱い
+      if (opt.table && isTableLine(l) && l.replace(/\t/g, "").trim()) return l.replace(/[ ]+$/g, "");
+      return l.replace(/\t/g, " ").replace(/ {2,}/g, " ").trim();
+    });
+
+    var result = [], i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+
+      if (!line.trim()) {
+        if (result.length && result[result.length - 1].type !== "blank") result.push({ type: "blank", text: "" });
+        i++; continue;
+      }
+
+      if (opt.table && isTableLine(line)) {
+        var rows = [];
+        while (i < lines.length && isTableLine(lines[i]) && lines[i].replace(/\t/g, "").trim()) { rows.push(lines[i]); i++; }
+        if (result.length && result[result.length - 1].type !== "blank") result.push({ type: "blank", text: "" });
+        makeTable(rows).forEach(function(r){ result.push({ type: "table", text: r }); });
+        result.push({ type: "blank", text: "" });
+        continue;
+      }
+
+      var cur = convertLine(line, opt);
+      var prev = result[result.length - 1];
+
+      // 見出しの前後は空行を入れる
+      if (cur.type === "head") {
+        if (prev && prev.type !== "blank") result.push({ type: "blank", text: "" });
+        result.push(cur);
+        result.push({ type: "blank", text: "" });
+        i++; continue;
+      }
+
+      // 途中で切れた行をつなぐ(前の行が文や箇条書きで、句点で終わっていない)
+      if (opt.join && cur.type === "text" && prev && (prev.type === "text" || prev.type === "list") && !END.test(prev.text)) {
+        prev.text = joinText(prev.text, cur.text.trim());
+        i++; continue;
+      }
+
+      // 箇条書きが始まる前に空行
+      if (cur.type === "list" && prev && prev.type === "text") result.push({ type: "blank", text: "" });
+      // 箇条書きの後に普通の文が来たら空行
+      if (cur.type === "text" && prev && prev.type === "list") result.push({ type: "blank", text: "" });
+
+      result.push(cur);
+      i++;
+    }
+
+    while (result.length && result[result.length - 1].type === "blank") result.pop();
+    return result.map(function(r){ return r.text; }).join("\n");
+  }
+
+  $("runBtn").addEventListener("click", function(){
+    if (!src.value.trim()) { say("文章を貼ってください", true); src.focus(); return; }
+    out.value = tidy(src.value, {
+      join: $("optJoin").checked,
+      list: $("optList").checked,
+      table: $("optTable").checked,
+      width: $("optWidth").checked
+    });
+    updateCounts();
+    say("整えました。内容を確認してからコピーしてください");
+    if (window.innerWidth < 860) out.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  $("copyBtn").addEventListener("click", function(){
+    if (!out.value) { say("先に「整える」を押してください", true); return; }
+    var done = function(){ say("コピーしました"); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(out.value).then(done, function(){ out.select(); document.execCommand("copy"); done(); });
+    } else { out.select(); document.execCommand("copy"); done(); }
+  });
+
+  $("clearBtn").addEventListener("click", function(){
+    src.value = ""; out.value = ""; say(""); updateCounts(); src.focus();
+  });
+
+  src.addEventListener("input", updateCounts);
+  out.addEventListener("input", updateCounts);
+})();
+</script>
+</body>
+</html>
