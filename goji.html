@@ -67,13 +67,18 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
 
   <div class="card">
     <h2>チェックする文章</h2>
-    <p class="note">誤字・変換ミス・脱字・重複・表記ゆれを探します。英語の文章はスペル・文法ミスを探します。文章はAI(Claude)に送ってチェックします。1回1万文字まで。</p>
+    <p class="note">誤字・変換ミス・脱字・重複・表記ゆれを探します。英語の文章はスペル・文法ミスを探します。文章はAI(Claude)に送ってチェックします。長い文章は分けて順番に送るので、そのぶん時間がかかります。</p>
     <label for="src">文章を貼り付け</label>
     <textarea id="src" placeholder="ここに文章を貼り付けてね"></textarea>
     <div class="row">
       <button class="sub" onclick="pasteText()">貼り付け</button>
       <button class="sub" onclick="clearText()">クリア</button>
     </div>
+    <div class="row">
+      <button class="sub" onclick="$('docxFile').click()">Wordファイルを選ぶ</button>
+    </div>
+    <input type="file" id="docxFile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+    <p class="note" id="docxName" style="display:none"></p>
     <button id="checkBtn" onclick="check()">チェックする</button>
     <div id="status"></div>
   </div>
@@ -89,14 +94,16 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
     <h2 style="margin-top:16px">直した文章</h2>
     <textarea id="corrected" aria-label="直した文章"></textarea>
     <div class="row"><button onclick="copyCorrected(this)">直した文章をコピー</button></div>
+    <div class="row" id="saveDocxRow" style="display:none"><button onclick="saveDocx()">直したWordを保存</button></div>
+    <p class="note" id="saveDocxNote" style="display:none">「直した文章」の内容をWordに反映します。フォント・色・表などの書式はそのまま残ります(書式の境目をまたいで直した言葉は、先頭の文字の書式になります)。</p>
   </div>
 
   <footer class="footer">誤字脱字チェック</footer>
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 // GASのWebアプリURL(APIキーはGAS側のスクリプトプロパティに置く)
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxOd55-hHVkP138rVpNXQBTRE8azZLFtxAYYRRpr7clzk1LCcr54xycodZOxddGAj4J1g/exec';
-const MAX_CHARS = 10000;
 const CHUNK_CHARS = 2500; // 1回に送る文字数(長いとGASが時間切れになるので分けて送る)
 const LS = { text: 'goji_text' };
 
@@ -122,12 +129,186 @@ async function pasteText() {
 }
 function clearText() { $('src').value = ''; $('src').dispatchEvent(new Event('input')); $('result').style.display = 'none'; setStatus('', true); }
 
+// ---- Wordファイル(.docx) ----
+// 読み込んだWordの中身。本文を書き換えると関係が切れるので null に戻す
+const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+let docx = null; // { name, zip, xml, paras: [{ segs: [w:t要素...], text }], text }
+let lastIssues = [];
+// 本文を手で変えたら、読み込んだWordとの関係を切る(段落がずれて書き換えが崩れるのを防ぐ)
+$('src').addEventListener('input', () => { if (docx && $('src').value !== docx.text) setDocx(null); });
+
+$('docxFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!/\.docx$/i.test(file.name)) { setStatus('.docx のWordファイルを選んでね(古い .doc は読めないので、Wordで .docx に保存し直してね)', false); return; }
+  try {
+    setStatus('Wordを読み込み中...', true);
+    const zip = await JSZip.loadAsync(file);
+    const entry = zip.file('word/document.xml');
+    if (!entry) throw new Error('Wordの本文が見つからなかった');
+    const xml = new DOMParser().parseFromString(await entry.async('string'), 'application/xml');
+    if (xml.getElementsByTagName('parsererror').length) throw new Error('Wordの中身を読めなかった');
+    const paras = readParas(xml);
+    const text = paras.map(p => p.text).join('\n');
+    if (!text.trim()) throw new Error('文字が入っていないみたい');
+    docx = { name: file.name, zip, xml, paras, text };
+    $('src').value = text;
+    try { localStorage.setItem(LS.text, text); } catch (err) {}
+    $('docxName').textContent = '読み込んだWord:' + file.name + '(' + text.length + '文字)';
+    $('docxName').style.display = 'block';
+    $('result').style.display = 'none';
+    setStatus('Wordを読み込んだよ。「チェックする」を押してね', true);
+  } catch (err) {
+    setDocx(null);
+    setStatus('Wordを読み込めなかった: ' + err.message, false);
+  }
+});
+
+function setDocx(d) {
+  docx = d;
+  if (!d) { $('docxName').style.display = 'none'; $('saveDocxRow').style.display = 'none'; $('saveDocxNote').style.display = 'none'; }
+}
+
+// 段落(w:p)ごとに、その段落の文字(w:t)を集める。テキストボックス内の段落は別の段落として数える
+function readParas(xml) {
+  const out = [];
+  const ps = xml.getElementsByTagNameNS(W_NS, 'p');
+  for (const p of ps) {
+    const segs = [];
+    for (const t of p.getElementsByTagNameNS(W_NS, 't')) {
+      let a = t.parentNode;
+      while (a && !(a.namespaceURI === W_NS && a.localName === 'p')) a = a.parentNode;
+      if (a === p) segs.push(t);
+    }
+    out.push({ segs, text: segs.map(t => t.textContent).join('') });
+  }
+  return out;
+}
+
+// 直した文章を段落ごとに分けて、元の段落と組み合わせる。合わなければ null
+function matchLines(paras, corrected) {
+  const lines = corrected.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+  let tailEmpty = 0;
+  while (tailEmpty < paras.length && paras[paras.length - 1 - tailEmpty].text === '') tailEmpty++;
+  if (lines.length < paras.length && lines.length >= paras.length - tailEmpty) while (lines.length < paras.length) lines.push('');
+  if (lines.length === paras.length) return aligned(paras, lines) ? lines : null;
+  // 空行の数がずれたときは、文字のある段落どうしで合わせる
+  const full = paras.map((p, i) => i).filter(i => paras[i].text.trim() !== '');
+  const fullLines = lines.filter(l => l.trim() !== '');
+  if (full.length !== fullLines.length) return null;
+  const out = paras.map(p => p.text);
+  full.forEach((i, k) => { out[i] = fullLines[k]; });
+  return aligned(paras, out) ? out : null;
+}
+
+// 段落と直した行が大きくずれていないか(半分以上ちがう段落があれば、ずれているとみなす)
+function aligned(paras, lines) {
+  return paras.every((p, i) => {
+    if (p.text === lines[i]) return true;
+    const a = Array.from(p.text), b = Array.from(lines[i]);
+    const same = diffChars(a, b).filter(o => o[0] === '=').length;
+    return same * 2 >= Math.max(a.length, b.length) || Math.max(a.length, b.length) <= 4;
+  });
+}
+
+// 指摘一覧(wrong → right)で段落の文字を置き換える(直した文章の段落が合わないとき用)
+function applyIssues(paras, issues) {
+  const out = paras.map(p => p.text);
+  let pi = 0, from = 0;
+  issues.forEach(it => {
+    const w = String(it.wrong || ''), r = String(it.right == null ? '' : it.right);
+    if (!w || w === r) return;
+    const find = (start, off) => { for (let i = start; i < out.length; i++) { const k = out[i].indexOf(w, i === start ? off : 0); if (k >= 0) return [i, k]; } return null; };
+    const hit = find(pi, from) || find(0, 0);
+    if (!hit) return;
+    out[hit[0]] = out[hit[0]].slice(0, hit[1]) + r + out[hit[0]].slice(hit[1] + w.length);
+    pi = hit[0]; from = hit[1] + r.length;
+  });
+  return out;
+}
+
+// 1文字ずつの違いを出す。[['=',文字]|['-',文字]|['+',文字], ...]
+function diffChars(a, b) {
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let e = 0;
+  while (e < a.length - s && e < b.length - s && a[a.length - 1 - e] === b[b.length - 1 - e]) e++;
+  const ops = a.slice(0, s).map(c => ['=', c]);
+  const am = a.slice(s, a.length - e), bm = b.slice(s, b.length - e);
+  if (am.length * bm.length > 4000000) {
+    am.forEach(c => ops.push(['-', c])); bm.forEach(c => ops.push(['+', c]));
+  } else {
+    const n = am.length, m = bm.length, W = m + 1;
+    const L = new Uint32Array((n + 1) * (m + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+      L[i * W + j] = am[i] === bm[j] ? L[(i + 1) * W + j + 1] + 1 : Math.max(L[(i + 1) * W + j], L[i * W + j + 1]);
+    let i = 0, j = 0;
+    while (i < n || j < m) {
+      if (i < n && j < m && am[i] === bm[j]) { ops.push(['=', am[i]]); i++; j++; }
+      else if (i < n && (j >= m || L[(i + 1) * W + j] >= L[i * W + j + 1])) { ops.push(['-', am[i]]); i++; }
+      else { ops.push(['+', bm[j]]); j++; }
+    }
+  }
+  a.slice(a.length - e).forEach(c => ops.push(['=', c]));
+  return ops;
+}
+
+// 段落の文字を新しい文字に書き換える。w:t(書式ごとの区切り)はそのまま、中の文字だけ変える
+function rewritePara(para, newText) {
+  if (para.text === newText || !para.segs.length) return para.text === newText;
+  const owner = [];
+  para.segs.forEach((t, k) => { for (const c of Array.from(t.textContent)) owner.push(k); });
+  const parts = para.segs.map(() => '');
+  let oi = 0, last = 0, blockSeg = null;
+  for (const [op, c] of diffChars(Array.from(para.text), Array.from(newText))) {
+    if (op === '=') { last = owner[oi]; parts[last] += c; oi++; blockSeg = null; }
+    else if (op === '-') { if (blockSeg === null) blockSeg = owner[oi]; last = owner[oi]; oi++; }
+    else parts[blockSeg !== null ? blockSeg : (oi > 0 ? last : (owner[0] || 0))] += c;
+  }
+  para.segs.forEach((t, k) => {
+    t.textContent = parts[k];
+    if (/^\s|\s$|\s\s/.test(parts[k])) t.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+  });
+  para.text = newText;
+  return true;
+}
+
+async function saveDocx() {
+  if (!docx) return;
+  const corrected = $('corrected').value;
+  let lines = matchLines(docx.paras, corrected);
+  let viaIssues = false;
+  if (!lines) { lines = applyIssues(docx.paras, lastIssues); viaIssues = true; }
+  try {
+    setStatus('Wordを作成中...', true);
+    // 元の読み込み結果を壊さないよう、毎回読み直してから書き換える
+    const xml = new DOMParser().parseFromString(new XMLSerializer().serializeToString(docx.xml), 'application/xml');
+    const paras = readParas(xml);
+    let skipped = 0;
+    paras.forEach((p, i) => { if (!rewritePara(p, lines[i])) skipped++; });
+    const zip = await JSZip.loadAsync(await docx.zip.generateAsync({ type: 'arraybuffer' }));
+    zip.file('word/document.xml', new XMLSerializer().serializeToString(xml));
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', compression: 'DEFLATE' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = docx.name.replace(/\.docx$/i, '') + '_修正済み.docx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    let msg = '直したWordを保存したよ';
+    if (viaIssues) msg += '(段落の数が合わなかったので、チェック結果の一覧どおりに直しました。「直した文章」で手直しした分は入っていません)';
+    if (skipped) msg += '(' + skipped + 'か所は文字の場所が見つからず直せませんでした)';
+    setStatus(msg, !viaIssues && !skipped);
+  } catch (err) {
+    setStatus('Wordを作れなかった: ' + err.message, false);
+  }
+}
+
 // ---- チェック(GAS経由でClaudeに送る) ----
 async function check() {
   const text = $('src').value;
   if (!GAS_URL) { setStatus('GASのURLがまだ設定されていません', false); return; }
   if (!text.trim()) { setStatus('文章を入れてね', false); return; }
-  if (text.length > MAX_CHARS) { setStatus('長すぎるよ(' + text.length + '文字)。' + MAX_CHARS + '文字以内に分けてね', false); return; }
 
   const btn = $('checkBtn');
   btn.disabled = true;
@@ -222,6 +403,9 @@ function render(text, issues, corrected) {
   ).join('');
   $('preview').innerHTML = highlight(text, issues);
   $('corrected').value = corrected;
+  lastIssues = issues;
+  $('saveDocxRow').style.display = docx ? 'flex' : 'none';
+  $('saveDocxNote').style.display = docx ? 'block' : 'none';
 }
 
 // 指摘の「wrong」を本文中で探して色付けする(重なるものは先に見つかった方を優先)
