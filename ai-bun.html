@@ -42,7 +42,7 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips button{min-height:48px;padding:8px 16px;border-radius:24px;border:1px solid var(--hair);background:var(--field);color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
 .chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-#nOut{min-height:110px}
+#nOut{min-height:260px}
 </style>
 </head>
 <body>
@@ -53,15 +53,20 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
   <section class="notice">
     <h2>お知らせ文にする</h2>
     <label class="f" for="nMemo">メモ</label>
-    <input type="text" id="nMemo" placeholder="例: 朝礼開始">
+    <input type="text" id="nMemo" value="朝礼開始" placeholder="例: 朝礼開始">
     <label class="f">タイミング</label>
     <div class="chips" id="nWhen" role="group" aria-label="タイミング">
-      <button type="button" data-v="5" aria-pressed="true">5分前</button>
+      <button type="button" data-v="c5" aria-pressed="true">5分前</button>
+      <button type="button" data-v="c4" aria-pressed="false">4分前</button>
+      <button type="button" data-v="c3" aria-pressed="false">3分前</button>
+      <button type="button" data-v="c2" aria-pressed="false">2分前</button>
+      <button type="button" data-v="c1" aria-pressed="false">1分前</button>
       <button type="button" data-v="10" aria-pressed="false">10分前</button>
       <button type="button" data-v="soon" aria-pressed="false">まもなく</button>
       <button type="button" data-v="start" aria-pressed="false">始めます</button>
       <button type="button" data-v="end" aria-pressed="false">終わりました</button>
     </div>
+    <p class="note" id="nHint">5〜1分前は、場所と言い方は使いません</p>
     <label class="f" for="nPlace">場所(空でもOK)</label>
     <input type="text" id="nPlace" placeholder="例: 詰所前">
     <label class="f">言い方</label>
@@ -258,7 +263,16 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
 
   // ===== お知らせ文にする =====
   var nMemo = $("nMemo"), nPlace = $("nPlace"), nOut = $("nOut"), nMsg = $("nMsg");
-  var when = "5", tone = "polite";
+  var when = "c5", tone = "polite";
+
+  // 5〜1分前の中身(見出し「○○N分前」の下に付く)
+  var COUNTDOWN = {
+    c5: ["KY・重機・火気作業計画書", "掲示確認しましょう"],
+    c4: ["安全装備の確認", "　　・墜落制止用器具", "　　・保護メガネ", "　　・反射ベスト", "KY・重機・火気作業計画書", "掲示確認しましょう"],
+    c3: ["集合してください", "全員参加しているかを", "確認しましょう"],
+    c2: ["　・安全装備の確認", "　・KY、計画書の掲示確認", "　・人数の確認"],
+    c1: ["ラジオ体操が始まります", "広がってください"]
+  };
 
   function setupChips(id, onPick){
     var box = $(id);
@@ -275,6 +289,10 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
     var memo = nMemo.value.trim().replace(/[。.!！]+$/, "");
     var place = nPlace.value.trim();
     if (!memo) { nOut.value = ""; return; }
+    if (COUNTDOWN[when]) {
+      nOut.value = memo + when.slice(1) + "分前\n\n" + COUNTDOWN[when].join("\n");
+      return;
+    }
     var p = tone === "polite";
     // 「朝礼開始」→ 中身「朝礼」と、うしろの「開始/終了」に分ける
     var m = memo.match(/^(.+?)\s*(開始|終了|スタート)$/);
@@ -282,7 +300,7 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
     var isEnd = suffix === "終了";
     var lines = [];
 
-    if (when === "5" || when === "10") {
+    if (when === "10") {
       var head = suffix ? memo : memo + "の";
       lines.push(p ? head + when + "分前です。" : head + when + "分前。");
     } else if (when === "soon") {
@@ -305,6 +323,7 @@ textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--s
   setupChips("nTone", function(v){ tone = v; });
   nMemo.addEventListener("input", makeNotice);
   nPlace.addEventListener("input", makeNotice);
+  makeNotice();
 
   $("nCopy").addEventListener("click", function(){
     if (!nOut.value) { nMsg.textContent = "メモを入れてください"; nMsg.className = "msg ng"; nMemo.focus(); return; }
