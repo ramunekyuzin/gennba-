@@ -80,7 +80,7 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
     <input type="file" id="docxFile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
     <p class="note" id="docxName" style="display:none"></p>
     <label for="terms" style="margin-top:14px">いつも使う言葉(正しい書き方を1行に1つ)</label>
-    <p class="note">会社名・現場名・人名などを入れておくと、それと似ているのに字が違うところを見つけやすくなります。この端末に保存されます。</p>
+    <p class="note">会社名・現場名・人名などを入れておくと、それと似ているのに字が違うところを見つけやすくなります。文章に3回以上出てくる会社名などは、チェックのたびに自動でここに足されます(変な言葉が入ったら消してね)。この端末に保存されます。</p>
     <textarea id="terms" style="min-height:100px" placeholder="例:〇〇建設"></textarea>
     <button id="checkBtn" onclick="check()">チェックする</button>
     <div id="status"></div>
@@ -113,6 +113,8 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxOd55-hHVkP138rVpNXQBTRE8azZLFtxAYYRRpr7clzk1LCcr54xycodZOxddGAj4J1g/exec';
 const CHUNK_CHARS = 2500; // 1回に送る文字数(長いとGASが時間切れになるので分けて送る)
 const WHOLE_CHARS = 40000; // 全体の表記ゆれチェックで1回に送る文字数(GASの MAX_WHOLE_CHARS と合わせる)
+const MAX_TERMS = 100; // 覚えておく言葉の数(GAS側の上限と合わせる)
+const LEARN_MIN = 3;   // 同じ書き方でこの回数以上出てきた固有名詞を自動で覚える
 const LS = { text: 'goji_text', terms: 'goji_terms' };
 
 function $(id) { return document.getElementById(id); }
@@ -131,7 +133,28 @@ $('themeMode').addEventListener('change',()=>applyDisplay($('themeMode').value))
 })();
 $('src').addEventListener('input', () => { try { localStorage.setItem(LS.text, $('src').value); } catch (e) {} });
 $('terms').addEventListener('input', () => { try { localStorage.setItem(LS.terms, $('terms').value); } catch (e) {} });
-function getTerms() { return $('terms').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 100); }
+function getTerms() { return $('terms').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, MAX_TERMS); }
+
+// AIが拾った固有名詞のうち、同じ書き方で LEARN_MIN 回以上出てくるものを「いつも使う言葉」に自動で足す
+// (その回に誤りと指摘された書き方は覚えない。MAX_TERMS を超えたら古いものから消す)
+function learnTerms(text, candidates, issues) {
+  const terms = getTerms(), added = [];
+  candidates.forEach(c => {
+    const t = String(c == null ? '' : c).trim();
+    if (t.length < 2 || t.length > 50 || /\n/.test(t) || terms.includes(t)) return;
+    if (text.split(t).length - 1 < LEARN_MIN) return;
+    const bad = issues.some(it => {
+      const w = String(it.wrong || ''), r = String(it.right == null ? '' : it.right);
+      return (w.includes(t) && !r.includes(t)) || (t.includes(w) && w && w !== r);
+    });
+    if (bad) return;
+    terms.push(t); added.push(t);
+  });
+  if (!added.length) return added;
+  $('terms').value = terms.slice(-MAX_TERMS).join('\n');
+  try { localStorage.setItem(LS.terms, $('terms').value); } catch (e) {}
+  return added;
+}
 
 // ---- 入力補助 ----
 async function pasteText() {
@@ -334,11 +357,12 @@ async function check() {
   const chunks = splitText(text, CHUNK_CHARS);
   const terms = getTerms();
   try {
-    let issues = [], corrected = '', cut = false;
+    let issues = [], corrected = '', cut = false, found = [];
     for (let n = 0; n < chunks.length; n++) {
       setStatus('チェック中...' + (chunks.length > 1 ? '(' + (n + 1) + '/' + chunks.length + ')' : ''), true);
       const r = await checkChunk(chunks[n], terms);
       issues = issues.concat(r.issues);
+      found = found.concat(r.terms);
       corrected += r.corrected;
       if (r.cut) cut = true;
     }
@@ -347,8 +371,9 @@ async function check() {
     if (chunks.length > 1) {
       setStatus('文書全体の表記ゆれをチェック中...', true);
       try {
-        const extra = await checkWhole(text, terms);
-        extra.forEach(it => {
+        const whole = await checkWhole(text, terms);
+        found = found.concat(whole.terms);
+        whole.issues.forEach(it => {
           const w = String(it.wrong || ''), r = String(it.right == null ? '' : it.right);
           if (!w || w === r || !text.includes(w) || issues.some(x => x.wrong === w)) return;
           issues.push(it);
@@ -357,9 +382,11 @@ async function check() {
       } catch (e) { wholeNg = true; }
     }
     render(text, issues, corrected);
+    const added = learnTerms(text, found, issues);
+    const learned = added.length ? '(新しく覚えた言葉:' + added.join('、') + ')' : '';
     if (cut) setStatus('文章が長すぎて途中までしか見られなかったかも。分けてチェックしてね', false);
-    else if (wholeNg) setStatus('チェック完了。ただ、文書全体の表記ゆれチェックはできなかったよ', false);
-    else setStatus('チェック完了!', true);
+    else if (wholeNg) setStatus('チェック完了。ただ、文書全体の表記ゆれチェックはできなかったよ' + learned, false);
+    else setStatus('チェック完了!' + learned, true);
     $('result').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
     const msg = /failed to fetch|load failed|networkerror/i.test(err.message)
@@ -405,6 +432,7 @@ async function checkChunk(part, terms, retried) {
   corrected = corrected.replace(/\s*$/, '') + tail;
   return {
     issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+    terms: Array.isArray(parsed.terms) ? parsed.terms : [],
     corrected: corrected,
     cut: json.stop_reason === 'max_tokens'
   };
@@ -412,7 +440,7 @@ async function checkChunk(part, terms, retried) {
 
 // 文書全体(長ければ WHOLE_CHARS ずつ)を送って、表記ゆれの指摘だけを受け取る
 async function checkWhole(text, terms) {
-  let issues = [];
+  let issues = [], found = [];
   for (const part of splitText(text, WHOLE_CHARS)) {
     const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ text: part, terms, mode: 'whole' }) });
     const json = await res.json();
@@ -420,8 +448,9 @@ async function checkWhole(text, terms) {
     const parsed = parseReply(json.text);
     if (!parsed || !Array.isArray(parsed.issues)) throw new Error('結果を読み取れなかった');
     issues = issues.concat(parsed.issues);
+    if (Array.isArray(parsed.terms)) found = found.concat(parsed.terms);
   }
-  return issues;
+  return { issues, terms: found };
 }
 
 // 長い文章を size 文字以内に分ける(なるべく改行→「。」の後ろで区切る)
