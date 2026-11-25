@@ -79,6 +79,9 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
     </div>
     <input type="file" id="docxFile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
     <p class="note" id="docxName" style="display:none"></p>
+    <label for="terms" style="margin-top:14px">いつも使う言葉(正しい書き方を1行に1つ)</label>
+    <p class="note">会社名・現場名・人名などを入れておくと、それと似ているのに字が違うところを見つけやすくなります。この端末に保存されます。</p>
+    <textarea id="terms" style="min-height:100px" placeholder="例:〇〇建設"></textarea>
     <button id="checkBtn" onclick="check()">チェックする</button>
     <div id="status"></div>
   </div>
@@ -109,7 +112,8 @@ mark{background:var(--mark);color:var(--markInk);border-radius:3px;padding:0 2px
 // GASのWebアプリURL(APIキーはGAS側のスクリプトプロパティに置く)
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxOd55-hHVkP138rVpNXQBTRE8azZLFtxAYYRRpr7clzk1LCcr54xycodZOxddGAj4J1g/exec';
 const CHUNK_CHARS = 2500; // 1回に送る文字数(長いとGASが時間切れになるので分けて送る)
-const LS = { text: 'goji_text' };
+const WHOLE_CHARS = 40000; // 全体の表記ゆれチェックで1回に送る文字数(GASの MAX_WHOLE_CHARS と合わせる)
+const LS = { text: 'goji_text', terms: 'goji_terms' };
 
 function $(id) { return document.getElementById(id); }
 function setStatus(msg, ok) { const el = $('status'); el.textContent = msg; el.className = ok ? 'ok' : 'ng'; }
@@ -123,8 +127,11 @@ $('themeMode').addEventListener('change',()=>applyDisplay($('themeMode').value))
 // ---- 初期化 ----
 (function init() {
   try { $('src').value = localStorage.getItem(LS.text) || ''; } catch (e) {}
+  try { $('terms').value = localStorage.getItem(LS.terms) || ''; } catch (e) {}
 })();
 $('src').addEventListener('input', () => { try { localStorage.setItem(LS.text, $('src').value); } catch (e) {} });
+$('terms').addEventListener('input', () => { try { localStorage.setItem(LS.terms, $('terms').value); } catch (e) {} });
+function getTerms() { return $('terms').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 100); }
 
 // ---- 入力補助 ----
 async function pasteText() {
@@ -325,17 +332,34 @@ async function check() {
   const btn = $('checkBtn');
   btn.disabled = true;
   const chunks = splitText(text, CHUNK_CHARS);
+  const terms = getTerms();
   try {
     let issues = [], corrected = '', cut = false;
     for (let n = 0; n < chunks.length; n++) {
       setStatus('チェック中...' + (chunks.length > 1 ? '(' + (n + 1) + '/' + chunks.length + ')' : ''), true);
-      const r = await checkChunk(chunks[n]);
+      const r = await checkChunk(chunks[n], terms);
       issues = issues.concat(r.issues);
       corrected += r.corrected;
       if (r.cut) cut = true;
     }
+    // 分けて送ったときは、最後に文書全体で言葉の書き方がそろっているかを見る
+    let wholeNg = false;
+    if (chunks.length > 1) {
+      setStatus('文書全体の表記ゆれをチェック中...', true);
+      try {
+        const extra = await checkWhole(text, terms);
+        extra.forEach(it => {
+          const w = String(it.wrong || ''), r = String(it.right == null ? '' : it.right);
+          if (!w || w === r || !text.includes(w) || issues.some(x => x.wrong === w)) return;
+          issues.push(it);
+          corrected = corrected.split(w).join(r);
+        });
+      } catch (e) { wholeNg = true; }
+    }
     render(text, issues, corrected);
-    setStatus(cut ? '文章が長すぎて途中までしか見られなかったかも。分けてチェックしてね' : 'チェック完了!', !cut);
+    if (cut) setStatus('文章が長すぎて途中までしか見られなかったかも。分けてチェックしてね', false);
+    else if (wholeNg) setStatus('チェック完了。ただ、文書全体の表記ゆれチェックはできなかったよ', false);
+    else setStatus('チェック完了!', true);
     $('result').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
     const msg = /failed to fetch|load failed|networkerror/i.test(err.message)
@@ -365,14 +389,14 @@ function parseReply(text) {
 }
 
 // 1回分をGASに送って { issues, corrected, cut } を返す(読めなければ1回だけ送り直す)
-async function checkChunk(part, retried) {
-  const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ text: part }) });
+async function checkChunk(part, terms, retried) {
+  const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ text: part, terms }) });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || '失敗しました');
   const parsed = parseReply(json.text);
   if (!parsed) {
     if (json.stop_reason === 'max_tokens') throw new Error('文章が長すぎて最後まで見られなかった。短く分けてチェックしてね');
-    if (!retried) return checkChunk(part, true);
+    if (!retried) return checkChunk(part, terms, true);
     throw new Error('結果を読み取れなかった。もう一度試してね');
   }
   let corrected = typeof parsed.corrected === 'string' ? parsed.corrected : part;
@@ -384,6 +408,20 @@ async function checkChunk(part, retried) {
     corrected: corrected,
     cut: json.stop_reason === 'max_tokens'
   };
+}
+
+// 文書全体(長ければ WHOLE_CHARS ずつ)を送って、表記ゆれの指摘だけを受け取る
+async function checkWhole(text, terms) {
+  let issues = [];
+  for (const part of splitText(text, WHOLE_CHARS)) {
+    const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ text: part, terms, mode: 'whole' }) });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || '失敗しました');
+    const parsed = parseReply(json.text);
+    if (!parsed || !Array.isArray(parsed.issues)) throw new Error('結果を読み取れなかった');
+    issues = issues.concat(parsed.issues);
+  }
+  return issues;
 }
 
 // 長い文章を size 文字以内に分ける(なるべく改行→「。」の後ろで区切る)
